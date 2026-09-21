@@ -28,7 +28,7 @@ export class MailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"Mentimeter Clone" <${process.env.MAIL_USER}>`,
+        from: `"N3 Utilization Tools" <${process.env.MAIL_USER}>`,
         to,
         subject,
         html,

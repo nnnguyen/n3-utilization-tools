@@ -71,7 +71,7 @@ export default function Home() {
             ]}
           >
             <Paragraph>
-              The classic my-mentimeter tool for real-time audience engagement and word clouds.
+              Real-time audience engagement with live word clouds.
             </Paragraph>
             <ul>
               <li>Real-time Voting</li>

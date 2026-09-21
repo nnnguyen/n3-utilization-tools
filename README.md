@@ -4,7 +4,7 @@ A collection of utility tools built with Next.js, Nest.js, Prisma, and PostgreSQ
 
 ## Modules
 
-- **Word Cloud**: A full copy of `my-mentimeter`, allowing real-time word cloud generation.
+- **Word Cloud**: Real-time word cloud generation for audience engagement and presentations.
 - **YouTube Utilities**: Tools for interacting with YouTube, including video uploads.
 - **Zoom Utilities**: Automation tools for Zoom, including auto-uploading recordings to YouTube.
 
