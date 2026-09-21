@@ -1,5 +1,5 @@
-import { ExecutionContext, HttpException } from '@nestjs/common';
-import { IpRateLimitGuard } from './ip-rate-limit.guard';
+import { ExecutionContext, HttpException } from "@nestjs/common";
+import { IpRateLimitGuard } from "./ip-rate-limit.guard";
 
 function contextForIp(ip: string): ExecutionContext {
   return {
@@ -9,18 +9,18 @@ function contextForIp(ip: string): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-describe('IpRateLimitGuard', () => {
-  it('allows up to 20 requests per IP within the window', () => {
+describe("IpRateLimitGuard", () => {
+  it("allows up to 20 requests per IP within the window", () => {
     const guard = new IpRateLimitGuard();
-    const ctx = contextForIp('1.2.3.4');
+    const ctx = contextForIp("1.2.3.4");
     for (let i = 0; i < 20; i++) {
       expect(guard.canActivate(ctx)).toBe(true);
     }
   });
 
-  it('blocks the 21st request within the same window with 429', () => {
+  it("blocks the 21st request within the same window with 429", () => {
     const guard = new IpRateLimitGuard();
-    const ctx = contextForIp('1.2.3.4');
+    const ctx = contextForIp("1.2.3.4");
     for (let i = 0; i < 20; i++) {
       guard.canActivate(ctx);
     }
@@ -32,10 +32,10 @@ describe('IpRateLimitGuard', () => {
     }
   });
 
-  it('tracks each IP independently', () => {
+  it("tracks each IP independently", () => {
     const guard = new IpRateLimitGuard();
-    const ctxA = contextForIp('1.1.1.1');
-    const ctxB = contextForIp('2.2.2.2');
+    const ctxA = contextForIp("1.1.1.1");
+    const ctxB = contextForIp("2.2.2.2");
     for (let i = 0; i < 20; i++) {
       guard.canActivate(ctxA);
     }

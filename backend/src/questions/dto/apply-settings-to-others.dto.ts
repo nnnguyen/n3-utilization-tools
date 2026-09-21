@@ -1,4 +1,4 @@
-import { IsArray, IsOptional, IsBoolean } from 'class-validator';
+import { IsArray, IsOptional, IsBoolean } from "class-validator";
 
 export class ApplySettingsToOthersDto {
   @IsOptional()

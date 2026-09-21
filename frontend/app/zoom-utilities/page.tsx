@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, List, Badge, message, Spin } from 'antd';
 import { VideoCameraOutlined, SettingOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
-import axios from 'axios';
+import { apiFetch } from '@/lib/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -16,8 +16,8 @@ export default function ZoomUtilities() {
   const fetchRecordings = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/zoom/recordings`);
-      setRecordings(response.data.meetings || []);
+      const response = await apiFetch('/zoom/recordings');
+      setRecordings(response.meetings || []);
     } catch (error) {
       console.error('Error fetching recordings:', error);
       message.error('Failed to fetch Zoom recordings. Please check your credentials.');

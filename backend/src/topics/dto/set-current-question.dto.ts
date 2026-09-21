@@ -1,4 +1,4 @@
-import { IsString, IsUUID } from 'class-validator';
+import { IsString, IsUUID } from "class-validator";
 
 export class SetCurrentQuestionDto {
   @IsString()

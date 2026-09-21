@@ -5,11 +5,11 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { normalizeWord, sanitizeDisplayText } from '../common/normalize-word';
-import { WordCloudGateway } from '../realtime/word-cloud.gateway';
-import { CreateResponseDto } from './dto/create-response.dto';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { normalizeWord, sanitizeDisplayText } from "../common/normalize-word";
+import { WordCloudGateway } from "../realtime/word-cloud.gateway";
+import { CreateResponseDto } from "./dto/create-response.dto";
 
 export interface PublicQuestionConfig {
   responseLimit: number | null;
@@ -44,21 +44,32 @@ export class PublicTopicsService {
     private readonly wordCloudGateway: WordCloudGateway,
   ) {}
 
-  async getPublicInfo(code: string, participantSessionId?: string): Promise<PublicTopicInfo> {
+  async getPublicInfo(
+    code: string,
+    participantSessionId?: string,
+  ): Promise<PublicTopicInfo> {
     const topic = await this.prisma.topic.findUnique({ where: { code } });
     if (!topic) {
-      throw new NotFoundException('Không tìm thấy topic.');
+      throw new NotFoundException("Không tìm thấy topic.");
     }
 
     if (!topic.currentQuestionId) {
-      return { topicTitle: topic.title, status: topic.status, currentQuestion: null };
+      return {
+        topicTitle: topic.title,
+        status: topic.status,
+        currentQuestion: null,
+      };
     }
 
     const question = await this.prisma.question.findUnique({
       where: { id: topic.currentQuestionId },
     });
     if (!question) {
-      return { topicTitle: topic.title, status: topic.status, currentQuestion: null };
+      return {
+        topicTitle: topic.title,
+        status: topic.status,
+        currentQuestion: null,
+      };
     }
 
     const myResponseCount = participantSessionId
@@ -85,34 +96,51 @@ export class PublicTopicsService {
     };
   }
 
-  async createResponse(questionId: string, dto: CreateResponseDto): Promise<CreateResponseResult> {
-    const question = await this.prisma.question.findUnique({ where: { id: questionId } });
+  async createResponse(
+    questionId: string,
+    dto: CreateResponseDto,
+  ): Promise<CreateResponseResult> {
+    const question = await this.prisma.question.findUnique({
+      where: { id: questionId },
+    });
     if (!question) {
-      throw new NotFoundException('Không tìm thấy câu hỏi.');
+      throw new NotFoundException("Không tìm thấy câu hỏi.");
     }
-    if (question.status !== 'ACTIVE') {
-      throw new ConflictException('Câu hỏi hiện không được kích hoạt để nhận câu trả lời.');
+    if (question.status !== "ACTIVE") {
+      throw new ConflictException(
+        "Câu hỏi hiện không được kích hoạt để nhận câu trả lời.",
+      );
     }
 
     const existingCount = await this.prisma.response.count({
       where: { questionId, participantSessionId: dto.participantSessionId },
     });
-    if (question.responseLimit !== null && existingCount >= question.responseLimit) {
-      throw new HttpException('Bạn đã gửi đủ số từ cho phép.', HttpStatus.TOO_MANY_REQUESTS);
+    if (
+      question.responseLimit !== null &&
+      existingCount >= question.responseLimit
+    ) {
+      throw new HttpException(
+        "Bạn đã gửi đủ số từ cho phép.",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const normalizedText = normalizeWord(dto.text, question.maxWordLength);
     if (!normalizedText) {
-      throw new BadRequestException('Từ không hợp lệ.');
+      throw new BadRequestException("Từ không hợp lệ.");
     }
     const displayText = sanitizeDisplayText(dto.text, question.maxWordLength);
 
     if (!question.allowDuplicateFromSameUser) {
       const duplicate = await this.prisma.response.findFirst({
-        where: { questionId, participantSessionId: dto.participantSessionId, normalizedText },
+        where: {
+          questionId,
+          participantSessionId: dto.participantSessionId,
+          normalizedText,
+        },
       });
       if (duplicate) {
-        throw new ConflictException('Bạn đã gửi từ này rồi.');
+        throw new ConflictException("Bạn đã gửi từ này rồi.");
       }
     }
 
@@ -139,6 +167,9 @@ export class PublicTopicsService {
 
     await this.wordCloudGateway.broadcastSnapshot(question.topicId, questionId);
 
-    return { submittedCount: existingCount + 1, responseLimit: question.responseLimit };
+    return {
+      submittedCount: existingCount + 1,
+      responseLimit: question.responseLimit,
+    };
   }
 }

@@ -8,8 +8,13 @@ import {
   Max,
   MaxLength,
   Min,
-} from 'class-validator';
-import { JoiningInfoType, QuestionStatus, QuestionType, ResultVisibility } from '@prisma/client';
+} from "class-validator";
+import {
+  JoiningInfoType,
+  QuestionStatus,
+  QuestionType,
+  ResultVisibility,
+} from "@prisma/client";
 
 export class UpdateQuestionDto {
   @IsOptional()

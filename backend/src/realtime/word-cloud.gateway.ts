@@ -5,17 +5,20 @@ import {
   WebSocketServer,
   ConnectedSocket,
   MessageBody,
-} from '@nestjs/websockets';
-import { forwardRef, Inject, Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import type { Namespace, Socket } from 'socket.io';
-import { Question } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { ACCESS_TOKEN_COOKIE } from '../auth/auth.constants';
-import type { AuthenticatedUser, JwtPayload } from '../auth/strategies/jwt.strategy';
-import { WordCloudService } from '../word-cloud/word-cloud.service';
-import { AudienceGateway } from './audience.gateway';
-import { parseCookieHeader } from './parse-cookie-header';
+} from "@nestjs/websockets";
+import { forwardRef, Inject, Logger } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import type { Namespace, Socket } from "socket.io";
+import { Question } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { ACCESS_TOKEN_COOKIE } from "../auth/auth.constants";
+import type {
+  AuthenticatedUser,
+  JwtPayload,
+} from "../auth/strategies/jwt.strategy";
+import { WordCloudService } from "../word-cloud/word-cloud.service";
+import { AudienceGateway } from "./audience.gateway";
+import { parseCookieHeader } from "./parse-cookie-header";
 
 interface PresenterSocketData {
   user?: AuthenticatedUser;
@@ -46,8 +49,11 @@ interface QuestionChangedPayload {
 }
 
 @WebSocketGateway({
-  namespace: '/presenter',
-  cors: { origin: process.env.FRONTEND_URL?.split(',') ?? [], credentials: true },
+  namespace: "/presenter",
+  cors: {
+    origin: process.env.FRONTEND_URL?.split(",") ?? [],
+    credentials: true,
+  },
 })
 export class WordCloudGateway implements OnGatewayConnection {
   @WebSocketServer()
@@ -72,14 +78,18 @@ export class WordCloudGateway implements OnGatewayConnection {
     }
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
-      const user: AuthenticatedUser = { id: payload.sub, email: payload.email, name: payload.name };
+      const user: AuthenticatedUser = {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+      };
       client.data.user = user;
     } catch {
       client.disconnect();
     }
   }
 
-  @SubscribeMessage('join')
+  @SubscribeMessage("join")
   async handleJoin(
     @ConnectedSocket() client: PresenterSocket,
     @MessageBody() body: { topicId?: string },
@@ -87,12 +97,14 @@ export class WordCloudGateway implements OnGatewayConnection {
     const user = client.data.user;
     if (!user || !body?.topicId) {
       client.disconnect();
-      return { ok: false, message: 'Unauthenticated.' };
+      return { ok: false, message: "Unauthenticated." };
     }
-    const topic = await this.prisma.topic.findUnique({ where: { id: body.topicId } });
+    const topic = await this.prisma.topic.findUnique({
+      where: { id: body.topicId },
+    });
     if (!topic || topic.ownerId !== user.id) {
-      const message = 'Bạn không có quyền truy cập topic này.';
-      client.emit('join:error', { message });
+      const message = "Bạn không có quyền truy cập topic này.";
+      client.emit("join:error", { message });
       return { ok: false, message };
     }
     await client.join(`topic:${body.topicId}`);
@@ -100,19 +112,24 @@ export class WordCloudGateway implements OnGatewayConnection {
     // present/page.tsx), so it must learn the CURRENT audience count here
     // rather than only from participants:joined broadcasts, which it would
     // otherwise miss between reconnects.
-    return { ok: true, joinedCount: this.audienceGateway.joinedCount(body.topicId) };
+    return {
+      ok: true,
+      joinedCount: this.audienceGateway.joinedCount(body.topicId),
+    };
   }
 
   private isResultHidden(
-    question: Pick<Question, 'resultVisibility' | 'resultsRevealed'> | null,
+    question: Pick<Question, "resultVisibility" | "resultsRevealed"> | null,
   ): boolean {
     if (!question) {
       return false;
     }
-    if (question.resultVisibility === 'PRIVATE') {
+    if (question.resultVisibility === "PRIVATE") {
       return true;
     }
-    return question.resultVisibility === 'ON_CLICK' && !question.resultsRevealed;
+    return (
+      question.resultVisibility === "ON_CLICK" && !question.resultsRevealed
+    );
   }
 
   async broadcastSnapshot(topicId: string, questionId: string): Promise<void> {
@@ -129,23 +146,36 @@ export class WordCloudGateway implements OnGatewayConnection {
         }
       : { ...snapshot, questionId };
 
-    this.server.to(`topic:${topicId}`).emit('wordcloud:update', payload);
-    this.audienceGateway.server.to(`topic:${topicId}`).emit('wordcloud:update', payload);
-    this.logger.debug(`Broadcast wordcloud:update to topic:${topicId} for question:${questionId}`);
+    this.server.to(`topic:${topicId}`).emit("wordcloud:update", payload);
+    this.audienceGateway.server
+      .to(`topic:${topicId}`)
+      .emit("wordcloud:update", payload);
+    this.logger.debug(
+      `Broadcast wordcloud:update to topic:${topicId} for question:${questionId}`,
+    );
   }
 
-  async broadcastResultsRevealed(topicId: string, questionId: string): Promise<void> {
+  async broadcastResultsRevealed(
+    topicId: string,
+    questionId: string,
+  ): Promise<void> {
     const snapshot = await this.wordCloudService.getSnapshot(questionId);
     const payload = { ...snapshot, questionId };
 
-    this.server.to(`topic:${topicId}`).emit('results:revealed', payload);
-    this.audienceGateway.server.to(`topic:${topicId}`).emit('results:revealed', payload);
-    this.logger.debug(`Broadcast results:revealed to topic:${topicId} for question:${questionId}`);
+    this.server.to(`topic:${topicId}`).emit("results:revealed", payload);
+    this.audienceGateway.server
+      .to(`topic:${topicId}`)
+      .emit("results:revealed", payload);
+    this.logger.debug(
+      `Broadcast results:revealed to topic:${topicId} for question:${questionId}`,
+    );
   }
 
   broadcastJoinedCount(topicId: string, count: number): void {
-    this.server.to(`topic:${topicId}`).emit('participants:joined', { count });
-    this.logger.debug(`Broadcast participants:joined (${count}) to topic:${topicId}`);
+    this.server.to(`topic:${topicId}`).emit("participants:joined", { count });
+    this.logger.debug(
+      `Broadcast participants:joined (${count}) to topic:${topicId}`,
+    );
   }
 
   broadcastQuestionChanged(topicId: string, question: Question): void {
@@ -171,8 +201,12 @@ export class WordCloudGateway implements OnGatewayConnection {
       },
     };
 
-    this.server.to(`topic:${topicId}`).emit('question:changed', payload);
-    this.audienceGateway.server.to(`topic:${topicId}`).emit('question:changed', payload);
-    this.logger.debug(`Broadcast question:changed to topic:${topicId} for question:${question.id}`);
+    this.server.to(`topic:${topicId}`).emit("question:changed", payload);
+    this.audienceGateway.server
+      .to(`topic:${topicId}`)
+      .emit("question:changed", payload);
+    this.logger.debug(
+      `Broadcast question:changed to topic:${topicId} for question:${question.id}`,
+    );
   }
 }

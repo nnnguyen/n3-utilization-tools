@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Card, Row, Col, Button, Tag, Typography, Upload, Form, Input, Select, Table, Space, Progress, message } from 'antd';
 import { YoutubeOutlined, UploadOutlined, LinkOutlined, CheckCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
+import { apiFetch, API_URL } from '@/lib/api';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -63,10 +64,7 @@ export default function YoutubeUtilities() {
   ];
 
   const handleConnect = () => {
-    message.loading('Connecting to Google...', 1.5).then(() => {
-      setIsConnected(true);
-      message.success('Connected to YouTube Channel: N3 Official');
-    });
+    window.location.href = `${API_URL}/auth/google`;
   };
 
   const onFinish = (values: any) => {

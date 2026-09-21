@@ -3,36 +3,42 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { Question } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { TopicsService } from '../topics/topics.service';
-import { WordCloudService, WordCloudSnapshot } from '../word-cloud/word-cloud.service';
-import { WordCloudGateway } from '../realtime/word-cloud.gateway';
-import { CreateQuestionDto } from './dto/create-question.dto';
-import { UpdateQuestionDto } from './dto/update-question.dto';
-import { ApplySettingsToOthersDto } from './dto/apply-settings-to-others.dto';
-import { ApplySettingsGroup } from './dto/apply-settings-to-all.dto';
+} from "@nestjs/common";
+import { Question } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { TopicsService } from "../topics/topics.service";
+import {
+  WordCloudService,
+  WordCloudSnapshot,
+} from "../word-cloud/word-cloud.service";
+import { WordCloudGateway } from "../realtime/word-cloud.gateway";
+import { CreateQuestionDto } from "./dto/create-question.dto";
+import { UpdateQuestionDto } from "./dto/update-question.dto";
+import { ApplySettingsToOthersDto } from "./dto/apply-settings-to-others.dto";
+import { ApplySettingsGroup } from "./dto/apply-settings-to-all.dto";
 
 const APPLY_SETTINGS_FIELDS: (keyof Question)[] = [
-  'responseLimit',
-  'maxWordLength',
-  'allowDuplicateFromSameUser',
-  'backgroundColor',
-  'questionColor',
-  'textColorScheme',
-  'showLogo',
-  'logoUrl',
-  'maxWordsDisplayed',
-  'showJoiningInfo',
-  'joiningInfoType',
-  'resultVisibility',
-  'showResultsToAudience',
+  "responseLimit",
+  "maxWordLength",
+  "allowDuplicateFromSameUser",
+  "backgroundColor",
+  "questionColor",
+  "textColorScheme",
+  "showLogo",
+  "logoUrl",
+  "maxWordsDisplayed",
+  "showJoiningInfo",
+  "joiningInfoType",
+  "resultVisibility",
+  "showResultsToAudience",
 ];
 
-const APPLY_SETTINGS_GROUP_FIELDS: Record<ApplySettingsGroup, (keyof Question)[]> = {
-  [ApplySettingsGroup.JOINING]: ['showJoiningInfo', 'joiningInfoType'],
-  [ApplySettingsGroup.SHOW_RESPONSES]: ['resultVisibility'],
+const APPLY_SETTINGS_GROUP_FIELDS: Record<
+  ApplySettingsGroup,
+  (keyof Question)[]
+> = {
+  [ApplySettingsGroup.JOINING]: ["showJoiningInfo", "joiningInfoType"],
+  [ApplySettingsGroup.SHOW_RESPONSES]: ["resultVisibility"],
 };
 
 @Injectable()
@@ -52,30 +58,37 @@ export class QuestionsService {
     return (result._max.order ?? 0) + 1;
   }
 
-  private async requireOwnedQuestion(id: string, ownerId: string): Promise<Question> {
+  private async requireOwnedQuestion(
+    id: string,
+    ownerId: string,
+  ): Promise<Question> {
     const question = await this.prisma.question.findUnique({ where: { id } });
     if (!question) {
-      throw new NotFoundException('Không tìm thấy câu hỏi.');
+      throw new NotFoundException("Không tìm thấy câu hỏi.");
     }
     // Ownership is checked through the parent topic — a Question has no owner of its own.
     await this.topicsService.findOneForUser(question.topicId, ownerId);
     return question;
   }
 
-  async create(topicId: string, ownerId: string, dto: CreateQuestionDto): Promise<Question> {
+  async create(
+    topicId: string,
+    ownerId: string,
+    dto: CreateQuestionDto,
+  ): Promise<Question> {
     await this.topicsService.findOneForUser(topicId, ownerId);
     const order = await this.nextOrder(topicId);
 
     // Get the first question of this topic to copy its config
     const firstQuestion = await this.prisma.question.findFirst({
       where: { topicId },
-      orderBy: { order: 'asc' },
+      orderBy: { order: "asc" },
     });
 
     const data: any = {
       topicId,
       order,
-      prompt: dto.prompt ?? '',
+      prompt: dto.prompt ?? "",
     };
 
     if (firstQuestion) {
@@ -91,14 +104,21 @@ export class QuestionsService {
 
   async findAllForTopic(topicId: string, ownerId: string): Promise<Question[]> {
     await this.topicsService.findOneForUser(topicId, ownerId);
-    return this.prisma.question.findMany({ where: { topicId }, orderBy: { order: 'asc' } });
+    return this.prisma.question.findMany({
+      where: { topicId },
+      orderBy: { order: "asc" },
+    });
   }
 
   findOne(id: string, ownerId: string): Promise<Question> {
     return this.requireOwnedQuestion(id, ownerId);
   }
 
-  async update(id: string, ownerId: string, dto: UpdateQuestionDto): Promise<Question> {
+  async update(
+    id: string,
+    ownerId: string,
+    dto: UpdateQuestionDto,
+  ): Promise<Question> {
     await this.requireOwnedQuestion(id, ownerId);
     return this.prisma.question.update({ where: { id }, data: dto });
   }
@@ -116,7 +136,7 @@ export class QuestionsService {
 
       const remaining = await tx.question.findMany({
         where: { topicId },
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
       });
       for (let i = 0; i < remaining.length; i++) {
         const desiredOrder = i + 1;
@@ -132,7 +152,11 @@ export class QuestionsService {
     return question;
   }
 
-  async reorder(topicId: string, ownerId: string, orderedIds: string[]): Promise<Question[]> {
+  async reorder(
+    topicId: string,
+    ownerId: string,
+    orderedIds: string[],
+  ): Promise<Question[]> {
     await this.topicsService.findOneForUser(topicId, ownerId);
 
     const existing = await this.prisma.question.findMany({
@@ -141,23 +165,33 @@ export class QuestionsService {
     });
     const existingIds = new Set(existing.map((q) => q.id));
     const isSameSet =
-      orderedIds.length === existingIds.size && orderedIds.every((id) => existingIds.has(id));
+      orderedIds.length === existingIds.size &&
+      orderedIds.every((id) => existingIds.has(id));
     if (!isSameSet) {
-      throw new BadRequestException('Danh sách câu hỏi không khớp với topic.');
+      throw new BadRequestException("Danh sách câu hỏi không khớp với topic.");
     }
 
     // Two-phase update: negative temp orders first, avoids violating the
     // @@unique([topicId, order]) constraint when swapping positions.
     await this.prisma.$transaction([
       ...orderedIds.map((id, index) =>
-        this.prisma.question.update({ where: { id }, data: { order: -(index + 1) } }),
+        this.prisma.question.update({
+          where: { id },
+          data: { order: -(index + 1) },
+        }),
       ),
       ...orderedIds.map((id, index) =>
-        this.prisma.question.update({ where: { id }, data: { order: index + 1 } }),
+        this.prisma.question.update({
+          where: { id },
+          data: { order: index + 1 },
+        }),
       ),
     ]);
 
-    return this.prisma.question.findMany({ where: { topicId }, orderBy: { order: 'asc' } });
+    return this.prisma.question.findMany({
+      where: { topicId },
+      orderBy: { order: "asc" },
+    });
   }
 
   async duplicate(id: string, ownerId: string): Promise<Question> {
@@ -181,7 +215,7 @@ export class QuestionsService {
         showResultsToAudience: question.showResultsToAudience,
         topicId: question.topicId,
         order,
-        status: 'DRAFT',
+        status: "DRAFT",
         resultsRevealed: false,
       },
     });
@@ -238,8 +272,10 @@ export class QuestionsService {
 
   async revealResults(id: string, ownerId: string): Promise<Question> {
     const question = await this.requireOwnedQuestion(id, ownerId);
-    if (question.resultVisibility !== 'ON_CLICK') {
-      throw new ConflictException('Chỉ áp dụng khi resultVisibility = ON_CLICK.');
+    if (question.resultVisibility !== "ON_CLICK") {
+      throw new ConflictException(
+        "Chỉ áp dụng khi resultVisibility = ON_CLICK.",
+      );
     }
 
     const updated = await this.prisma.question.update({

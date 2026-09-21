@@ -1,5 +1,11 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { TopicStatus } from '@prisma/client';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from "class-validator";
+import { TopicStatus } from "@prisma/client";
 
 export class UpdateTopicDto {
   @IsOptional()

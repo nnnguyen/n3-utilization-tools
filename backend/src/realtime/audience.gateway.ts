@@ -5,11 +5,11 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-} from '@nestjs/websockets';
-import { forwardRef, Inject, Logger } from '@nestjs/common';
-import type { Namespace, Socket } from 'socket.io';
-import { PrismaService } from '../prisma/prisma.service';
-import { WordCloudGateway } from './word-cloud.gateway';
+} from "@nestjs/websockets";
+import { forwardRef, Inject, Logger } from "@nestjs/common";
+import type { Namespace, Socket } from "socket.io";
+import { PrismaService } from "../prisma/prisma.service";
+import { WordCloudGateway } from "./word-cloud.gateway";
 
 interface AudienceSocketData {
   topicId?: string;
@@ -24,8 +24,11 @@ type AudienceSocket = Socket<any, any, any, AudienceSocketData>;
  * endpoint (POST /api/public/questions/:id/responses).
  */
 @WebSocketGateway({
-  namespace: '/audience',
-  cors: { origin: process.env.FRONTEND_URL?.split(',') ?? [], credentials: true },
+  namespace: "/audience",
+  cors: {
+    origin: process.env.FRONTEND_URL?.split(",") ?? [],
+    credentials: true,
+  },
 })
 export class AudienceGateway implements OnGatewayDisconnect {
   @WebSocketServer()
@@ -43,26 +46,31 @@ export class AudienceGateway implements OnGatewayDisconnect {
     return this.server.adapter.rooms.get(`topic:${topicId}`)?.size ?? 0;
   }
 
-  @SubscribeMessage('join')
+  @SubscribeMessage("join")
   async handleJoin(
     @ConnectedSocket() client: AudienceSocket,
     @MessageBody() body: { code?: string },
   ): Promise<{ ok: boolean; message?: string }> {
     if (!body?.code) {
       client.disconnect();
-      return { ok: false, message: 'Thiếu mã tham gia.' };
+      return { ok: false, message: "Thiếu mã tham gia." };
     }
 
-    const topic = await this.prisma.topic.findUnique({ where: { code: body.code } });
+    const topic = await this.prisma.topic.findUnique({
+      where: { code: body.code },
+    });
     if (!topic) {
-      const message = 'Không tìm thấy buổi trình chiếu.';
-      client.emit('join:error', { message });
+      const message = "Không tìm thấy buổi trình chiếu.";
+      client.emit("join:error", { message });
       return { ok: false, message };
     }
 
     await client.join(`topic:${topic.id}`);
     client.data.topicId = topic.id;
-    this.wordCloudGateway.broadcastJoinedCount(topic.id, this.joinedCount(topic.id));
+    this.wordCloudGateway.broadcastJoinedCount(
+      topic.id,
+      this.joinedCount(topic.id),
+    );
     return { ok: true };
   }
 
@@ -71,6 +79,9 @@ export class AudienceGateway implements OnGatewayDisconnect {
     if (!topicId) return;
     // Socket.IO has already removed this socket from its rooms by the time
     // `disconnect` fires, so joinedCount() already reflects the post-leave count.
-    this.wordCloudGateway.broadcastJoinedCount(topicId, this.joinedCount(topicId));
+    this.wordCloudGateway.broadcastJoinedCount(
+      topicId,
+      this.joinedCount(topicId),
+    );
   }
 }

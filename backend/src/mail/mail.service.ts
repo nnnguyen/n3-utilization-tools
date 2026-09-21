@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { Injectable } from "@nestjs/common";
+import * as nodemailer from "nodemailer";
 
 @Injectable()
 export class MailService {
@@ -8,9 +8,9 @@ export class MailService {
   constructor() {
     // Cấu hình đơn giản với SMTP, có thể mở rộng qua biến môi trường
     this.transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.MAIL_PORT || '587'),
-      secure: process.env.MAIL_SECURE === 'true',
+      host: process.env.MAIL_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.MAIL_PORT || "587"),
+      secure: process.env.MAIL_SECURE === "true",
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
@@ -20,10 +20,10 @@ export class MailService {
 
   async sendMail(to: string, subject: string, html: string) {
     if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-        console.warn('Mail credentials missing. Skipping email send to:', to);
-        console.log('Mail Subject:', subject);
-        console.log('Mail Content:', html);
-        return;
+      console.warn("Mail credentials missing. Skipping email send to:", to);
+      console.log("Mail Subject:", subject);
+      console.log("Mail Content:", html);
+      return;
     }
 
     try {
@@ -34,7 +34,7 @@ export class MailService {
         html,
       });
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error("Error sending email:", error);
     }
   }
 
@@ -46,7 +46,7 @@ export class MailService {
       <a href="${url}">Xác thực tài khoản</a>
       <p>Hoặc copy link này: ${url}</p>
     `;
-    await this.sendMail(email, 'Xác thực tài khoản của bạn', html);
+    await this.sendMail(email, "Xác thực tài khoản của bạn", html);
   }
 
   async sendResetPasswordEmail(email: string, token: string, name: string) {
@@ -57,7 +57,7 @@ export class MailService {
             <span style="color: white; font-size: 30px; font-weight: bold;">+</span>
         </div>
         <div style="padding: 20px;">
-            <h3>Xin chào ${name || 'bạn'},</h3>
+            <h3>Xin chào ${name || "bạn"},</h3>
             <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu của bạn.</p>
             <p>Để tiếp tục, vui lòng nhấn vào nút bên dưới.</p>
             <div style="text-align: center; margin: 30px 0;">
@@ -74,6 +74,6 @@ export class MailService {
         </div>
       </div>
     `;
-    await this.sendMail(email, 'Yêu cầu đặt lại mật khẩu', html);
+    await this.sendMail(email, "Yêu cầu đặt lại mật khẩu", html);
   }
 }

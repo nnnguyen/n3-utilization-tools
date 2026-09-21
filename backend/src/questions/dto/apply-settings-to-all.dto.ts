@@ -1,8 +1,8 @@
-import { ArrayNotEmpty, IsArray, IsEnum } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsEnum } from "class-validator";
 
 export enum ApplySettingsGroup {
-  JOINING = 'joining',
-  SHOW_RESPONSES = 'showResponses',
+  JOINING = "joining",
+  SHOW_RESPONSES = "showResponses",
 }
 
 export class ApplySettingsToAllDto {

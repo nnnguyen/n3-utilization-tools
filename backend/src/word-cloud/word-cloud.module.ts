@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { WordCloudService } from './word-cloud.service';
+import { Module } from "@nestjs/common";
+import { WordCloudService } from "./word-cloud.service";
 
 @Module({
   providers: [WordCloudService],

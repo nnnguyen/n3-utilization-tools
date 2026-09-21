@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { google } from 'googleapis';
-import * as fs from 'fs';
+import { Injectable, Logger } from "@nestjs/common";
+import { google } from "googleapis";
+import * as fs from "fs";
 
 @Injectable()
 export class YoutubeService {
@@ -10,12 +10,12 @@ export class YoutubeService {
     filePath: string,
     title: string,
     description: string,
-    privacyStatus: 'public' | 'private' | 'unlisted' = 'unlisted',
+    privacyStatus: "public" | "private" | "unlisted" = "unlisted",
   ) {
     try {
       // Note: In a real application, you would need to handle OAuth2 tokens properly.
       // This implementation assumes you have the credentials/tokens set up in environment variables.
-      
+
       const oauth2Client = new google.auth.OAuth2(
         process.env.YOUTUBE_CLIENT_ID,
         process.env.YOUTUBE_CLIENT_SECRET,
@@ -27,7 +27,7 @@ export class YoutubeService {
       });
 
       const youtube = google.youtube({
-        version: 'v3',
+        version: "v3",
         auth: oauth2Client,
       });
 
@@ -35,7 +35,7 @@ export class YoutubeService {
 
       const res = await youtube.videos.insert(
         {
-          part: ['snippet', 'status'],
+          part: ["snippet", "status"],
           requestBody: {
             snippet: {
               title,
@@ -60,7 +60,7 @@ export class YoutubeService {
       this.logger.log(`Video uploaded successfully: ${res.data.id}`);
       return res.data;
     } catch (error) {
-      this.logger.error('Error uploading video to YouTube', error.stack);
+      this.logger.error("Error uploading video to YouTube", error.stack);
       throw error;
     }
   }
