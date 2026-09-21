@@ -1,18 +1,52 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Row, Col, Button, Tag, Typography, Upload, Form, Input, Select, Table, Space, Progress, message } from 'antd';
-import { YoutubeOutlined, UploadOutlined, LinkOutlined, CheckCircleOutlined, SyncOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { Card, Row, Col, Button, Tag, Typography, Upload, Form, Input, Select, Table, Space, Progress, message, Avatar, Spin } from 'antd';
+import { YoutubeOutlined, UploadOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
-import { apiFetch, API_URL } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
 
+interface YoutubeStatus {
+  connected: boolean;
+  reason?: 'not_configured' | 'invalid_credentials';
+  channelId?: string;
+  channelTitle?: string;
+  channelThumbnail?: string | null;
+}
+
+const STATUS_MESSAGE: Record<string, string> = {
+  not_configured:
+    'YouTube API credentials are not configured on the server (YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN).',
+  invalid_credentials:
+    'The configured YouTube credentials are invalid or expired. An admin needs to re-authorize the channel.',
+};
+
 export default function YoutubeUtilities() {
-  const [isConnected, setIsConnected] = useState(false);
+  const [status, setStatus] = useState<YoutubeStatus | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const checkStatus = async () => {
+    setCheckingStatus(true);
+    try {
+      const data = await apiFetch('/youtube/status');
+      setStatus(data);
+    } catch (error) {
+      setStatus({ connected: false, reason: 'invalid_credentials' });
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    checkStatus();
+  }, []);
+
+  const isConnected = status?.connected ?? false;
 
   const columns = [
     {
@@ -63,10 +97,6 @@ export default function YoutubeUtilities() {
     },
   ];
 
-  const handleConnect = () => {
-    window.location.href = `${API_URL}/auth/google`;
-  };
-
   const onFinish = (values: any) => {
     console.log('Success:', values);
     setUploading(true);
@@ -90,25 +120,30 @@ export default function YoutubeUtilities() {
         <Col xs={24} lg={8}>
           <Card title="Connection Status" extra={<YoutubeOutlined style={{ color: '#ff0000', fontSize: 20 }} />}>
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
-              {isConnected ? (
+              {checkingStatus ? (
+                <Spin />
+              ) : isConnected ? (
                 <>
-                  <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
+                  {status?.channelThumbnail ? (
+                    <Avatar size={64} src={status.channelThumbnail} style={{ marginBottom: 16 }} />
+                  ) : (
+                    <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
+                  )}
                   <Title level={4}>Connected</Title>
-                  <Text type="secondary">Account: n3-admin@gmail.com</Text>
+                  <Text type="secondary">Channel: {status?.channelTitle}</Text>
                   <div style={{ marginTop: 20 }}>
-                    <Button icon={<SyncOutlined />} style={{ marginRight: 8 }}>Refresh Token</Button>
-                    <Button danger onClick={() => setIsConnected(false)}>Disconnect</Button>
+                    <Button icon={<ReloadOutlined />} onClick={checkStatus}>Recheck Status</Button>
                   </div>
                 </>
               ) : (
                 <>
-                  <YoutubeOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+                  <CloseCircleOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
                   <Title level={4}>Not Connected</Title>
-                  <Text type="secondary">Link your YouTube account to start uploading</Text>
+                  <Text type="secondary">
+                    {STATUS_MESSAGE[status?.reason ?? 'not_configured']}
+                  </Text>
                   <div style={{ marginTop: 20 }}>
-                    <Button type="primary" danger icon={<YoutubeOutlined />} onClick={handleConnect}>
-                      Connect YouTube
-                    </Button>
+                    <Button icon={<ReloadOutlined />} onClick={checkStatus}>Check Again</Button>
                   </div>
                 </>
               )}

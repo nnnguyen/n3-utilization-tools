@@ -1,9 +1,9 @@
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '');
-export const API_URL = `${API_BASE_URL}/api`;
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api').replace(/\/$/, '');
+export const API_BASE_URL = API_URL.replace(/\/api$/, '');
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<any> {
-  const fullPath = path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? '' : '/'}${path}`;
-  const response = await fetch(`${API_BASE_URL}${fullPath}`, {
+  const url = path.startsWith('http') ? path : `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const response = await fetch(url, {
     ...init,
     credentials: 'include',
     headers: {

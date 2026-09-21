@@ -52,9 +52,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       label: <Link href="/zoom-utilities">Zoom Utils</Link>,
     },
     {
-      key: '/word-cloud',
+      key: '/word-cloud/dashboard',
       icon: <CloudOutlined />,
-      label: <Link href="/word-cloud">Word Cloud</Link>,
+      label: <Link href="/word-cloud/dashboard">Word Cloud</Link>,
     },
   ];
 
