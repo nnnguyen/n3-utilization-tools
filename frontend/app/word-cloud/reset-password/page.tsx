@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, Typography, Form, Input, Button, message, Result } from 'antd';
-import { apiFetch } from '@/app/word-cloud/lib/api';
+import { apiFetch } from '@/lib/api';
 
 const { Title, Paragraph } = Typography;
 

@@ -3,19 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Avatar,
   Button,
   Card,
   Form,
   Input,
-  Layout,
   Modal,
   Popconfirm,
   Space,
-  Spin,
   Table,
   Tag,
-  Typography,
   message,
 } from 'antd';
 import {
@@ -27,17 +23,7 @@ import {
   PlusOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
-import { apiFetch } from '@/app/word-cloud/lib/api';
-
-const { Header, Content } = Layout;
-const { Title, Text } = Typography;
-
-interface SessionUser {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl: string | null;
-}
+import { apiFetch } from '@/lib/api';
 
 interface Topic {
   id: string;
@@ -61,9 +47,8 @@ const STATUS_LABEL: Record<Topic['status'], string> = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<SessionUser | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingTopics, setLoadingTopics] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form] = Form.useForm();
@@ -78,31 +63,14 @@ export default function DashboardPage() {
       setTopics(data);
     } catch (error) {
       console.error('Load topics failed:', error);
+    } finally {
+      setLoadingTopics(false);
     }
   }, []);
 
   useEffect(() => {
-    apiFetch('/auth/session')
-      .then((data) => {
-        if (data) {
-          setUser(data);
-          loadTopics();
-        }
-      })
-      .catch(() => {
-        router.push('/word-cloud/login');
-      })
-      .finally(() => setLoading(false));
-  }, [router, loadTopics]);
-
-  const handleLogout = async () => {
-    try {
-      await apiFetch('/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-    router.push('/word-cloud/login');
-  };
+    loadTopics();
+  }, [loadTopics]);
 
   const handleCreate = async (values: { title: string; description?: string }) => {
     setCreating(true);
@@ -170,55 +138,19 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <main style={{ display: 'flex', justifyContent: 'center', paddingTop: 120 }}>
-        <Spin size="large" />
-      </main>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: '#fff',
-          borderBottom: '1px solid #f0f0f0',
-          padding: '0 24px',
-        }}
+    <div style={{ padding: 24, maxWidth: 960, margin: '0 auto', width: '100%' }}>
+      <Card
+        title="Danh sách topic"
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+            Tạo topic
+          </Button>
+        }
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/logo.jpg" alt="Logo" style={{ width: 32, height: 32, borderRadius: 4 }} />
-          <Title level={4} style={{ margin: 0 }}>
-            SOH Word Cloud
-          </Title>
-        </div>
-        <Space>
-          <Avatar src={user.avatarUrl} size="small">
-            {user.name?.[0]}
-          </Avatar>
-          <Text>{user.name}</Text>
-          <Button onClick={handleLogout}>Đăng xuất</Button>
-        </Space>
-      </Header>
-      <Content style={{ padding: 24, maxWidth: 960, margin: '0 auto', width: '100%' }}>
-        <Card
-          title="Danh sách topic"
-          extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-              Tạo topic
-            </Button>
-          }
-        >
           <Table
             rowKey="id"
+            loading={loadingTopics}
             dataSource={topics}
             locale={{ emptyText: 'Chưa có topic nào' }}
             columns={[
@@ -286,8 +218,7 @@ export default function DashboardPage() {
               },
             ]}
           />
-        </Card>
-      </Content>
+      </Card>
 
       <Modal
         title="Tạo topic mới"
@@ -334,6 +265,6 @@ export default function DashboardPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Layout>
+    </div>
   );
 }

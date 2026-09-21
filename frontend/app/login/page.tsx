@@ -3,13 +3,14 @@
 import React, { Suspense, useState } from 'react';
 import { Button, Card, Typography, Form, Input, Checkbox, message, Divider } from 'antd';
 import { GoogleOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
-import { API_BASE_URL, API_URL, apiFetch } from '@/lib/api';
-import RegisterModal from '@/app/word-cloud/components/auth/RegisterModal';
-import ForgotPasswordModal from '@/app/word-cloud/components/auth/ForgotPasswordModal';
+import { API_URL, apiFetch } from '@/lib/api';
+import RegisterModal from '@/components/auth/RegisterModal';
+import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
+import { useAuth } from '@/lib/auth-context';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
 function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> }) {
   const searchParams = useSearchParams();
@@ -23,7 +24,7 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
         message.error('Có lỗi xảy ra trong quá trình xác thực với Google.');
       }
       // Clear URL params
-      router.replace('/word-cloud/login');
+      router.replace('/login');
     }
   }, [searchParams, router]);
 
@@ -32,9 +33,16 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/');
+    }
+  }, [user, authLoading, router]);
 
   const handleGoogleLogin = () => {
     window.location.href = `${API_URL}/auth/google`;
@@ -43,7 +51,7 @@ export default function LoginPage() {
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
-      await apiFetch('/auth/login', {
+      const userData = await apiFetch('/auth/login', {
         method: 'POST',
         body: JSON.stringify({
           email: values.email,
@@ -51,14 +59,17 @@ export default function LoginPage() {
         }),
       });
 
+      login(userData);
       message.success('Đăng nhập thành công!');
-      router.push('/word-cloud/dashboard');
+      router.push('/');
     } catch (error: any) {
       message.error(error.message);
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) return null;
 
   return (
     <main
@@ -76,8 +87,7 @@ export default function LoginPage() {
       </Suspense>
       <Card style={{ width: 400, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.jpg" alt="Logo" style={{ width: 80, height: 80, marginBottom: 16, borderRadius: 8 }} />
-          <Title level={2} style={{ margin: 0 }}>SOH Word Cloud</Title>
+          <Title level={2} style={{ margin: 0 }}>N3 Utilization Tools</Title>
           <Title level={4} style={{ marginTop: 8, color: '#595959' }}>Đăng nhập</Title>
         </div>
 

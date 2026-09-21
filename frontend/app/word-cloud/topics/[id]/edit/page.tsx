@@ -9,7 +9,7 @@ import {
   QrcodeOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
-import { API_BASE_URL, apiFetch } from '@/app/word-cloud/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { createAutosaveController } from '@/app/word-cloud/lib/autosave';
 import { getContrastColor, getContrastingPalette } from '@/app/word-cloud/lib/text-color-schemes';
 import { WordCloud, type WordCloudWord } from '@/app/word-cloud/components/WordCloud';

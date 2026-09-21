@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, Typography, Button, Result, Spin, message } from 'antd';
-import { apiFetch } from '@/app/word-cloud/lib/api';
+import { apiFetch } from '@/lib/api';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();

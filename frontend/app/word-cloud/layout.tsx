@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: 'SOH Word Cloud - Presentation Tool',
 };
 
+import DashboardLayout from '@/components/DashboardLayout';
+
 // Nested layout, not a root layout: the app's real <html>/<body> come from
 // app/layout.tsx. This just scopes the Geist font variables to this subtree.
 export default function WordCloudLayout({
@@ -24,5 +26,9 @@ export default function WordCloudLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <div className={`${geistSans.variable} ${geistMono.variable}`}>{children}</div>;
+  return (
+    <div className={`${geistSans.variable} ${geistMono.variable}`}>
+      <DashboardLayout>{children}</DashboardLayout>
+    </div>
+  );
 }

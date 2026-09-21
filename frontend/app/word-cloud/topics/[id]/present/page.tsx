@@ -18,7 +18,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { io, Socket } from 'socket.io-client';
-import { apiFetch, API_BASE_URL } from '@/app/word-cloud/lib/api';
+import { apiFetch, API_BASE_URL } from '@/lib/api';
 import { WordCloud, WordCloudWord } from '@/app/word-cloud/components/WordCloud';
 import { WordStatsTable } from '@/app/word-cloud/components/WordStatsTable';
 import { StatsVisualizer } from '@/app/word-cloud/components/StatsVisualizer';

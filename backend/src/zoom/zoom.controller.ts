@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Headers, HttpCode, HttpStatus, Logger, Get, Query } from '@nestjs/common';
 import { ZoomService } from './zoom.service';
 import * as crypto from 'crypto';
 
@@ -7,6 +7,14 @@ export class ZoomController {
   private readonly logger = new Logger(ZoomController.name);
 
   constructor(private readonly zoomService: ZoomService) {}
+
+  @Get('recordings')
+  async getRecordings(@Query('userId') userId?: string) {
+    if (!process.env.ZOOM_CLIENT_ID || !process.env.ZOOM_CLIENT_SECRET || !process.env.ZOOM_ACCOUNT_ID) {
+      return { meetings: [] }; // Return empty if not configured to avoid 500
+    }
+    return this.zoomService.listRecordings(userId || 'me');
+  }
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)

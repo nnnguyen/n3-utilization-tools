@@ -75,7 +75,7 @@ export class AuthController {
   async googleAuthCallback(@Req() req: any, @Res() res: Response) {
     try {
       if (!req.user) {
-        return res.redirect(`${process.env.FRONTEND_URL}/word-cloud/login?error=google_auth_failed`);
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`);
       }
       const user = await this.authService.validateOAuthUser(req.user);
       const token = this.authService.signToken(user);
@@ -84,10 +84,10 @@ export class AuthController {
         ...ACCESS_TOKEN_COOKIE_OPTIONS,
         maxAge: ACCESS_TOKEN_COOKIE_MAX_AGE_MS,
       });
-      res.redirect(`${process.env.FRONTEND_URL}/word-cloud/dashboard`);
+      res.redirect(`${process.env.FRONTEND_URL}/`);
     } catch (error) {
       console.error('Google Auth Error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/word-cloud/login?error=google_auth_error`);
+      res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_error`);
     }
   }
 

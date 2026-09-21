@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { Alert, Button, Card, Input, Progress, Result, Space, Spin, Typography, message } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
 import { io, Socket } from 'socket.io-client';
-import { apiFetch, API_BASE_URL } from '@/app/word-cloud/lib/api';
+import { apiFetch, API_BASE_URL } from '@/lib/api';
 import { getParticipantSessionId } from '@/app/word-cloud/lib/participant';
 
 const RECONNECT_GRACE_MS = 5000;

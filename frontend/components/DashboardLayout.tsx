@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Layout, Menu, Button, theme } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -9,19 +9,31 @@ import {
   VideoCameraOutlined,
   CloudOutlined,
   HomeOutlined,
+  LogoutOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 
 const { Header, Sider, Content } = Layout;
+const { Text } = Typography;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout, loading } = useAuth();
   
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
 
   const menuItems = [
     {
@@ -46,6 +58,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
   ];
 
+  const userMenuItems = [
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+      onClick: logout,
+    },
+  ];
+
+  if (loading || !user) {
+    return null;
+  }
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider trigger={null} collapsible collapsed={collapsed} theme="light">
@@ -60,18 +85,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: 0, background: colorBgContainer, display: 'flex', alignItems: 'center' }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              fontSize: '16px',
-              width: 64,
-              height: 64,
-            }}
-          />
-          <h2 style={{ margin: 0 }}>Dashboard</h2>
+        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                fontSize: '16px',
+                width: 64,
+                height: 64,
+              }}
+            />
+            <h2 style={{ margin: 0 }}>Dashboard</h2>
+          </div>
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar icon={<UserOutlined />} src={user?.avatarUrl} />
+              <Text>{user?.name || user?.email}</Text>
+            </Space>
+          </Dropdown>
         </Header>
         <Content
           style={{

@@ -16,7 +16,7 @@ import {
   Upload,
   message,
 } from 'antd';
-import { API_BASE_URL, API_URL, apiFetch } from '@/app/word-cloud/lib/api';
+import { API_BASE_URL, API_URL, apiFetch } from '@/lib/api';
 import { CloseOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { TEXT_COLOR_SCHEME_OPTIONS } from '@/app/word-cloud/lib/text-color-schemes';
 import {

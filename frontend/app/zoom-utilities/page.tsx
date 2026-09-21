@@ -1,14 +1,34 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, List, Badge, message } from 'antd';
-import { VideoCameraOutlined, SettingOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, List, Badge, message, Spin } from 'antd';
+import { VideoCameraOutlined, SettingOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
+import axios from 'axios';
 
 const { Title, Text, Paragraph } = Typography;
 
 export default function ZoomUtilities() {
   const [autoUpload, setAutoUpload] = useState(true);
+  const [recordings, setRecordings] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchRecordings = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/zoom/recordings`);
+      setRecordings(response.data.meetings || []);
+    } catch (error) {
+      console.error('Error fetching recordings:', error);
+      message.error('Failed to fetch Zoom recordings. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecordings();
+  }, []);
 
   const logs = [
     {
@@ -35,6 +55,53 @@ export default function ZoomUtilities() {
       status: 'Verified',
       youtubeId: null,
     }
+  ];
+
+  const recordingColumns = [
+    {
+      title: 'Topic',
+      dataIndex: 'topic',
+      key: 'topic',
+    },
+    {
+      title: 'Start Time',
+      dataIndex: 'start_time',
+      key: 'start_time',
+      render: (text: string) => new Date(text).toLocaleString(),
+    },
+    {
+      title: 'Duration (min)',
+      dataIndex: 'duration',
+      key: 'duration',
+    },
+    {
+      title: 'Files',
+      dataIndex: 'recording_files',
+      key: 'files',
+      render: (files: any[]) => (
+        <Space direction="vertical">
+          {files.map((file, idx) => (
+            <Tag key={idx} color={file.file_type === 'MP4' ? 'blue' : 'default'}>
+              {file.file_type} ({Math.round(file.file_size / 1024 / 1024)} MB)
+            </Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (record: any) => (
+        <Button 
+          icon={<YoutubeOutlined />} 
+          type="primary" 
+          size="small"
+          onClick={() => message.info(`Manual sync triggered for: ${record.topic}`)}
+        >
+          Sync to YouTube
+        </Button>
+      ),
+    },
   ];
 
   const columns = [
@@ -144,6 +211,21 @@ export default function ZoomUtilities() {
               </Form.Item>
               <Button icon={<HistoryOutlined />}>View Marketplace Docs</Button>
             </Form>
+          </Card>
+        </Col>
+
+        <Col span={24}>
+          <Card 
+            title={<Space><VideoCameraOutlined /><span>Cloud Recordings</span></Space>}
+            extra={<Button icon={<ReloadOutlined />} onClick={fetchRecordings} loading={loading}>Refresh</Button>}
+          >
+            <Table 
+              columns={recordingColumns} 
+              dataSource={recordings} 
+              rowKey="id" 
+              loading={loading}
+              pagination={{ pageSize: 5 }}
+            />
           </Card>
         </Col>
 

@@ -1,13 +1,27 @@
 'use client';
 
-import React from 'react';
-import { Card, Row, Col, Typography, Button, Space } from 'antd';
+import React, { useEffect } from 'react';
+import { Card, Row, Col, Typography, Button, Space, Tag } from 'antd';
 import { YoutubeOutlined, VideoCameraOutlined, CloudOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth-context';
+import { useRouter } from 'next/navigation';
 
 const { Title, Paragraph, Text } = Typography;
 
 export default function Home() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return null;
+  }
   return (
     <div style={{ padding: '50px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ textAlign: 'center', marginBottom: '50px' }}>
@@ -90,27 +104,9 @@ export default function Home() {
         <Space size="large">
           <Text strong>YouTube API: <Tag color="success">Ready</Tag></Text>
           <Text strong>Zoom Webhook: <Tag color="processing">Setup Required</Tag></Text>
+          <Text strong>Word Cloud: <Tag color="success">Ready</Tag></Text>
         </Space>
       </div>
     </div>
-  );
-}
-
-// Dummy Tag component since we didn't import it
-function Tag({ children, color }: any) {
-  const styles: any = {
-    success: { color: '#52c41a', background: '#f6ffed', border: '1px solid #b7eb8f' },
-    processing: { color: '#1890ff', background: '#e6f7ff', border: '1px solid #91d5ff' },
-  };
-  return (
-    <span style={{ 
-      padding: '0 7px', 
-      fontSize: '12px', 
-      borderRadius: '2px', 
-      display: 'inline-block',
-      ...styles[color] 
-    }}>
-      {children}
-    </span>
   );
 }
