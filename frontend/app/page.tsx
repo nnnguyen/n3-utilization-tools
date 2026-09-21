@@ -65,11 +65,13 @@ export default function Home() {
             hoverable
             title={<Space><CloudOutlined style={{ color: '#1890ff' }} /> Word Cloud</Space>}
             actions={[
-              <Button key="go" disabled icon={<ArrowRightOutlined />}>Coming Soon</Button>
+              <Link href="/word-cloud" key="go">
+                <Button icon={<ArrowRightOutlined />}>Explore</Button>
+              </Link>
             ]}
           >
             <Paragraph>
-              Real-time audience engagement with live word clouds. <Tag color="processing">In Progress</Tag>
+              Real-time audience engagement with live word clouds.
             </Paragraph>
             <ul>
               <li>Real-time Voting</li>

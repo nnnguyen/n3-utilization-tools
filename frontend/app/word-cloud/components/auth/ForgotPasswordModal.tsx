@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Modal, Form, Input, Button, Typography, message } from 'antd';
-import { apiFetch } from '@/lib/api';
+import { apiFetch } from '@/app/word-cloud/lib/api';
 
 const { Title, Paragraph, Text } = Typography;
 

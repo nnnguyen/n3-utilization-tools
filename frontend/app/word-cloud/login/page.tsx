@@ -3,9 +3,9 @@
 import React, { Suspense, useState } from 'react';
 import { Button, Card, Typography, Form, Input, Checkbox, message, Divider } from 'antd';
 import { GoogleOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
-import { API_BASE_URL, API_URL, apiFetch } from '@/lib/api';
-import RegisterModal from '@/components/auth/RegisterModal';
-import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
+import { API_BASE_URL, API_URL, apiFetch } from '@/app/word-cloud/lib/api';
+import RegisterModal from '@/app/word-cloud/components/auth/RegisterModal';
+import ForgotPasswordModal from '@/app/word-cloud/components/auth/ForgotPasswordModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -23,7 +23,7 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
         message.error('Có lỗi xảy ra trong quá trình xác thực với Google.');
       }
       // Clear URL params
-      router.replace('/login');
+      router.replace('/word-cloud/login');
     }
   }, [searchParams, router]);
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
       });
 
       message.success('Đăng nhập thành công!');
-      router.push('/dashboard');
+      router.push('/word-cloud/dashboard');
     } catch (error: any) {
       message.error(error.message);
     } finally {

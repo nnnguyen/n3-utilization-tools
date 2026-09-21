@@ -18,12 +18,12 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { io, Socket } from 'socket.io-client';
-import { apiFetch, API_BASE_URL } from '@/lib/api';
-import { WordCloud, WordCloudWord } from '@/components/WordCloud';
-import { WordStatsTable } from '@/components/WordStatsTable';
-import { StatsVisualizer } from '@/components/StatsVisualizer';
-import { DEFAULT_TEXT_COLOR_SCHEME, getContrastColor, getContrastingPalette } from '@/lib/text-color-schemes';
-import type { Question } from '@/types/question';
+import { apiFetch, API_BASE_URL } from '@/app/word-cloud/lib/api';
+import { WordCloud, WordCloudWord } from '@/app/word-cloud/components/WordCloud';
+import { WordStatsTable } from '@/app/word-cloud/components/WordStatsTable';
+import { StatsVisualizer } from '@/app/word-cloud/components/StatsVisualizer';
+import { DEFAULT_TEXT_COLOR_SCHEME, getContrastColor, getContrastingPalette } from '@/app/word-cloud/lib/text-color-schemes';
+import type { Question } from '@/app/word-cloud/types/question';
 
 const { Title, Text } = Typography;
 
@@ -101,12 +101,12 @@ export default function TopicPresentPage() {
       setTopic(data);
     } catch (error: any) {
       if (error.message.includes('401')) {
-        router.push('/login');
+        router.push('/word-cloud/login');
         return;
       }
       if (error.message.includes('403') || error.message.includes('404')) {
         message.error('Bạn không có quyền truy cập topic này');
-        router.push('/dashboard');
+        router.push('/word-cloud/dashboard');
         return;
       }
     }
@@ -318,7 +318,7 @@ export default function TopicPresentPage() {
   };
 
   const joinUrl =
-    topic && typeof window !== 'undefined' ? `${window.location.origin}/join/${topic.code}` : '';
+    topic && typeof window !== 'undefined' ? `${window.location.origin}/word-cloud/join/${topic.code}` : '';
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(joinUrl);
@@ -390,7 +390,7 @@ export default function TopicPresentPage() {
         >
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => router.push(`/topics/${topic.id}/edit`)}
+            onClick={() => router.push(`/word-cloud/topics/${topic.id}/edit`)}
             style={{
               color: questionTextColor,
               borderColor: questionTextColor ? `${questionTextColor}80` : undefined,

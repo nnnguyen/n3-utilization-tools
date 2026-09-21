@@ -9,19 +9,19 @@ import {
   QrcodeOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
-import { API_BASE_URL, apiFetch } from '@/lib/api';
-import { createAutosaveController } from '@/lib/autosave';
-import { getContrastColor, getContrastingPalette } from '@/lib/text-color-schemes';
-import { WordCloud, type WordCloudWord } from '@/components/WordCloud';
-import { WordStatsTable } from '@/components/WordStatsTable';
-import { StatsVisualizer } from '@/components/StatsVisualizer';
-import { QuestionSidebar } from '@/components/QuestionSidebar';
+import { API_BASE_URL, apiFetch } from '@/app/word-cloud/lib/api';
+import { createAutosaveController } from '@/app/word-cloud/lib/autosave';
+import { getContrastColor, getContrastingPalette } from '@/app/word-cloud/lib/text-color-schemes';
+import { WordCloud, type WordCloudWord } from '@/app/word-cloud/components/WordCloud';
+import { WordStatsTable } from '@/app/word-cloud/components/WordStatsTable';
+import { StatsVisualizer } from '@/app/word-cloud/components/StatsVisualizer';
+import { QuestionSidebar } from '@/app/word-cloud/components/QuestionSidebar';
 import {
   QuestionEditPanel,
   type ApplyToAllGroup,
   type SaveStatus,
-} from '@/components/QuestionEditPanel';
-import { DEFAULT_TEXT_COLOR_SCHEME, type Question, type QuestionPatch } from '@/types/question';
+} from '@/app/word-cloud/components/QuestionEditPanel';
+import { DEFAULT_TEXT_COLOR_SCHEME, type Question, type QuestionPatch } from '@/app/word-cloud/types/question';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -142,12 +142,12 @@ export default function TopicEditPage() {
         setLoading(false);
       } catch (error: any) {
         if (error.message.includes('401')) {
-          router.push('/login');
+          router.push('/word-cloud/login');
           return;
         }
         if (error.message.includes('403') || error.message.includes('404')) {
           message.error('Bạn không có quyền truy cập topic này');
-          router.push('/dashboard');
+          router.push('/word-cloud/dashboard');
           return;
         }
       }
@@ -357,7 +357,7 @@ export default function TopicEditPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/dashboard')}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/word-cloud/dashboard')}>
             Quay lại
           </Button>
           <div style={{ minWidth: 0 }}>
@@ -386,7 +386,7 @@ export default function TopicEditPage() {
           <Button
             type="primary"
             icon={<PlayCircleOutlined />}
-            onClick={() => router.push(`/topics/${topic.id}/present`)}
+            onClick={() => router.push(`/word-cloud/topics/${topic.id}/present`)}
           >
             Trình chiếu
           </Button>

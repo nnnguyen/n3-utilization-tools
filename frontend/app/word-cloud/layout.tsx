@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
-import './globals.css';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -18,14 +17,12 @@ export const metadata: Metadata = {
   description: 'SOH Word Cloud - Presentation Tool',
 };
 
-export default function RootLayout({
+// Nested layout, not a root layout: the app's real <html>/<body> come from
+// app/layout.tsx. This just scopes the Geist font variables to this subtree.
+export default function WordCloudLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>{children}</body>
-    </html>
-  );
+  return <div className={`${geistSans.variable} ${geistMono.variable}`}>{children}</div>;
 }

@@ -39,7 +39,7 @@ export class MailService {
   }
 
   async sendVerificationEmail(email: string, token: string) {
-    const url = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    const url = `${process.env.FRONTEND_URL}/word-cloud/verify-email?token=${token}`;
     const html = `
       <h1>Xác thực Email</h1>
       <p>Cảm ơn bạn đã đăng ký. Vui lòng click vào link bên dưới để xác thực tài khoản:</p>
@@ -50,7 +50,7 @@ export class MailService {
   }
 
   async sendResetPasswordEmail(email: string, token: string, name: string) {
-    const url = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const url = `${process.env.FRONTEND_URL}/word-cloud/reset-password?token=${token}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
         <div style="background: linear-gradient(to right, #e52d27, #b31217); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">

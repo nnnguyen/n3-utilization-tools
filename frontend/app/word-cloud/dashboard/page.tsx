@@ -27,7 +27,7 @@ import {
   PlusOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
-import { apiFetch } from '@/lib/api';
+import { apiFetch } from '@/app/word-cloud/lib/api';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -90,7 +90,7 @@ export default function DashboardPage() {
         }
       })
       .catch(() => {
-        router.push('/login');
+        router.push('/word-cloud/login');
       })
       .finally(() => setLoading(false));
   }, [router, loadTopics]);
@@ -101,7 +101,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Logout failed:', error);
     }
-    router.push('/login');
+    router.push('/word-cloud/login');
   };
 
   const handleCreate = async (values: { title: string; description?: string }) => {
@@ -112,7 +112,7 @@ export default function DashboardPage() {
       message.success('Tạo topic thành công');
       setModalOpen(false);
       form.resetFields();
-      router.push(`/topics/${id}/edit`);
+      router.push(`/word-cloud/topics/${id}/edit`);
     } catch (error) {
       message.error('Tạo topic thất bại');
     } finally {
@@ -243,7 +243,7 @@ export default function DashboardPage() {
                     <Button
                       size="small"
                       icon={<EyeOutlined />}
-                      onClick={() => router.push(`/topics/${record.id}/edit`)}
+                      onClick={() => router.push(`/word-cloud/topics/${record.id}/edit`)}
                       title="Xem câu hỏi"
                     />
                     <Button

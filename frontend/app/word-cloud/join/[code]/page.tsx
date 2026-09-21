@@ -5,8 +5,8 @@ import { useParams } from 'next/navigation';
 import { Alert, Button, Card, Input, Progress, Result, Space, Spin, Typography, message } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
 import { io, Socket } from 'socket.io-client';
-import { apiFetch, API_BASE_URL } from '@/lib/api';
-import { getParticipantSessionId } from '@/lib/participant';
+import { apiFetch, API_BASE_URL } from '@/app/word-cloud/lib/api';
+import { getParticipantSessionId } from '@/app/word-cloud/lib/participant';
 
 const RECONNECT_GRACE_MS = 5000;
 const POLL_INTERVAL_MS = 3000;
@@ -54,7 +54,7 @@ export default function JoinPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTopicRef = useRef<() => Promise<void>>();
+  const fetchTopicRef = useRef<(() => Promise<void>) | undefined>(undefined);
   fetchTopicRef.current = async () => {
     try {
       const participantSessionId = getParticipantSessionId();

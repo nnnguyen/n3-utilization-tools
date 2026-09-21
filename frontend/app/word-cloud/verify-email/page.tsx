@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, Typography, Button, Result, Spin, message } from 'antd';
-import { apiFetch } from '@/lib/api';
+import { apiFetch } from '@/app/word-cloud/lib/api';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -50,7 +50,7 @@ function VerifyEmailContent() {
           status="success"
           title={`Xác thực email ${email} thành công.`}
           extra={[
-            <Button type="primary" key="login" onClick={() => router.push('/login')} size="large">
+            <Button type="primary" key="login" onClick={() => router.push('/word-cloud/login')} size="large">
               Đăng nhập
             </Button>,
           ]}
@@ -61,7 +61,7 @@ function VerifyEmailContent() {
           title="Xác thực email thất bại"
           subTitle="Liên kết xác thực không hợp lệ hoặc đã hết hạn."
           extra={[
-            <Button type="primary" key="home" onClick={() => router.push('/login')}>
+            <Button type="primary" key="home" onClick={() => router.push('/word-cloud/login')}>
               Quay lại Đăng nhập
             </Button>,
           ]}
