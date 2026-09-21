@@ -61,17 +61,15 @@ export default function Home() {
         </Col>
 
         <Col xs={24} md={8}>
-          <Card 
-            hoverable 
+          <Card
+            hoverable
             title={<Space><CloudOutlined style={{ color: '#1890ff' }} /> Word Cloud</Space>}
             actions={[
-              <Link href="/word-cloud" key="go">
-                <Button icon={<ArrowRightOutlined />}>Explore</Button>
-              </Link>
+              <Button key="go" disabled icon={<ArrowRightOutlined />}>Coming Soon</Button>
             ]}
           >
             <Paragraph>
-              Real-time audience engagement with live word clouds.
+              Real-time audience engagement with live word clouds. <Tag color="processing">In Progress</Tag>
             </Paragraph>
             <ul>
               <li>Real-time Voting</li>
