@@ -45,7 +45,7 @@ function ResetPasswordContent() {
           status="error"
           title="Thiếu Token"
           subTitle="Liên kết này không hợp lệ."
-          extra={<Button type="primary" onClick={() => router.push('/word-cloud/login')}>Quay lại Đăng nhập</Button>}
+          extra={<Button type="primary" onClick={() => router.push('/login')}>Quay lại Đăng nhập</Button>}
         />
       </Card>
     );
@@ -58,7 +58,7 @@ function ResetPasswordContent() {
           status="success"
           title="Đặt lại mật khẩu thành công!"
           extra={[
-            <Button type="primary" key="login" onClick={() => router.push('/word-cloud/login')}>
+            <Button type="primary" key="login" onClick={() => router.push('/login')}>
               Đăng nhập ngay
             </Button>,
           ]}

@@ -142,7 +142,7 @@ export default function TopicEditPage() {
         setLoading(false);
       } catch (error: any) {
         if (error.message.includes('401')) {
-          router.push('/word-cloud/login');
+          router.push('/login');
           return;
         }
         if (error.message.includes('403') || error.message.includes('404')) {
