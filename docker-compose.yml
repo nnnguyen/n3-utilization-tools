@@ -8,7 +8,7 @@ services:
     ports:
       - '3001:3000'
     environment:
-      DATABASE_URL: postgresql://mentimeter:mentimeter@postgres:5432/mentimeter?schema=public
+      DATABASE_URL: postgresql://utilization_tools:utilization_tools@postgres:5432/utilization_tools?schema=public
       PORT: 3000
       NODE_ENV: production
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
@@ -51,15 +51,15 @@ services:
     container_name: n3-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: mentimeter
-      POSTGRES_PASSWORD: mentimeter
-      POSTGRES_DB: mentimeter
+      POSTGRES_USER: utilization_tools
+      POSTGRES_PASSWORD: utilization_tools
+      POSTGRES_DB: utilization_tools
     ports:
-      - '5433:5432'
+      - '5434:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U mentimeter -d mentimeter']
+      test: ['CMD-SHELL', 'pg_isready -U utilization_tools -d utilization_tools']
       interval: 5s
       timeout: 5s
       retries: 10
