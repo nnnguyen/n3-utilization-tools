@@ -212,16 +212,16 @@ export default function JoinPage() {
           </div>
 
           {!question && (
-            <Alert type="info" showIcon message="Chưa có câu hỏi nào được kích hoạt." />
+            <Alert type="info" showIcon title="Chưa có câu hỏi nào được kích hoạt." />
           )}
           {question?.status === 'DRAFT' && (
-            <Alert type="warning" showIcon message="Câu hỏi chưa được bắt đầu." />
+            <Alert type="warning" showIcon title="Câu hỏi chưa được bắt đầu." />
           )}
           {question?.status === 'CLOSED' && (
-            <Alert type="info" showIcon message="Câu hỏi đã bị khóa, không nhận thêm câu trả lời." />
+            <Alert type="info" showIcon title="Câu hỏi đã bị khóa, không nhận thêm câu trả lời." />
           )}
           {error && (
-            <Alert type="error" showIcon message={error} closable onClose={() => setError(null)} />
+            <Alert type="error" showIcon title={error} closable onClose={() => setError(null)} />
           )}
 
           {question && (

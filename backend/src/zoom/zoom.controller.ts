@@ -8,8 +8,12 @@ import {
   Logger,
   Get,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import { ZoomService } from "./zoom.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import * as crypto from "crypto";
 
 @Controller("zoom")
@@ -19,15 +23,26 @@ export class ZoomController {
   constructor(private readonly zoomService: ZoomService) {}
 
   @Get("recordings")
-  async getRecordings(@Query("userId") userId?: string) {
-    if (
-      !process.env.ZOOM_CLIENT_ID ||
-      !process.env.ZOOM_CLIENT_SECRET ||
-      !process.env.ZOOM_ACCOUNT_ID
-    ) {
-      return { meetings: [] }; // Return empty if not configured to avoid 500
-    }
-    return this.zoomService.listRecordings(userId || "me");
+  @UseGuards(JwtAuthGuard)
+  async getRecordings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("page_size") pageSize?: number,
+    @Query("next_page_token") nextPageToken?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.zoomService.listRecordings(user.id, {
+      page_size: pageSize,
+      next_page_token: nextPageToken,
+      from,
+      to,
+    });
+  }
+
+  @Get("logs")
+  @UseGuards(JwtAuthGuard)
+  async getLogs(@CurrentUser() user: AuthenticatedUser) {
+    return this.zoomService.getSyncLogs(user.id);
   }
 
   @Post("webhook")
@@ -82,7 +97,11 @@ export class ZoomController {
           ),
         );
 
-      return { status: "processing" };
+      return {
+        status: "processing",
+        event: "recording.completed",
+        payload: payload.payload,
+      };
     }
 
     return { status: "ignored" };

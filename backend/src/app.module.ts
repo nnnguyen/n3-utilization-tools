@@ -10,6 +10,7 @@ import { RealtimeModule } from "./realtime/realtime.module";
 import { WordCloudModule } from "./word-cloud/word-cloud.module";
 import { YoutubeModule } from "./youtube/youtube.module";
 import { ZoomModule } from "./zoom/zoom.module";
+import { IntegrationsModule } from "./integrations/integrations.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ZoomModule } from "./zoom/zoom.module";
     WordCloudModule,
     YoutubeModule,
     ZoomModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

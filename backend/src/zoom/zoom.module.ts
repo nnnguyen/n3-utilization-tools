@@ -3,9 +3,10 @@ import { ZoomService } from "./zoom.service";
 import { ZoomController } from "./zoom.controller";
 import { HttpModule } from "@nestjs/axios";
 import { YoutubeModule } from "../youtube/youtube.module";
+import { PrismaModule } from "../prisma/prisma.module";
 
 @Module({
-  imports: [HttpModule, YoutubeModule],
+  imports: [HttpModule, YoutubeModule, PrismaModule],
   providers: [ZoomService],
   controllers: [ZoomController],
 })

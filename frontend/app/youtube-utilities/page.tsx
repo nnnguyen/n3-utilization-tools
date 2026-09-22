@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Tag, Typography, Upload, Form, Input, Select, Table, Space, Progress, message, Avatar, Spin } from 'antd';
 import { YoutubeOutlined, UploadOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
 
@@ -17,11 +18,19 @@ interface YoutubeStatus {
   channelThumbnail?: string | null;
 }
 
-const STATUS_MESSAGE: Record<string, string> = {
-  not_configured:
-    'YouTube API credentials are not configured on the server (YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN).',
-  invalid_credentials:
-    'The configured YouTube credentials are invalid or expired. An admin needs to re-authorize the channel.',
+const STATUS_MESSAGE: Record<string, string | React.ReactNode> = {
+  not_configured: (
+    <span>
+      YouTube API credentials are not configured. 
+      Go to <Link href="/integrations" style={{ color: '#1890ff' }}>Integrations</Link> to set them up.
+    </span>
+  ),
+  invalid_credentials: (
+    <span>
+      The configured YouTube credentials are invalid or expired. 
+      Please check them in <Link href="/integrations" style={{ color: '#1890ff' }}>Integrations</Link>.
+    </span>
+  ),
 };
 
 export default function YoutubeUtilities() {

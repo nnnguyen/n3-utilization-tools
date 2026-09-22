@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { google } from "googleapis";
+import { PrismaService } from "../prisma/prisma.service";
 import * as fs from "fs";
 
 export interface YoutubeConnectionStatus {
@@ -14,28 +15,47 @@ export interface YoutubeConnectionStatus {
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
 
-  private getOAuthClient() {
-    return new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      process.env.YOUTUBE_REDIRECT_URI,
-    );
+  constructor(private readonly prisma: PrismaService) {}
+
+  private async getOAuthClient(userId?: string) {
+    let clientId = process.env.YOUTUBE_CLIENT_ID;
+    let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+    let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+
+    if (userId && userId !== "system") {
+      const config = await this.prisma.youtubeConfig.findUnique({
+        where: { userId },
+      });
+      if (config?.clientId && config?.clientSecret) {
+        clientId = config.clientId;
+        clientSecret = config.clientSecret;
+      }
+    }
+
+    return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
   }
 
   // Real connection check, not just "are the env vars set": a refresh token
   // can be present but revoked or expired, so this calls channels.list(mine)
   // to confirm it still authenticates against a real channel.
-  async getConnectionStatus(): Promise<YoutubeConnectionStatus> {
-    const { YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN } =
-      process.env;
+  async getConnectionStatus(userId: string): Promise<YoutubeConnectionStatus> {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+    });
 
-    if (!YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET || !YOUTUBE_REFRESH_TOKEN) {
+    const clientId = config?.clientId || process.env.YOUTUBE_CLIENT_ID;
+    const clientSecret =
+      config?.clientSecret || process.env.YOUTUBE_CLIENT_SECRET;
+    const refreshToken =
+      config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+
+    if (!config?.isActive || !clientId || !clientSecret || !refreshToken) {
       return { connected: false, reason: "not_configured" };
     }
 
     try {
-      const oauth2Client = this.getOAuthClient();
-      oauth2Client.setCredentials({ refresh_token: YOUTUBE_REFRESH_TOKEN });
+      const oauth2Client = await this.getOAuthClient(userId);
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
 
       const youtube = google.youtube({ version: "v3", auth: oauth2Client });
       const res = await youtube.channels.list({
@@ -56,7 +76,7 @@ export class YoutubeService {
       };
     } catch (error) {
       this.logger.warn(
-        `YouTube connection check failed: ${error.message ?? error}`,
+        `YouTube connection check failed for user ${userId}: ${error.message ?? error}`,
       );
       return { connected: false, reason: "invalid_credentials" };
     }
@@ -67,11 +87,43 @@ export class YoutubeService {
     title: string,
     description: string,
     privacyStatus: "public" | "private" | "unlisted" = "unlisted",
+    userId: string = "system",
+  ) {
+    return this.uploadVideoFromStream(
+      fs.createReadStream(filePath),
+      title,
+      description,
+      privacyStatus,
+      userId,
+    );
+  }
+
+  async uploadVideoFromStream(
+    stream: any,
+    title: string,
+    description: string,
+    privacyStatus: "public" | "private" | "unlisted" = "unlisted",
+    userId: string = "system",
   ) {
     try {
-      const oauth2Client = this.getOAuthClient();
+      const config =
+        userId !== "system"
+          ? await this.prisma.youtubeConfig.findUnique({ where: { userId } })
+          : null;
+
+      const refreshToken =
+        config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+
+      if (!config?.isActive || !refreshToken) {
+        this.logger.debug(
+          `YouTube is not configured or active for user ${userId}, skipping upload`,
+        );
+        return null;
+      }
+
+      const oauth2Client = await this.getOAuthClient(userId);
       oauth2Client.setCredentials({
-        refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
+        refresh_token: refreshToken,
       });
 
       const youtube = google.youtube({
@@ -79,37 +131,29 @@ export class YoutubeService {
         auth: oauth2Client,
       });
 
-      const fileSize = fs.statSync(filePath).size;
-
-      const res = await youtube.videos.insert(
-        {
-          part: ["snippet", "status"],
-          requestBody: {
-            snippet: {
-              title,
-              description,
-            },
-            status: {
-              privacyStatus,
-            },
+      const res = await youtube.videos.insert({
+        part: ["snippet", "status"],
+        requestBody: {
+          snippet: {
+            title,
+            description,
           },
-          media: {
-            body: fs.createReadStream(filePath),
+          status: {
+            privacyStatus,
           },
         },
-        {
-          onUploadProgress: (evt) => {
-            const progress = (evt.bytesRead / fileSize) * 100;
-            this.logger.log(`Upload progress: ${Math.round(progress)}%`);
-          },
+        media: {
+          body: stream,
         },
-      );
+      });
 
       this.logger.log(`Video uploaded successfully: ${res.data.id}`);
       return res.data;
     } catch (error) {
       this.logger.error("Error uploading video to YouTube", error.stack);
-      throw error;
+      throw new BadRequestException(
+        `Failed to upload video to YouTube: ${error.message}`,
+      );
     }
   }
 }

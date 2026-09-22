@@ -23,8 +23,49 @@ model User {
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
 
-  createdAt DateTime @default(now())
-  topics    Topic[]
+  createdAt     DateTime       @default(now())
+  topics        Topic[]
+  zoomConfig    ZoomConfig?
+  youtubeConfig YoutubeConfig?
+  zoomSyncLogs  ZoomSyncLog[]
+}
+
+model ZoomConfig {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId          String?
+  clientId           String?
+  clientSecret       String?
+  webhookSecretToken String?
+  isActive           Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
+
+model YoutubeConfig {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId     String?
+  clientSecret String?
+  refreshToken String?
+  isActive     Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+}
+
+model ZoomSyncLog {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       String
+  meeting     String
+  status      String
+  youtubeId   String?
+  downloadUrl String?
+  recordingId String?  @unique
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum TopicStatus {

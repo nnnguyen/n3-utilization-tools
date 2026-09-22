@@ -11,6 +11,7 @@ import {
   HomeOutlined,
   LogoutOutlined,
   UserOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -56,9 +57,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       icon: <CloudOutlined />,
       label: <Link href="/word-cloud/dashboard">Word Cloud</Link>,
     },
+    {
+      key: '/integrations',
+      icon: <SettingOutlined />,
+      label: <Link href="/integrations">Integrations</Link>,
+    },
   ];
 
   const userMenuItems = [
+    {
+      key: 'integrations',
+      icon: <SettingOutlined />,
+      label: 'Integrations',
+      onClick: () => router.push('/integrations'),
+    },
     {
       key: 'logout',
       icon: <LogoutOutlined />,
