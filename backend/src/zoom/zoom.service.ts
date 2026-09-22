@@ -188,41 +188,106 @@ export class ZoomService {
   async handleRecordingCompleted(payload: any) {
     const { recording_files, topic, start_time, uuid, id } = payload.object;
     const recordingId = uuid || id?.toString();
-
-    // Find the shared_screen_with_speaker_view MP4 file
-    const videoFile = recording_files.find(
-      (file) =>
-        file.file_type === "MP4" &&
-        file.recording_type === "shared_screen_with_speaker_view",
-    );
-
-    if (!videoFile) {
-      this.logger.warn(
-        `No shared_screen_with_speaker_view MP4 file found in Zoom recording ${recordingId}`,
-      );
-      return;
-    }
-
-    const downloadUrl = videoFile.download_url;
     const downloadToken = payload.download_token;
     const userId = payload.userId || "system";
 
-    try {
-      this.logger.log(`Processing Zoom recording sync for ${topic}`);
+    return this.processRecordingSync(
+      recordingId,
+      recording_files,
+      topic,
+      start_time,
+      userId,
+      downloadToken,
+    );
+  }
 
-      // We only store the download URL, don't download and store the file locally anymore
-      // However, to upload to YouTube, we still need a readable stream or path.
-      // The requirement says: "We only store the file in database with download_url, don't download the store the file"
-      // This likely means we shouldn't keep it permanently, but for uploading to YouTube we might still need a temp download.
-      // BUT if I interpret it strictly, maybe they want to avoid local storage entirely.
-      // YouTube API requires a stream. We can pipe from Zoom to YouTube directly.
+  async syncRecording(
+    userId: string,
+    recordingId: string,
+    topic: string,
+    startTime: string,
+  ) {
+    const token = await this.getAccessToken(userId);
+    try {
+      const encodedRecordingId = recordingId.includes("/") || recordingId.includes("//") 
+        ? encodeURIComponent(encodeURIComponent(recordingId))
+        : recordingId;
+
+      this.logger.log(`Fetching recording details for sync: ${recordingId} (encoded: ${encodedRecordingId})`);
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `https://api.zoom.us/v2/meetings/${encodedRecordingId}/recordings`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ),
+      );
+
+      const { recording_files } = response.data;
+      if (!recording_files || recording_files.length === 0) {
+        throw new Error("No recording files found for this meeting.");
+      }
+
+      return this.processRecordingSync(
+        recordingId,
+        recording_files,
+        topic,
+        startTime,
+        userId,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error fetching recording details for sync: ${recordingId}`,
+        error.response?.data || error.message,
+      );
+      const zoomErrorMessage = error.response?.data?.message || error.message;
+      throw new BadRequestException(
+        `Failed to fetch recording details from Zoom: ${zoomErrorMessage}`,
+      );
+    }
+  }
+
+  private async processRecordingSync(
+    recordingId: string,
+    recordingFiles: any[],
+    topic: string,
+    startTime: string,
+    userId: string,
+    downloadToken?: string,
+  ) {
+    // Find the shared_screen_with_speaker_view MP4 file
+    const videoFile = recordingFiles.find(
+      (file) =>
+        file.file_type === "MP4" &&
+        (file.recording_type === "shared_screen_with_speaker_view" || 
+         file.recording_type === "host_video" || // Fallback if requested type not found
+         true) // Or just the first MP4 if we want to be generous
+    );
+
+    // Filter strictly if possible, but let's be more robust
+    const bestVideoFile = recordingFiles.find(f => f.file_type === "MP4" && f.recording_type === "shared_screen_with_speaker_view") 
+      || recordingFiles.find(f => f.file_type === "MP4");
+
+    if (!bestVideoFile) {
+      this.logger.warn(
+        `No suitable MP4 file found in Zoom recording ${recordingId}. Available files: ${JSON.stringify(recordingFiles.map(f => ({ type: f.file_type, rec_type: f.recording_type })))}`,
+      );
+      throw new BadRequestException("No suitable MP4 file found in this recording.");
+    }
+
+    const downloadUrl = bestVideoFile.download_url;
+
+    try {
+      this.logger.log(`Processing Zoom recording sync for ${topic} (${recordingId})`);
 
       // Upload to YouTube by streaming directly from Zoom
       const youtubeResult = await this.uploadToYoutubeDirectly(
         downloadUrl,
         downloadToken,
         topic,
-        start_time,
+        startTime,
         userId,
       );
 
@@ -237,7 +302,7 @@ export class ZoomService {
           },
           create: {
             userId,
-            event: "Recording Completed",
+            event: "Manual Sync" + (downloadToken ? " (Webhook)" : ""),
             meeting: topic,
             status: "Success",
             youtubeId: youtubeResult.id,
@@ -249,7 +314,7 @@ export class ZoomService {
 
       return youtubeResult;
     } catch (error) {
-      this.logger.error("Failed to process Zoom recording", error.stack);
+      this.logger.error(`Failed to process Zoom recording ${recordingId}`, error.stack);
 
       // Log failure
       if (userId !== "system") {
@@ -261,7 +326,7 @@ export class ZoomService {
           },
           create: {
             userId,
-            event: "Recording Completed",
+            event: "Manual Sync",
             meeting: topic,
             status: "Failed",
             downloadUrl,
@@ -275,20 +340,30 @@ export class ZoomService {
 
   private async uploadToYoutubeDirectly(
     downloadUrl: string,
-    downloadToken: string,
+    downloadToken: string | undefined,
     topic: string,
     startTime: string,
     userId: string,
   ) {
+    const headers: any = {};
+    const params: any = {};
+
+    if (downloadToken) {
+      params.access_token = downloadToken;
+    } else {
+      // If no download token, we must use the user's OAuth access token
+      const token = await this.getAccessToken(userId);
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await firstValueFrom(
       this.httpService.get(downloadUrl, {
-        params: { access_token: downloadToken },
+        params,
+        headers,
         responseType: "stream",
       }),
     );
 
-    // We need to pass the stream to YoutubeService.
-    // I need to modify YoutubeService.uploadVideo to accept a stream.
     return this.youtubeService.uploadVideoFromStream(
       response.data,
       `Zoom Recording: ${topic}`,

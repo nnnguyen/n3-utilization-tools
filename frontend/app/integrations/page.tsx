@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin } from 'antd';
-import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert } from 'antd';
+import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined, GoogleOutlined } from '@ant-design/icons';
+import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
 
@@ -10,9 +11,38 @@ const { Title, Text } = Typography;
 
 export default function IntegrationsPage() {
   const [configsLoading, setConfigsLoading] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
+  const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
   const [zoomForm] = Form.useForm();
   const [youtubeForm] = Form.useForm();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const handleCallback = async (code: string) => {
+    try {
+      setAuthorizing(true);
+      await apiFetch('/youtube/callback', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
+      });
+      message.success('YouTube authorization successful!');
+      // Clean up URL
+      router.replace('/integrations?tab=youtube');
+      fetchConfigs();
+    } catch (error: any) {
+      message.error(error.message || 'YouTube authorization failed');
+    } finally {
+      setAuthorizing(false);
+    }
+  };
+
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code) {
+      handleCallback(code);
+    }
+  }, [searchParams]);
 
   const fetchConfigs = async () => {
     setConfigsLoading(true);
@@ -21,10 +51,22 @@ export default function IntegrationsPage() {
       setConfigs(response);
       zoomForm.setFieldsValue(response.zoom);
       youtubeForm.setFieldsValue(response.youtube);
+      
+      // Also fetch YouTube status
+      fetchYoutubeStatus();
     } catch (error: any) {
       message.error('Failed to load integration settings');
     } finally {
       setConfigsLoading(false);
+    }
+  };
+
+  const fetchYoutubeStatus = async () => {
+    try {
+      const status = await apiFetch('/youtube/status');
+      setYoutubeStatus(status);
+    } catch (error) {
+      console.error('Failed to fetch YouTube status', error);
     }
   };
 
@@ -95,29 +137,73 @@ export default function IntegrationsPage() {
     </>
   );
 
+  const onAuthorizeYoutube = async () => {
+    try {
+      const { url } = await apiFetch('/youtube/auth-url');
+      window.location.href = url;
+    } catch (error: any) {
+      message.error(error.message || 'Failed to get authorization URL');
+    }
+  };
+
   const youtubeTabContent = (
-    <Form 
-      form={youtubeForm} 
-      layout="vertical" 
-      onFinish={onUpdateYoutube}
-      initialValues={configs.youtube}
-    >
-      <Form.Item label="Activation" name="isActive" valuePropName="checked">
-        <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-      </Form.Item>
-      <Form.Item label="Client ID" name="clientId">
-        <Input prefix={<LockOutlined />} placeholder="Google Client ID" />
-      </Form.Item>
-      <Form.Item label="Client Secret" name="clientSecret">
-        <Input.Password prefix={<LockOutlined />} placeholder="Google Client Secret" />
-      </Form.Item>
-      <Form.Item label="Refresh Token" name="refreshToken">
-        <Input.Password prefix={<LockOutlined />} placeholder="Google OAuth Refresh Token" />
-      </Form.Item>
-      <Form.Item>
-        <Button type="primary" htmlType="submit">Save YouTube Config</Button>
-      </Form.Item>
-    </Form>
+    <>
+      {authorizing && (
+        <Alert
+          message="Authorizing YouTube..."
+          description="Please wait while we complete the connection."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {youtubeStatus && (
+        <Alert
+          message={youtubeStatus.connected ? "YouTube Connected" : "YouTube Not Connected"}
+          description={
+            youtubeStatus.connected 
+              ? `Connected to channel: ${youtubeStatus.channelTitle}`
+              : youtubeStatus.reason === 'not_configured' 
+                ? "Please provide Client ID and Client Secret, then Authorize YouTube."
+                : "Invalid or expired credentials. Please re-authorize."
+          }
+          type={youtubeStatus.connected ? "success" : "warning"}
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      <Form 
+        form={youtubeForm} 
+        layout="vertical" 
+        onFinish={onUpdateYoutube}
+        initialValues={configs.youtube}
+      >
+        <Form.Item label="Activation" name="isActive" valuePropName="checked">
+          <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+        </Form.Item>
+        <Form.Item label="Client ID" name="clientId">
+          <Input prefix={<LockOutlined />} placeholder="Google Client ID" />
+        </Form.Item>
+        <Form.Item label="Client Secret" name="clientSecret">
+          <Input.Password prefix={<LockOutlined />} placeholder="Google Client Secret" />
+        </Form.Item>
+        <Form.Item label="Refresh Token" name="refreshToken" help="Usually obtained via 'Authorize YouTube' button below.">
+          <Input.Password prefix={<LockOutlined />} placeholder="Google OAuth Refresh Token" />
+        </Form.Item>
+        <Form.Item>
+          <Space>
+            <Button type="primary" htmlType="submit">Save YouTube Config</Button>
+            <Button 
+              icon={<GoogleOutlined />} 
+              onClick={onAuthorizeYoutube}
+              disabled={!configs.youtube?.clientId || !configs.youtube?.clientSecret || youtubeStatus?.connected}
+            >
+              {youtubeStatus?.connected ? 'YouTube Authorized' : 'Authorize YouTube'}
+            </Button>
+          </Space>
+        </Form.Item>
+      </Form>
+    </>
   );
 
   const items = [
@@ -149,7 +235,11 @@ export default function IntegrationsPage() {
         </Text>
 
         <Card loading={configsLoading}>
-          <Tabs defaultActiveKey="zoom" items={items} />
+          <Tabs 
+            activeKey={searchParams.get('tab') || 'zoom'} 
+            onChange={(key) => router.push(`/integrations?tab=${key}`)}
+            items={items} 
+          />
         </Card>
       </div>
     </DashboardLayout>

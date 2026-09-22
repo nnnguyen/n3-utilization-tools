@@ -21,14 +21,14 @@ interface YoutubeStatus {
 const STATUS_MESSAGE: Record<string, string | React.ReactNode> = {
   not_configured: (
     <span>
-      YouTube API credentials are not configured. 
-      Go to <Link href="/integrations" style={{ color: '#1890ff' }}>Integrations</Link> to set them up.
+      YouTube integration is not fully configured. 
+      Go to <Link href="/integrations?tab=youtube" style={{ color: '#1890ff' }}>Integrations</Link> to set Client ID, Secret and Authorize.
     </span>
   ),
   invalid_credentials: (
     <span>
       The configured YouTube credentials are invalid or expired. 
-      Please check them in <Link href="/integrations" style={{ color: '#1890ff' }}>Integrations</Link>.
+      Please <Link href="/integrations?tab=youtube" style={{ color: '#1890ff' }}>Authorize</Link> again in Integrations.
     </span>
   ),
 };

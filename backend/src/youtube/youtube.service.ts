@@ -20,7 +20,10 @@ export class YoutubeService {
   private async getOAuthClient(userId?: string) {
     let clientId = process.env.YOUTUBE_CLIENT_ID;
     let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-    let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+    let redirectUri =
+      process.env.YOUTUBE_CALLBACK_URL ||
+      process.env.YOUTUBE_REDIRECT_URI ||
+      `${process.env.FRONTEND_URL}/api/auth/youtube/callback`;
 
     if (userId && userId !== "system") {
       const config = await this.prisma.youtubeConfig.findUnique({
@@ -33,6 +36,46 @@ export class YoutubeService {
     }
 
     return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  }
+
+  async getAuthUrl(userId: string): Promise<string> {
+    const oauth2Client = await this.getOAuthClient(userId);
+
+    const scopes = [
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube.readonly",
+    ];
+
+    return oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+      prompt: "consent",
+      state: userId,
+    });
+  }
+
+  async handleCallback(userId: string, code: string) {
+    const oauth2Client = await this.getOAuthClient(userId);
+    const { tokens } = await oauth2Client.getToken(code);
+
+    if (!tokens.refresh_token) {
+      this.logger.warn(`No refresh token returned for user ${userId}`);
+    }
+
+    await this.prisma.youtubeConfig.upsert({
+      where: { userId },
+      update: {
+        refreshToken: tokens.refresh_token ?? undefined,
+        isActive: true,
+      },
+      create: {
+        userId,
+        refreshToken: tokens.refresh_token || "",
+        isActive: true,
+      },
+    });
+
+    return tokens;
   }
 
   // Real connection check, not just "are the env vars set": a refresh token

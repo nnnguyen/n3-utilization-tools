@@ -13,6 +13,7 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
+import { YoutubeService } from "../youtube/youtube.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import type { GoogleProfile } from "./strategies/google.strategy";
@@ -31,7 +32,10 @@ import {
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly youtubeService: YoutubeService,
+  ) {}
 
   @Post("register")
   async register(@Body() dto: RegisterDto) {
@@ -123,5 +127,16 @@ export class AuthController {
   logout(@Res() res: Response) {
     res.clearCookie(ACCESS_TOKEN_COOKIE, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.json({ success: true });
+  }
+
+  @Get("youtube/callback")
+  async handleYoutubeOAuthCallback(
+    @Query("code") code: string,
+    @Query("state") state: string,
+    @Res() res: Response,
+  ) {
+    // state contains the userId
+    await this.youtubeService.handleCallback(state, code);
+    return res.redirect(`${process.env.FRONTEND_URL}/integrations?tab=youtube`);
   }
 }

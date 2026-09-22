@@ -6,10 +6,12 @@ import { AuthService } from "./auth.service";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { MailService } from "../mail/mail.service";
+import { YoutubeModule } from "../youtube/youtube.module";
 
 @Module({
   imports: [
     PassportModule,
+    YoutubeModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: {

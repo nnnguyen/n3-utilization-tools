@@ -33,6 +33,8 @@ export default function ZoomUtilities() {
   // Most Recent Recording (from Webhook)
   const [mostRecentRecording, setMostRecentRecording] = useState<any>(null);
 
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+
   const fetchConfigs = async () => {
     setConfigsLoading(true);
     try {
@@ -99,6 +101,33 @@ export default function ZoomUtilities() {
     init();
   }, [dateFilter, customDateRange]);
 
+  const handleManualSync = async (record: any) => {
+    const recordingId = record.uuid || record.id;
+    setSyncingIds(prev => new Set(prev).add(recordingId));
+    try {
+      await apiFetch('/zoom/sync', {
+        method: 'POST',
+        body: JSON.stringify({
+          recordingId: recordingId,
+          topic: record.topic,
+          startTime: record.start_time
+        })
+      });
+      message.success(`Sync started for: ${record.topic}. It will appear in logs once finished.`);
+      // Optionally refresh logs after a delay
+      setTimeout(fetchLogs, 5000);
+    } catch (error: any) {
+      console.error('Manual sync failed:', error);
+      message.error(error.message || `Failed to sync: ${record.topic}`);
+    } finally {
+      setSyncingIds(prev => {
+        const next = new Set(prev);
+        next.delete(recordingId);
+        return next;
+      });
+    }
+  };
+
   const recordingColumns = [
     {
       title: 'Topic',
@@ -157,7 +186,8 @@ export default function ZoomUtilities() {
           <Button 
             icon={<YoutubeOutlined />} 
             size="small"
-            onClick={() => message.info(`Manual sync triggered for: ${record.topic}`)}
+            onClick={() => handleManualSync(record)}
+            loading={syncingIds.has(record.uuid || record.id)}
           >
             Sync
           </Button>

@@ -14,6 +14,7 @@ import { ZoomService } from "./zoom.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
+import { SyncRecordingDto } from "./sync-recording.dto";
 import * as crypto from "crypto";
 
 @Controller("zoom")
@@ -43,6 +44,30 @@ export class ZoomController {
   @UseGuards(JwtAuthGuard)
   async getLogs(@CurrentUser() user: AuthenticatedUser) {
     return this.zoomService.getSyncLogs(user.id);
+  }
+
+  @Post("sync")
+  @UseGuards(JwtAuthGuard)
+  async syncRecording(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: SyncRecordingDto,
+  ) {
+    this.logger.log(`Manual sync requested for recording: ${body.recordingId}`);
+    
+    // We run it in background or await? 
+    // Manual sync might take time, but user expects a response.
+    // Let's run it and return the promise or status.
+    this.zoomService.syncRecording(user.id, body.recordingId, body.topic, body.startTime)
+      .then(result => {
+        if (result) {
+          this.logger.log(`Manual sync completed for ${body.recordingId}: YouTube ID ${result.id}`);
+        } else {
+          this.logger.warn(`Manual sync finished for ${body.recordingId} but no video was uploaded.`);
+        }
+      })
+      .catch(err => this.logger.error(`Manual sync failed for ${body.recordingId}`, err.stack));
+
+    return { status: 'Sync started', recordingId: body.recordingId };
   }
 
   @Post("webhook")
