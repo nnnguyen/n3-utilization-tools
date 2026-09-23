@@ -5,7 +5,10 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
-import { YoutubeService } from "../youtube/youtube.service";
+import {
+  YoutubeService,
+  MAX_AUTO_RETRIES,
+} from "../youtube/youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
 import * as fs from "fs";
 import * as path from "path";
@@ -198,6 +201,7 @@ export class ZoomService {
     startTime: string,
     privacyStatus?: "public" | "private" | "unlisted",
     playlistId?: string,
+    autoRetryAttempt?: number,
   ) {
     const token = await this.getAccessToken(userId);
     try {
@@ -234,6 +238,7 @@ export class ZoomService {
         undefined,
         privacyStatus,
         playlistId,
+        autoRetryAttempt,
       );
     } catch (error) {
       this.logger.error(
@@ -241,8 +246,10 @@ export class ZoomService {
         error.response?.data || error.message,
       );
       const zoomErrorMessage = error.response?.data?.message || error.message;
+      // cause lets auto-retry tell a Zoom 5xx/timeout apart from a 4xx
       throw new BadRequestException(
         `Failed to fetch recording details from Zoom: ${zoomErrorMessage}`,
+        { cause: error },
       );
     }
   }
@@ -256,6 +263,7 @@ export class ZoomService {
     downloadToken?: string,
     privacyStatus?: "public" | "private" | "unlisted",
     playlistId?: string,
+    autoRetryAttempt?: number,
   ) {
     // Find the shared_screen_with_speaker_view MP4 file
     const videoFile = recordingFiles.find(
@@ -302,10 +310,20 @@ export class ZoomService {
         existingLog.syncStatus === "COMPLETED" ||
         existingLog.syncStatus === "FAILED";
 
+      const event = autoRetryAttempt
+        ? `Tự động retry lần ${autoRetryAttempt}/${MAX_AUTO_RETRIES}`
+        : "Manual Sync" + (downloadToken ? " (Webhook)" : "");
+
       if (userId !== "system") {
         await this.prisma.zoomSyncLog.upsert({
           where: { recordingId },
           update: {
+            event,
+            // A manual sync starts a fresh auto-retry budget
+            autoRetryCount: autoRetryAttempt ?? 0,
+            nextRetryAt: null,
+            recordingStartTime: startTime,
+            privacyStatus: privacyStatus || "private",
             status: "Processing",
             syncStatus: "UPLOADING",
             progress: 0,
@@ -320,7 +338,9 @@ export class ZoomService {
           },
           create: {
             userId,
-            event: "Manual Sync" + (downloadToken ? " (Webhook)" : ""),
+            event,
+            recordingStartTime: startTime,
+            privacyStatus: privacyStatus || "private",
             meeting: topic,
             status: "Processing",
             syncStatus: "UPLOADING",
@@ -369,6 +389,7 @@ export class ZoomService {
               errorSource: "upload",
             },
           });
+          await this.youtubeService.handleSyncFailure(recordingId, error);
         }
       }
       throw error;

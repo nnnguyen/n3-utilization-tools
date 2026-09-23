@@ -11,6 +11,7 @@ import { WordCloudModule } from "./word-cloud/word-cloud.module";
 import { YoutubeModule } from "./youtube/youtube.module";
 import { ZoomModule } from "./zoom/zoom.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { IntegrationsModule } from "./integrations/integrations.module";
     YoutubeModule,
     ZoomModule,
     IntegrationsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -6,8 +6,39 @@ import {
 } from "@nestjs/common";
 import { google } from "googleapis";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import * as fs from "fs";
 import { Readable } from "stream";
+
+// Delays before automatic retry 1, 2 and 3 of a sync that failed transiently
+export const AUTO_RETRY_DELAYS_MS = [1 * 60_000, 5 * 60_000, 15 * 60_000];
+export const MAX_AUTO_RETRIES = AUTO_RETRY_DELAYS_MS.length;
+
+const TRANSIENT_NETWORK_CODES = new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ECONNABORTED",
+  "ECONNREFUSED",
+  "EPIPE",
+  "EAI_AGAIN",
+  "ENOTFOUND",
+]);
+
+const TRANSIENT_YOUTUBE_REASONS = new Set([
+  "backendError",
+  "internalError",
+  "userRateLimitExceeded",
+  "rateLimitExceeded",
+  "uploadAborted",
+]);
+
+// Mapped error codes that retrying cannot fix
+const PERMANENT_ERROR_CODES = new Set([
+  "quotaExceeded",
+  "uploadLimitExceeded",
+  "videoDurationTooLong",
+  "invalid_grant",
+]);
 
 export interface YoutubeConnectionStatus {
   connected: boolean;
@@ -28,7 +59,98 @@ export class YoutubeService {
   private readonly VIDEO_UPDATE_COST = 50;
   private readonly THUMBNAIL_SET_COST = 50;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
+
+  async hasQuotaForUpload(userId: string) {
+    const quota = await this.getQuotaStatus(userId);
+    return quota.unitsRemaining >= this.UPLOAD_COST;
+  }
+
+  // Transient = network timeouts/resets and 5xx/429 from YouTube or Zoom.
+  // Everything else (quota, duration limit, expired token, 4xx such as a
+  // recording deleted on Zoom) is permanent and needs a manual re-sync.
+  isTransientSyncError(error: any): boolean {
+    if (!error) return false;
+    const { errorCode } = this.mapYoutubeError(error);
+    if (errorCode && PERMANENT_ERROR_CODES.has(errorCode)) return false;
+
+    // BadRequestException wrappers keep the original error in `cause`
+    for (const e of [error, error.cause]) {
+      if (!e) continue;
+      if (typeof e.code === "string" && TRANSIENT_NETWORK_CODES.has(e.code)) {
+        return true;
+      }
+      const status =
+        e.response?.status ?? (typeof e.code === "number" ? e.code : undefined);
+      if (status && (status >= 500 || status === 429)) return true;
+      const reason = e.response?.data?.error?.errors?.[0]?.reason;
+      if (reason && TRANSIENT_YOUTUBE_REASONS.has(reason)) return true;
+    }
+    return /socket hang up|ECONNRESET|ETIMEDOUT/i.test(error.message || "");
+  }
+
+  // Called after a sync log has been marked FAILED. Schedules an automatic
+  // retry for transient errors, otherwise notifies the user. Never throws.
+  async handleSyncFailure(recordingId: string, error: any) {
+    try {
+      const log = await this.prisma.zoomSyncLog.findUnique({
+        where: { recordingId },
+      });
+      if (!log || log.userId === "system") return;
+
+      if (
+        this.isTransientSyncError(error) &&
+        log.autoRetryCount < MAX_AUTO_RETRIES
+      ) {
+        const nextRetryAt = new Date(
+          Date.now() + AUTO_RETRY_DELAYS_MS[log.autoRetryCount],
+        );
+        await this.prisma.zoomSyncLog.update({
+          where: { recordingId },
+          data: { nextRetryAt },
+        });
+        this.logger.log(
+          `Scheduled auto-retry ${log.autoRetryCount + 1}/${MAX_AUTO_RETRIES} for recording ${recordingId} at ${nextRetryAt.toISOString()}`,
+        );
+        return;
+      }
+
+      await this.notifySyncFailed(
+        log.userId,
+        recordingId,
+        log.meeting,
+        log.syncError || error.message || "Unknown error",
+        log.autoRetryCount,
+      );
+    } catch (e) {
+      this.logger.error(
+        `Failed to handle sync failure for recording ${recordingId}`,
+        e.stack,
+      );
+    }
+  }
+
+  async notifySyncFailed(
+    userId: string,
+    recordingId: string,
+    meeting: string,
+    reason: string,
+    autoRetryCount = 0,
+  ) {
+    const retried =
+      autoRetryCount > 0 ? ` (đã tự động thử lại ${autoRetryCount} lần)` : "";
+    await this.notificationsService.create({
+      userId,
+      type: "sync_failed",
+      title: "Sync thất bại",
+      message: `Sync "${meeting}" thất bại: ${reason}${retried}`,
+      link: "/zoom-utilities",
+      recordingId,
+    });
+  }
 
   private getPacificDate(): string {
     // Google resets quota at midnight Pacific Time
@@ -400,6 +522,7 @@ export class YoutubeService {
             dbError.stack,
           );
         }
+        await this.handleSyncFailure(recordingId, error);
         return null; // Return null instead of throwing as per requirement
       }
 
@@ -578,35 +701,51 @@ export class YoutubeService {
       }
 
       if (recordingId) {
+        const processingError = {
+          message: syncError,
+          code: video.status?.failureReason,
+          response: {
+            data: {
+              error: {
+                errors: [{ reason: video.status?.failureReason }],
+              },
+            },
+          },
+        };
         const errorMapping =
           newSyncStatus === "FAILED"
-            ? this.mapYoutubeError({
-                message: syncError,
-                code: video.status?.failureReason,
-                response: {
-                  data: {
-                    error: {
-                      errors: [{ reason: video.status?.failureReason }],
-                    },
-                  },
-                },
-              })
+            ? this.mapYoutubeError(processingError)
             : { errorMessage: syncError, errorCode: null };
 
-        await this.prisma.zoomSyncLog.update({
-          where: { recordingId },
-          data: {
-            syncStatus: newSyncStatus,
-            youtubeProcessingStatus: processingStatus,
-            syncCompletedAt,
-            syncError: errorMapping.errorMessage,
-            errorSource:
-              newSyncStatus === "FAILED" ? "youtube_processing" : null,
-            errorCode:
-              errorMapping.errorCode || video.status?.failureReason || null,
-            errorMessage: syncError,
-          },
-        });
+        const data = {
+          syncStatus: newSyncStatus,
+          youtubeProcessingStatus: processingStatus,
+          syncCompletedAt,
+          syncError: errorMapping.errorMessage,
+          errorSource: newSyncStatus === "FAILED" ? "youtube_processing" : null,
+          errorCode:
+            errorMapping.errorCode || video.status?.failureReason || null,
+          errorMessage: syncError,
+        };
+
+        if (newSyncStatus === "PROCESSING") {
+          await this.prisma.zoomSyncLog.update({ where: { recordingId }, data });
+        } else {
+          // Only the check that actually moves the log into its final state
+          // notifies, so the frontend poll and the background job running at
+          // the same time cannot create duplicate notifications.
+          const { count } = await this.prisma.zoomSyncLog.updateMany({
+            where: { recordingId, syncStatus: { not: newSyncStatus } },
+            data,
+          });
+          if (count > 0) {
+            if (newSyncStatus === "COMPLETED") {
+              await this.notifySyncCompleted(recordingId, videoId);
+            } else {
+              await this.handleSyncFailure(recordingId, processingError);
+            }
+          }
+        }
       }
 
       return {
@@ -622,6 +761,22 @@ export class YoutubeService {
       );
       throw error;
     }
+  }
+
+  private async notifySyncCompleted(recordingId: string, videoId: string) {
+    const log = await this.prisma.zoomSyncLog.findUnique({
+      where: { recordingId },
+      select: { userId: true, meeting: true },
+    });
+    if (!log) return;
+    await this.notificationsService.create({
+      userId: log.userId,
+      type: "sync_completed",
+      title: "Video đã sẵn sàng",
+      message: `Video "${log.meeting}" đã sẵn sàng để xem`,
+      link: `https://www.youtube.com/watch?v=${videoId}`,
+      recordingId,
+    });
   }
 
   async getRecordingStatusFromDb(recordingId: string) {

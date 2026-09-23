@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import NotificationBell from './NotificationBell';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -119,12 +120,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
             <h2 style={{ margin: 0 }}>Dashboard</h2>
           </div>
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar icon={<UserOutlined />} src={user?.avatarUrl} />
-              <Text>{user?.name || user?.email}</Text>
-            </Space>
-          </Dropdown>
+          <Space size="middle">
+            <NotificationBell />
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Space style={{ cursor: 'pointer' }}>
+                <Avatar icon={<UserOutlined />} src={user?.avatarUrl} />
+                <Text>{user?.name || user?.email}</Text>
+              </Space>
+            </Dropdown>
+          </Space>
         </Header>
         <Content
           style={{

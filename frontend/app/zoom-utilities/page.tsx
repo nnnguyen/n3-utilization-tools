@@ -59,7 +59,9 @@ export default function ZoomUtilities() {
   useEffect(() => {
     const activePolling = logs.some((log: any) => 
       log.syncStatus === 'UPLOADING' || 
-      log.syncStatus === 'PROCESSING'
+      log.syncStatus === 'PROCESSING' ||
+      // An automatic retry is scheduled: keep polling so the UI sees it start
+      (log.syncStatus === 'FAILED' && log.nextRetryAt)
     );
     
     if (activePolling) {
@@ -332,9 +334,16 @@ export default function ZoomUtilities() {
             return <Tag color="success">Ready</Tag>;
           case 'FAILED':
             return (
-              <Tooltip title={log.syncError || 'Unknown error'}>
-                <Tag color="error" style={{ cursor: 'pointer' }}>Failed</Tag>
-              </Tooltip>
+              <Space orientation="vertical" size={0}>
+                <Tooltip title={log.syncError || 'Unknown error'}>
+                  <Tag color="error" style={{ cursor: 'pointer' }}>Failed</Tag>
+                </Tooltip>
+                {log.nextRetryAt && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Tự động thử lại lúc {dayjs(log.nextRetryAt).format('HH:mm')} (lần {log.autoRetryCount + 1}/3)
+                  </Text>
+                )}
+              </Space>
             );
           case 'PENDING':
           default:
@@ -634,6 +643,7 @@ export default function ZoomUtilities() {
                   <div style={{ marginBottom: 8 }}>
                     <Space>
                       <Text>{dayjs(log.createdAt).format('YYYY-MM-DD HH:mm:ss')}</Text>
+                      {log.event && <Tag>{log.event}</Tag>}
                       <Tag color={log.syncStatus === 'COMPLETED' ? 'success' : log.syncStatus === 'FAILED' ? 'error' : 'processing'}>
                         {log.syncStatus === 'COMPLETED' ? 'Success' : log.syncStatus === 'FAILED' ? 'Failed' : log.syncStatus}
                       </Tag>
@@ -659,6 +669,12 @@ export default function ZoomUtilities() {
                       >
                         View on YouTube
                       </Button>
+                    )}
+
+                    {log.syncStatus === 'FAILED' && log.nextRetryAt && (
+                      <Text type="secondary">
+                        Lỗi tạm thời — sẽ tự động thử lại lúc {dayjs(log.nextRetryAt).format('HH:mm:ss')} (lần {log.autoRetryCount + 1}/3)
+                      </Text>
                     )}
 
                     {log.playlistId && (

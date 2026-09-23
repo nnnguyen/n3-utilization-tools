@@ -29,6 +29,7 @@ model User {
   youtubeConfig YoutubeConfig?
   youtubeQuotas YoutubeQuotaUsage[]
   zoomSyncLogs  ZoomSyncLog[]
+  notifications Notification[]
 }
 
 model ZoomConfig {
@@ -81,6 +82,10 @@ model ZoomSyncLog {
   downloadUrl             String?
   playlistId              String? // Group 1: Playlist management
   playlistError           String? // Set when adding the video to the playlist failed (upload itself still succeeded)
+  recordingStartTime      String? // Zoom start_time, kept so an auto-retry can re-run the sync
+  privacyStatus           String? // Privacy chosen for the sync, reused by auto-retry
+  autoRetryCount          Int        @default(0) // Automatic retries done since the last manual sync
+  nextRetryAt             DateTime? // Set while an automatic retry is scheduled
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
@@ -173,6 +178,21 @@ model Question {
 
   @@unique([topicId, order])
   @@index([topicId])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // 'sync_completed' | 'sync_failed'
+  title       String
+  message     String
+  link        String?
+  recordingId String?
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model YoutubeQuotaUsage {
