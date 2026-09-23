@@ -18,6 +18,15 @@ interface YoutubeStatus {
   channelThumbnail?: string | null;
 }
 
+interface YoutubeVideo {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  publishedAt: string;
+  privacyStatus: string;
+}
+
 const STATUS_MESSAGE: Record<string, string | React.ReactNode> = {
   not_configured: (
     <span>
@@ -38,16 +47,34 @@ export default function YoutubeUtilities() {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [recentUploads, setRecentUploads] = useState<YoutubeVideo[]>([]);
+  const [loadingUploads, setLoadingUploads] = useState(false);
 
   const checkStatus = async () => {
     setCheckingStatus(true);
     try {
       const data = await apiFetch('/youtube/status');
       setStatus(data);
+      if (data.connected) {
+        fetchRecentUploads();
+      }
     } catch (error) {
       setStatus({ connected: false, reason: 'invalid_credentials' });
     } finally {
       setCheckingStatus(false);
+    }
+  };
+
+  const fetchRecentUploads = async () => {
+    setLoadingUploads(true);
+    try {
+      const data = await apiFetch('/youtube/recent-uploads');
+      setRecentUploads(data);
+    } catch (error) {
+      console.error('Failed to fetch recent uploads', error);
+      message.error('Failed to fetch recent uploads');
+    } finally {
+      setLoadingUploads(false);
     }
   };
 
@@ -62,7 +89,7 @@ export default function YoutubeUtilities() {
       title: 'Thumbnail',
       dataIndex: 'thumbnail',
       key: 'thumbnail',
-      render: (url: string) => <img src={url} alt="thumbnail" style={{ width: 100, borderRadius: 4 }} />,
+      render: (url: string) => url ? <img src={url} alt="thumbnail" style={{ width: 100, borderRadius: 4 }} /> : <div style={{ width: 100, height: 75, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Image</div>,
     },
     {
       title: 'Title',
@@ -72,37 +99,35 @@ export default function YoutubeUtilities() {
     },
     {
       title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
+      dataIndex: 'privacyStatus',
+      key: 'privacyStatus',
       render: (status: string) => (
-        <Tag color={status === 'Public' ? 'green' : status === 'Unlisted' ? 'blue' : 'orange'}>
-          {status.toUpperCase()}
+        <Tag color={status === 'public' ? 'green' : status === 'unlisted' ? 'blue' : 'orange'}>
+          {(status || 'unknown').toUpperCase()}
         </Tag>
       ),
     },
     {
       title: 'Upload Date',
-      dataIndex: 'date',
-      key: 'date',
+      dataIndex: 'publishedAt',
+      key: 'publishedAt',
+      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
     },
     {
       title: 'Actions',
       key: 'action',
-      render: () => (
+      render: (_, record: YoutubeVideo) => (
         <Space size="middle">
-          <Button icon={<LinkOutlined />} size="small">View</Button>
+          <Button 
+            icon={<LinkOutlined />} 
+            size="small"
+            href={`https://www.youtube.com/watch?v=${record.id}`}
+            target="_blank"
+          >
+            View
+          </Button>
         </Space>
       ),
-    },
-  ];
-
-  const data = [
-    {
-      key: '1',
-      thumbnail: 'https://via.placeholder.com/120x90?text=Zoom+Rec',
-      title: '[Zoom] Weekly Sync - 2024-05-20',
-      status: 'Unlisted',
-      date: '2024-05-20 10:30',
     },
   ];
 
@@ -117,6 +142,7 @@ export default function YoutubeUtilities() {
         clearInterval(interval);
         setUploading(false);
         message.success('Video uploaded successfully!');
+        fetchRecentUploads(); // Refresh the list
       }
     }, 500);
   };
@@ -202,8 +228,17 @@ export default function YoutubeUtilities() {
         </Col>
 
         <Col span={24}>
-          <Card title="Recent Uploads">
-            <Table columns={columns} dataSource={data} />
+          <Card 
+            title="Recent Uploads" 
+            extra={<Button icon={<ReloadOutlined />} onClick={fetchRecentUploads} loading={loadingUploads} disabled={!isConnected} />}
+          >
+            <Table 
+              columns={columns} 
+              dataSource={recentUploads} 
+              rowKey="id" 
+              loading={loadingUploads}
+              locale={{ emptyText: isConnected ? 'No videos found' : 'Connect to YouTube to see recent uploads' }}
+            />
           </Card>
         </Col>
       </Row>

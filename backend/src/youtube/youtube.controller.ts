@@ -31,6 +31,12 @@ export class YoutubeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("recent-uploads")
+  async getRecentUploads(@CurrentUser() user: AuthenticatedUser) {
+    return this.youtubeService.getRecentUploads(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post("recordings/:id/refresh-status")
   async refreshRecordingStatus(
     @CurrentUser() user: AuthenticatedUser,

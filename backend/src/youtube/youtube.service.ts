@@ -528,4 +528,61 @@ export class YoutubeService {
       userId || log.userId,
     );
   }
+
+  async getRecentUploads(userId: string, limit = 10) {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+    });
+
+    const refreshToken =
+      config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+
+    if (!config?.isActive || !refreshToken) {
+      throw new UnauthorizedException("YouTube not connected");
+    }
+
+    try {
+      const oauth2Client = await this.getOAuthClient(userId);
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+
+      // First, get the channel's uploads playlist ID
+      const channelRes = await youtube.channels.list({
+        part: ["contentDetails"],
+        mine: true,
+      });
+
+      const uploadsPlaylistId =
+        channelRes.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+
+      if (!uploadsPlaylistId) {
+        return [];
+      }
+
+      // Then, get the videos from that playlist
+      const playlistItemsRes = await youtube.playlistItems.list({
+        part: ["snippet", "status", "contentDetails"],
+        playlistId: uploadsPlaylistId,
+        maxResults: limit,
+      });
+
+      return (playlistItemsRes.data.items || []).map((item) => ({
+        id: item.contentDetails?.videoId,
+        title: item.snippet?.title,
+        description: item.snippet?.description,
+        thumbnail:
+          item.snippet?.thumbnails?.medium?.url ||
+          item.snippet?.thumbnails?.default?.url,
+        publishedAt: item.snippet?.publishedAt,
+        privacyStatus: item.status?.privacyStatus,
+      }));
+    } catch (error) {
+      this.logger.error(
+        `Error fetching recent YouTube uploads for user ${userId}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
 }
