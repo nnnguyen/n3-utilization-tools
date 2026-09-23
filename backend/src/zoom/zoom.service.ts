@@ -293,6 +293,12 @@ export class ZoomService {
 
     const downloadUrl = bestVideoFile.download_url;
     const fileSize = bestVideoFile.file_size;
+    const recordingStart = Date.parse(bestVideoFile.recording_start);
+    const recordingEnd = Date.parse(bestVideoFile.recording_end);
+    const durationSeconds =
+      recordingStart && recordingEnd && recordingEnd > recordingStart
+        ? Math.round((recordingEnd - recordingStart) / 1000)
+        : null;
 
     try {
       this.logger.log(
@@ -324,6 +330,9 @@ export class ZoomService {
             nextRetryAt: null,
             recordingStartTime: startTime,
             privacyStatus: privacyStatus || "private",
+            attemptCount: { increment: 1 },
+            fileSize: fileSize ?? null,
+            durationSeconds,
             status: "Processing",
             syncStatus: "UPLOADING",
             progress: 0,
@@ -341,6 +350,9 @@ export class ZoomService {
             event,
             recordingStartTime: startTime,
             privacyStatus: privacyStatus || "private",
+            attemptCount: 1,
+            fileSize: fileSize ?? null,
+            durationSeconds,
             meeting: topic,
             status: "Processing",
             syncStatus: "UPLOADING",

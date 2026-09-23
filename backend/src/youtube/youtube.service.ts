@@ -96,10 +96,12 @@ export class YoutubeService {
   // retry for transient errors, otherwise notifies the user. Never throws.
   async handleSyncFailure(recordingId: string, error: any) {
     try {
-      const log = await this.prisma.zoomSyncLog.findUnique({
+      // Every failed attempt passes through here exactly once
+      const log = await this.prisma.zoomSyncLog.update({
         where: { recordingId },
+        data: { failureCount: { increment: 1 } },
       });
-      if (!log || log.userId === "system") return;
+      if (log.userId === "system") return;
 
       if (
         this.isTransientSyncError(error) &&

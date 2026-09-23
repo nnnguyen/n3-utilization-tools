@@ -135,6 +135,7 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
         where: { recordingId },
         data: {
           event: `Tự động retry lần ${log.autoRetryCount}/${MAX_AUTO_RETRIES}`,
+          attemptCount: { increment: 1 },
           syncError: error.message,
           errorMessage: error.message,
           errorSource: "upload",

@@ -6,6 +6,7 @@ import {
   Body,
   UseGuards,
   Param,
+  Query,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
@@ -20,6 +21,7 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { YoutubeService } from "./youtube.service";
+import { YoutubeStatsService } from "./youtube-stats.service";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import type { Response } from "express";
@@ -32,7 +34,10 @@ const MANUAL_UPLOAD_MAX_MB = parseInt(
 );
 @Controller("youtube")
 export class YoutubeController {
-  constructor(private readonly youtubeService: YoutubeService) {}
+  constructor(
+    private readonly youtubeService: YoutubeService,
+    private readonly youtubeStatsService: YoutubeStatsService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get("status")
@@ -44,6 +49,15 @@ export class YoutubeController {
   @Get("quota")
   getQuota(@CurrentUser() user: AuthenticatedUser) {
     return this.youtubeService.getQuotaStatus(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("stats")
+  getStats(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("months") months?: string,
+  ) {
+    return this.youtubeStatsService.getStats(user.id, months ? parseInt(months, 10) || 6 : 6);
   }
 
   @UseGuards(JwtAuthGuard)

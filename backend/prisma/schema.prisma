@@ -86,6 +86,10 @@ model ZoomSyncLog {
   privacyStatus           String? // Privacy chosen for the sync, reused by auto-retry
   autoRetryCount          Int        @default(0) // Automatic retries done since the last manual sync
   nextRetryAt             DateTime? // Set while an automatic retry is scheduled
+  attemptCount            Int        @default(0) // Total sync attempts (manual + automatic), for stats
+  failureCount            Int        @default(0) // Total failed attempts, for stats
+  fileSize                BigInt? // Bytes of the uploaded Zoom MP4
+  durationSeconds         Int? // Length of the uploaded Zoom MP4
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
