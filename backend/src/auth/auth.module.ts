@@ -5,12 +5,13 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { JwtStrategy } from "./strategies/jwt.strategy";
-import { MailService } from "../mail/mail.service";
+import { MailModule } from "../mail/mail.module";
 import { YoutubeModule } from "../youtube/youtube.module";
 
 @Module({
   imports: [
     PassportModule,
+    MailModule,
     YoutubeModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
@@ -21,6 +22,6 @@ import { YoutubeModule } from "../youtube/youtube.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy, MailService],
+  providers: [AuthService, GoogleStrategy, JwtStrategy],
 })
 export class AuthModule {}

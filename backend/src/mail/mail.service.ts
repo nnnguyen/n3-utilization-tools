@@ -1,6 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import * as nodemailer from "nodemailer";
 
+// Notification text includes user-controlled values (e.g. Zoom meeting topics)
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 @Injectable()
 export class MailService {
   private transporter;
@@ -36,6 +46,52 @@ export class MailService {
     } catch (error) {
       console.error("Error sending email:", error);
     }
+  }
+
+  // Email copy of an in-app notification (sync completed / failed)
+  async sendNotificationEmail(
+    email: string,
+    name: string | null,
+    notification: {
+      type: "sync_completed" | "sync_failed";
+      title: string;
+      message: string;
+      link?: string | null;
+    },
+  ) {
+    const isFailure = notification.type === "sync_failed";
+    const accent = isFailure ? "#d73224" : "#1677ff";
+    // Relative links point into the app; absolute ones (YouTube) stay as they are
+    const url = notification.link
+      ? notification.link.startsWith("http")
+        ? notification.link
+        : `${process.env.FRONTEND_URL}${notification.link}`
+      : null;
+    const settingsUrl = `${process.env.FRONTEND_URL}/zoom-utilities`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+        <div style="border-left: 4px solid ${accent}; padding: 4px 16px; margin-bottom: 16px;">
+          <h2 style="margin: 0; color: ${accent};">${escapeHtml(notification.title)}</h2>
+        </div>
+        <p>Xin chào ${escapeHtml(name || "bạn")},</p>
+        <p>${escapeHtml(notification.message)}</p>
+        ${
+          url
+            ? `<div style="text-align: center; margin: 24px 0;">
+                <a href="${escapeHtml(url)}" style="background-color: ${accent}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                  ${isFailure ? "Xem chi tiết" : "Xem video"}
+                </a>
+              </div>`
+            : ""
+        }
+        <div style="border-top: 1px solid #eee; padding-top: 16px; font-size: 12px; color: #888;">
+          Đây là email tự động từ N3 Utilization Tools. Bạn có thể tắt email thông báo trong mục Notifications (biểu tượng chuông) tại
+          <a href="${escapeHtml(settingsUrl)}" style="color: #888;">${escapeHtml(settingsUrl)}</a>.
+        </div>
+      </div>
+    `;
+    await this.sendMail(email, `[N3 Utils] ${notification.title}`, html);
   }
 
   async sendVerificationEmail(email: string, token: string) {

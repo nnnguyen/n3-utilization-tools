@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, Button, Dropdown, Empty, List, Typography, notification } from 'antd';
+import { Badge, Button, Dropdown, Empty, List, Switch, Typography, message, notification } from 'antd';
 import { BellOutlined, CheckCircleTwoTone, CloseCircleTwoTone } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
@@ -21,11 +21,18 @@ interface AppNotification {
   createdAt: string;
 }
 
+interface EmailPreferences {
+  notifyEmailOnCompleted: boolean;
+  notifyEmailOnFailed: boolean;
+  emailConfigured: boolean;
+}
+
 export default function NotificationBell() {
   const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [prefs, setPrefs] = useState<EmailPreferences | null>(null);
   // null until the first load, so existing notifications don't pop up as toasts
   const seenIds = useRef<Set<string> | null>(null);
 
@@ -56,6 +63,30 @@ export default function NotificationBell() {
     const timer = setInterval(load, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [load]);
+
+  // Preferences are only needed once the panel is opened
+  useEffect(() => {
+    if (!open || prefs) return;
+    apiFetch('/notifications/preferences', { silent: true })
+      .then(setPrefs)
+      .catch(() => undefined);
+  }, [open, prefs]);
+
+  const updatePref = async (key: 'notifyEmailOnCompleted' | 'notifyEmailOnFailed', value: boolean) => {
+    const previous = prefs;
+    setPrefs(p => (p ? { ...p, [key]: value } : p));
+    try {
+      const data = await apiFetch('/notifications/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({ [key]: value }),
+        silent: true,
+      });
+      setPrefs(data);
+    } catch {
+      setPrefs(previous);
+      message.error('Không lưu được cài đặt email');
+    }
+  };
 
   const openNotification = async (n: AppNotification) => {
     if (!n.read) {
@@ -113,6 +144,32 @@ export default function NotificationBell() {
               </List.Item>
             )}
           />
+        )}
+      </div>
+      <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 16px' }}>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Gửi thêm qua email</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ fontSize: 13 }}>Khi video sẵn sàng</Text>
+          <Switch
+            size="small"
+            loading={!prefs}
+            checked={prefs?.notifyEmailOnCompleted ?? false}
+            onChange={(v) => updatePref('notifyEmailOnCompleted', v)}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 13 }}>Khi sync thất bại</Text>
+          <Switch
+            size="small"
+            loading={!prefs}
+            checked={prefs?.notifyEmailOnFailed ?? false}
+            onChange={(v) => updatePref('notifyEmailOnFailed', v)}
+          />
+        </div>
+        {prefs && !prefs.emailConfigured && (
+          <Text type="warning" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+            Server chưa cấu hình SMTP (MAIL_USER / MAIL_PASS) nên email chưa được gửi.
+          </Text>
         )}
       </div>
     </div>

@@ -23,6 +23,10 @@ model User {
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
 
+  // Email copies of in-app notifications (sent only when MAIL_* is configured)
+  notifyEmailOnCompleted Boolean @default(true)
+  notifyEmailOnFailed    Boolean @default(true)
+
   createdAt     DateTime            @default(now())
   topics        Topic[]
   zoomConfig    ZoomConfig?
