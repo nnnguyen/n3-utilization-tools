@@ -1541,7 +1541,9 @@ export class YoutubeService {
     ]);
   }
 
-  async getChannelVideos(userId: string, forceRefresh = false) {
+  // cacheOnly: never call YouTube, just report whether the cache is stale
+  // (Analytics shows a "Refresh now" prompt instead of spending quota)
+  async getChannelVideos(userId: string, forceRefresh = false, cacheOnly = false) {
     const config = await this.prisma.youtubeConfig.findUnique({
       where: { userId },
       select: { channelVideosFetchedAt: true },
@@ -1552,7 +1554,7 @@ export class YoutubeService {
       Date.now() - lastFetchedAt.getTime() > CHANNEL_VIDEOS_CACHE_TTL_MS;
 
     let refreshError: string | null = null;
-    if (forceRefresh || stale) {
+    if (!cacheOnly && (forceRefresh || stale)) {
       try {
         let refresh = this.channelVideoRefreshes.get(userId);
         if (!refresh) {
@@ -1592,8 +1594,11 @@ export class YoutubeService {
     });
     const byVideo = new Map(syncLogs.map((l) => [l.youtubeVideoId, l]));
 
+    const fetchedAt = updated?.channelVideosFetchedAt ?? null;
     return {
-      lastFetchedAt: updated?.channelVideosFetchedAt ?? null,
+      lastFetchedAt: fetchedAt,
+      stale:
+        !fetchedAt || Date.now() - fetchedAt.getTime() > CHANNEL_VIDEOS_CACHE_TTL_MS,
       refreshError,
       videos: videos.map((v) => {
         const log = byVideo.get(v.videoId);

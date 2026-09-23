@@ -101,6 +101,7 @@ export default function YoutubeVideosPanel({ connected, checking }: { connected:
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
+      sorter: (a: ChannelVideo, b: ChannelVideo) => a.title.localeCompare(b.title),
       render: (title: string, record: ChannelVideo) => (
         <Space orientation="vertical" size={2}>
           <Text strong>{title}</Text>
@@ -133,12 +134,14 @@ export default function YoutubeVideosPanel({ connected, checking }: { connected:
       dataIndex: 'likeCount',
       key: 'likeCount',
       align: 'right' as const,
+      sorter: (a: ChannelVideo, b: ChannelVideo) => (a.likeCount ?? -1) - (b.likeCount ?? -1),
       render: (n: number | null) => formatCount(n, 'Số like đang bị ẩn'),
     },
     {
       title: 'Visibility',
       dataIndex: 'privacyStatus',
       key: 'privacyStatus',
+      sorter: (a: ChannelVideo, b: ChannelVideo) => (a.privacyStatus || '').localeCompare(b.privacyStatus || ''),
       render: (value: string | null) =>
         value ? <Tag color={PRIVACY_TAG[value]?.color}>{PRIVACY_TAG[value]?.label || value}</Tag> : <Text type="secondary">-</Text>,
     },
@@ -147,6 +150,7 @@ export default function YoutubeVideosPanel({ connected, checking }: { connected:
       dataIndex: 'durationSeconds',
       key: 'durationSeconds',
       align: 'right' as const,
+      sorter: (a: ChannelVideo, b: ChannelVideo) => (a.durationSeconds ?? -1) - (b.durationSeconds ?? -1),
       render: formatDuration,
     },
     {

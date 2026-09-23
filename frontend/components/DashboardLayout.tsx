@@ -15,6 +15,7 @@ import {
   AppstoreOutlined,
   DashboardOutlined,
   PlaySquareOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -65,6 +66,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               key: '/youtube/channel-content',
               icon: <PlaySquareOutlined />,
               label: <Link href="/youtube/channel-content">Channel Content</Link>,
+            },
+            {
+              key: '/youtube/analytics',
+              icon: <BarChartOutlined />,
+              label: <Link href="/youtube/analytics">Analytics</Link>,
             },
           ],
         },

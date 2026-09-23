@@ -1,23 +1,19 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Typography, Select, Segmented, Space, Spin, Alert, Button, Progress, Tooltip, message } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Typography, Select, Space, Alert, Button, Progress, Tooltip, message } from 'antd';
 import { ReloadOutlined, InfoCircleOutlined, UploadOutlined, LinkOutlined, EditOutlined } from '@ant-design/icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import DashboardLayout from '../../../components/DashboardLayout';
 import EditVideoModal from '../../../components/EditVideoModal';
 import UploadVideoModal from '../../../components/UploadVideoModal';
 import YoutubeTokenBanner from '../../../components/YoutubeTokenBanner';
 import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/YoutubeConnectionBadge';
 import Link from 'next/link';
+import MonthlyBarChart from '../../../components/MonthlyBarChart';
 import { apiFetch } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
-// Single series, so one hue (antd primary) and no legend: the card title names it
-const BAR_COLOR = '#1677ff';
-const GRID_COLOR = '#f0f0f0';
-const AXIS_TEXT_COLOR = 'rgba(0, 0, 0, 0.45)';
 // Same buffered cost the backend uses for one upload (1600 official + buffer)
 const UPLOAD_COST = 1650;
 
@@ -75,12 +71,6 @@ const formatDuration = (seconds: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-// "2026-09" -> "09/2026"
-const formatMonth = (month: string) => {
-  const [y, m] = month.split('-');
-  return `${m}/${y}`;
-};
-
 const getQuotaColor = (percent: number) => {
   if (percent < 70) return '#52c41a'; // xanh
   if (percent < 90) return '#faad14'; // vàng
@@ -95,16 +85,6 @@ const STATUS_TAG: Record<string, { color: string; label: string }> = {
   PENDING: { color: 'default', label: 'Pending' },
 };
 
-function MonthlyTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 6, padding: '8px 12px', boxShadow: '0 3px 6px rgba(0,0,0,0.08)' }}>
-      <div style={{ color: AXIS_TEXT_COLOR, fontSize: 12 }}>{formatMonth(label)}</div>
-      <div style={{ fontWeight: 600 }}>{payload[0].value} video</div>
-    </div>
-  );
-}
-
 export default function YoutubeDashboardPage() {
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
@@ -115,7 +95,6 @@ export default function YoutubeDashboardPage() {
   const [recentUploads, setRecentUploads] = useState<YoutubeVideo[]>([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
   const [months, setMonths] = useState(6);
-  const [view, setView] = useState<'chart' | 'table'>('chart');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
 
@@ -379,58 +358,17 @@ export default function YoutubeDashboardPage() {
 
         {/* d. Monthly chart */}
         <Col span={24}>
-          <Card
+          <MonthlyBarChart
             title="Video sync thành công theo tháng"
-            extra={
-              <Segmented
-                size="small"
-                value={view}
-                onChange={(v) => setView(v as 'chart' | 'table')}
-                options={[{ value: 'chart', label: 'Biểu đồ' }, { value: 'table', label: 'Bảng' }]}
-              />
+            valueLabel="Video sync thành công"
+            loading={statsLoading}
+            data={(stats?.monthly || []).map(m => ({ month: m.month, value: m.completed }))}
+            note={
+              <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
+                <InfoCircleOutlined /> Tính trên các lần sync Zoom → YouTube; video upload thủ công không được tính.
+              </Text>
             }
-          >
-            <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-              <InfoCircleOutlined /> Tính trên các lần sync Zoom → YouTube; video upload thủ công không được tính.
-            </Text>
-            <Spin spinning={statsLoading}>
-              {view === 'chart' ? (
-                <div style={{ width: '100%', height: 280 }}>
-                  <ResponsiveContainer>
-                    <BarChart data={stats?.monthly || []} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke={GRID_COLOR} />
-                      <XAxis
-                        dataKey="month"
-                        tickFormatter={formatMonth}
-                        tick={{ fill: AXIS_TEXT_COLOR, fontSize: 12 }}
-                        axisLine={{ stroke: GRID_COLOR }}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        allowDecimals={false}
-                        tick={{ fill: AXIS_TEXT_COLOR, fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <ChartTooltip content={<MonthlyTooltip />} cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }} />
-                      <Bar dataKey="completed" name="Video" fill={BAR_COLOR} radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <Table
-                  size="small"
-                  pagination={false}
-                  rowKey="month"
-                  dataSource={stats?.monthly || []}
-                  columns={[
-                    { title: 'Tháng', dataIndex: 'month', key: 'month', render: formatMonth },
-                    { title: 'Video sync thành công', dataIndex: 'completed', key: 'completed', align: 'right' as const },
-                  ]}
-                />
-              )}
-            </Spin>
-          </Card>
+          />
         </Col>
 
         {/* e. Failing recordings: hidden entirely when there are none */}

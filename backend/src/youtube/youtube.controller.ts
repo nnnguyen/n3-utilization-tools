@@ -107,8 +107,11 @@ export class YoutubeController {
   // Served from the DB cache; refreshed from YouTube only when older than an hour
   @UseGuards(JwtAuthGuard)
   @Get("channel/videos")
-  async getChannelVideos(@CurrentUser() user: AuthenticatedUser) {
-    return this.youtubeService.getChannelVideos(user.id);
+  async getChannelVideos(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("cacheOnly") cacheOnly?: string,
+  ) {
+    return this.youtubeService.getChannelVideos(user.id, false, cacheOnly === "true");
   }
 
   @UseGuards(JwtAuthGuard)
