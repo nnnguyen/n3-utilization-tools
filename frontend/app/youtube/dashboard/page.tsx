@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Typography, Select, Segmented, Space, Spin, Alert, Button, Badge, Progress, Tooltip, message } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Typography, Select, Segmented, Space, Spin, Alert, Button, Progress, Tooltip, message } from 'antd';
 import { ReloadOutlined, InfoCircleOutlined, UploadOutlined, LinkOutlined, EditOutlined } from '@ant-design/icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
-import Link from 'next/link';
-import DashboardLayout from '../../components/DashboardLayout';
-import EditVideoModal from '../../components/EditVideoModal';
-import UploadVideoModal from '../../components/UploadVideoModal';
-import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
+import DashboardLayout from '../../../components/DashboardLayout';
+import EditVideoModal from '../../../components/EditVideoModal';
+import UploadVideoModal from '../../../components/UploadVideoModal';
+import YoutubeTokenBanner from '../../../components/YoutubeTokenBanner';
+import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/YoutubeConnectionBadge';
 import { apiFetch } from '@/lib/api';
 
 const { Title, Text } = Typography;
@@ -19,12 +19,6 @@ const GRID_COLOR = '#f0f0f0';
 const AXIS_TEXT_COLOR = 'rgba(0, 0, 0, 0.45)';
 // Same buffered cost the backend uses for one upload (1600 official + buffer)
 const UPLOAD_COST = 1650;
-
-interface YoutubeStatus {
-  connected: boolean;
-  reason?: 'not_configured' | 'invalid_credentials' | 'token_expired';
-  channelTitle?: string;
-}
 
 interface YoutubeVideo {
   id: string;
@@ -110,23 +104,7 @@ function MonthlyTooltip({ active, payload, label }: any) {
   );
 }
 
-// Compact connection indicator; full details live in Integrations → YouTube
-function ConnectionBadge({ status, checking }: { status: YoutubeStatus | null; checking: boolean }) {
-  const badge = checking
-    ? <Badge status="processing" text="Đang kiểm tra kết nối..." />
-    : status?.connected
-      ? <Badge status="success" text={status.channelTitle || 'Connected'} />
-      : <Badge status="error" text="Chưa kết nối" />;
-  return (
-    <Tooltip title="Xem chi tiết kết nối trong Integrations">
-      <Link href="/integrations?tab=youtube">
-        <Tag style={{ cursor: 'pointer', padding: '2px 10px', fontSize: 13 }}>{badge}</Tag>
-      </Link>
-    </Tooltip>
-  );
-}
-
-export default function YoutubePage() {
+export default function YoutubeDashboardPage() {
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [quota, setQuota] = useState<YoutubeQuota | null>(null);
@@ -302,8 +280,8 @@ export default function YoutubePage() {
       {/* a. Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <Space size="middle" align="center" wrap>
-          <Title level={2} style={{ margin: 0 }}>YouTube</Title>
-          <ConnectionBadge status={status} checking={checkingStatus} />
+          <Title level={2} style={{ margin: 0 }}>YouTube Dashboard</Title>
+          <YoutubeConnectionBadge status={status} checking={checkingStatus} />
         </Space>
         <Tooltip title={uploadDisabledReason}>
           <Button

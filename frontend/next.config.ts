@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // YouTube Utilities and YouTube Dashboard were merged into /youtube
+  // YouTube pages now live under /youtube/dashboard and /youtube/playlist
   async redirects() {
     return [
-      { source: '/youtube-utilities', destination: '/youtube', permanent: true },
-      { source: '/youtube-utilities/dashboard', destination: '/youtube', permanent: true },
+      { source: '/youtube', destination: '/youtube/dashboard', permanent: true },
+      { source: '/youtube-utilities', destination: '/youtube/dashboard', permanent: true },
+      { source: '/youtube-utilities/dashboard', destination: '/youtube/dashboard', permanent: true },
     ];
   },
 };

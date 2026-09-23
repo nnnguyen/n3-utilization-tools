@@ -3,6 +3,8 @@ import {
   Logger,
   BadRequestException,
   UnauthorizedException,
+  NotFoundException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { google } from "googleapis";
 import { PrismaService } from "../prisma/prisma.service";
@@ -62,6 +64,8 @@ export class YoutubeService {
   private readonly UPLOAD_COST = 1650; // Buffer included (1600 official)
   private readonly LIST_COST = 5;
   private readonly PLAYLIST_INSERT_COST = 50;
+  // playlists.update/delete and playlistItems.delete: 50 units each (YouTube docs)
+  private readonly PLAYLIST_WRITE_COST = 50;
   private readonly VIDEO_UPDATE_COST = 50;
   private readonly THUMBNAIL_SET_COST = 50;
 
@@ -1034,15 +1038,32 @@ export class YoutubeService {
       const oauth2Client = await this.getOAuthClient(userId);
       oauth2Client.setCredentials({ refresh_token: refreshToken });
       const youtube = google.youtube({ version: "v3", auth: oauth2Client });
-      const res = await youtube.playlists.list({
-        part: ["snippet"],
-        mine: true,
-        maxResults: 50,
-      });
-      await this.trackQuotaUsage(userId, this.LIST_COST);
-      return (res.data.items || []).map((p) => ({
+      // Up to 4 pages (200 playlists); each page is one list call
+      const items: any[] = [];
+      let pageToken: string | undefined;
+      for (let page = 0; page < 4; page++) {
+        const res = await youtube.playlists.list({
+          part: ["snippet", "contentDetails", "status"],
+          mine: true,
+          maxResults: 50,
+          pageToken,
+        });
+        await this.trackQuotaUsage(userId, this.LIST_COST);
+        items.push(...(res.data.items || []));
+        pageToken = res.data.nextPageToken ?? undefined;
+        if (!pageToken) break;
+      }
+      return items.map((p) => ({
         id: p.id,
         title: p.snippet?.title,
+        description: p.snippet?.description ?? "",
+        itemCount: p.contentDetails?.itemCount ?? 0,
+        privacyStatus: p.status?.privacyStatus ?? null,
+        publishedAt: p.snippet?.publishedAt ?? null,
+        thumbnail:
+          p.snippet?.thumbnails?.medium?.url ||
+          p.snippet?.thumbnails?.default?.url ||
+          null,
       }));
     } catch (error) {
       void this.recordTokenError(userId, error);
@@ -1051,7 +1072,12 @@ export class YoutubeService {
     }
   }
 
-  async createPlaylist(userId: string, title: string, privacyStatus: "public" | "private" | "unlisted" = "private") {
+  async createPlaylist(
+    userId: string,
+    title: string,
+    privacyStatus: "public" | "private" | "unlisted" = "private",
+    description?: string,
+  ) {
     if (!title?.trim()) {
       throw new BadRequestException("Playlist title is required");
     }
@@ -1073,7 +1099,7 @@ export class YoutubeService {
       const res = await youtube.playlists.insert({
         part: ["snippet", "status"],
         requestBody: {
-          snippet: { title: title.trim() },
+          snippet: { title: title.trim(), description: description ?? "" },
           status: { privacyStatus },
         },
       });
@@ -1268,6 +1294,147 @@ export class YoutubeService {
         );
       }
       throw new BadRequestException(this.mapYoutubeError(error).errorMessage);
+    }
+  }
+
+  // Turns playlist API failures into messages the user can act on
+  private playlistError(error: any, fallback: string) {
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      return error;
+    }
+    const status = error.code ?? error.response?.status;
+    const reason = error.response?.data?.error?.errors?.[0]?.reason;
+    if (status === 404 || reason === "playlistNotFound" || reason === "playlistItemNotFound") {
+      return new NotFoundException(
+        "Playlist hoặc video không còn tồn tại (có thể đã bị xoá trong YouTube Studio). Hãy tải lại danh sách.",
+      );
+    }
+    if (status === 403 || reason === "playlistForbidden" || reason === "playlistItemsNotAccessible") {
+      return new ForbiddenException(
+        "Không có quyền thay đổi playlist này — playlist không thuộc kênh YouTube đang kết nối.",
+      );
+    }
+    const mapped = this.mapYoutubeError(error);
+    return new BadRequestException(`${fallback}: ${mapped.errorMessage}`);
+  }
+
+  async updatePlaylist(
+    userId: string,
+    playlistId: string,
+    update: {
+      title: string;
+      description?: string;
+      privacyStatus?: "public" | "private" | "unlisted";
+    },
+  ) {
+    try {
+      const youtube = await this.getYoutubeClient(userId);
+      // playlists.update replaces the whole snippet/status, so fields not
+      // being edited (e.g. defaultLanguage) are carried over from the current value
+      const current = await youtube.playlists.list({
+        part: ["snippet", "status"],
+        id: [playlistId],
+      });
+      await this.trackQuotaUsage(userId, this.LIST_COST);
+      const playlist = current.data.items?.[0];
+      if (!playlist) {
+        throw new NotFoundException(
+          "Playlist không còn tồn tại (có thể đã bị xoá trong YouTube Studio). Hãy tải lại danh sách.",
+        );
+      }
+
+      const res = await youtube.playlists.update({
+        part: ["snippet", "status"],
+        requestBody: {
+          id: playlistId,
+          snippet: {
+            title: update.title.trim(),
+            description: update.description ?? playlist.snippet?.description ?? "",
+            defaultLanguage: playlist.snippet?.defaultLanguage,
+          },
+          status: {
+            privacyStatus: update.privacyStatus || playlist.status?.privacyStatus || "private",
+          },
+        },
+      });
+      await this.trackQuotaUsage(userId, this.PLAYLIST_WRITE_COST);
+      return {
+        id: res.data.id,
+        title: res.data.snippet?.title,
+        description: res.data.snippet?.description ?? "",
+        privacyStatus: res.data.status?.privacyStatus ?? null,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      void this.recordTokenError(userId, error);
+      this.logger.error(`Error updating playlist ${playlistId} for user ${userId}`, error.stack);
+      throw this.playlistError(error, "Không cập nhật được playlist");
+    }
+  }
+
+  // Deletes only the playlist; the videos in it stay on the channel.
+  async deletePlaylist(userId: string, playlistId: string) {
+    try {
+      const youtube = await this.getYoutubeClient(userId);
+      await youtube.playlists.delete({ id: playlistId });
+      await this.trackQuotaUsage(userId, this.PLAYLIST_WRITE_COST);
+      return { success: true };
+    } catch (error) {
+      void this.recordTokenError(userId, error);
+      this.logger.error(`Error deleting playlist ${playlistId} for user ${userId}`, error.stack);
+      throw this.playlistError(error, "Không xoá được playlist");
+    }
+  }
+
+  async listPlaylistItems(userId: string, playlistId: string) {
+    try {
+      const youtube = await this.getYoutubeClient(userId);
+      // Up to 4 pages (200 videos); each page is one list call
+      const items: any[] = [];
+      let pageToken: string | undefined;
+      for (let page = 0; page < 4; page++) {
+        const res = await youtube.playlistItems.list({
+          part: ["snippet", "contentDetails", "status"],
+          playlistId,
+          maxResults: 50,
+          pageToken,
+        });
+        await this.trackQuotaUsage(userId, this.LIST_COST);
+        items.push(...(res.data.items || []));
+        pageToken = res.data.nextPageToken ?? undefined;
+        if (!pageToken) break;
+      }
+      return items.map((item) => ({
+        // Needed to remove the entry: playlistItems.delete takes this id, not the video id
+        playlistItemId: item.id,
+        videoId: item.contentDetails?.videoId ?? item.snippet?.resourceId?.videoId,
+        title: item.snippet?.title,
+        thumbnail:
+          item.snippet?.thumbnails?.medium?.url ||
+          item.snippet?.thumbnails?.default?.url ||
+          null,
+        position: item.snippet?.position ?? null,
+        privacyStatus: item.status?.privacyStatus ?? null,
+        videoPublishedAt: item.contentDetails?.videoPublishedAt ?? null,
+      }));
+    } catch (error) {
+      void this.recordTokenError(userId, error);
+      this.logger.error(`Error listing items of playlist ${playlistId} for user ${userId}`, error.stack);
+      throw this.playlistError(error, "Không tải được danh sách video của playlist");
+    }
+  }
+
+  // Removes one entry from a playlist; the video itself is not deleted.
+  async removePlaylistItem(userId: string, playlistItemId: string) {
+    try {
+      const youtube = await this.getYoutubeClient(userId);
+      await youtube.playlistItems.delete({ id: playlistItemId });
+      await this.trackQuotaUsage(userId, this.PLAYLIST_WRITE_COST);
+      return { success: true };
+    } catch (error) {
+      void this.recordTokenError(userId, error);
+      this.logger.error(`Error removing playlist item ${playlistItemId} for user ${userId}`, error.stack);
+      throw this.playlistError(error, "Không gỡ được video khỏi playlist");
     }
   }
 }

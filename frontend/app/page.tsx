@@ -94,7 +94,7 @@ export default function Home() {
                 styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
                 title={<Space><YoutubeOutlined style={{ color: '#ff0000' }} /> YouTube</Space>}
                 actions={[
-                  <Link href="/youtube" key="go">
+                  <Link href="/youtube/dashboard" key="go">
                     <Button type="primary" style={{ backgroundColor: 'transparent', color: '#ff0000', borderColor: '#ff0000' }} icon={<ArrowRightOutlined />}>Explore</Button>
                   </Link>
                 ]}

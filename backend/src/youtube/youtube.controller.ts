@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   UseGuards,
   Param,
@@ -27,6 +28,7 @@ import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import type { Response } from "express";
 import { UploadVideoDto } from "./upload-video.dto";
 import { UpdateVideoDto } from "./update-video.dto";
+import { CreatePlaylistDto, UpdatePlaylistDto } from "./playlist.dto";
 
 const MANUAL_UPLOAD_MAX_MB = parseInt(
   process.env.YOUTUBE_MANUAL_UPLOAD_MAX_MB || "2048",
@@ -112,17 +114,54 @@ export class YoutubeController {
   @Post("playlists")
   async createPlaylist(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() body: { title: string; privacyStatus?: "public" | "private" | "unlisted" },
+    @Body() body: CreatePlaylistDto,
   ) {
     return this.youtubeService.createPlaylist(
       user.id,
       body.title,
       body.privacyStatus,
+      body.description,
     );
   }
 
-  // Manual Video Uploader: the file is written to the OS temp dir, streamed to
-  // YouTube, then deleted whether or not the upload succeeded.
+  @UseGuards(JwtAuthGuard)
+  @Patch("playlists/:playlistId")
+  async updatePlaylist(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("playlistId") playlistId: string,
+    @Body() body: UpdatePlaylistDto,
+  ) {
+    return this.youtubeService.updatePlaylist(user.id, playlistId, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete("playlists/:playlistId")
+  async deletePlaylist(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("playlistId") playlistId: string,
+  ) {
+    return this.youtubeService.deletePlaylist(user.id, playlistId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("playlists/:playlistId/items")
+  async listPlaylistItems(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("playlistId") playlistId: string,
+  ) {
+    return this.youtubeService.listPlaylistItems(user.id, playlistId);
+  }
+
+  // Takes the playlist *item* id (one entry in the playlist), not the video id
+  @UseGuards(JwtAuthGuard)
+  @Delete("playlists/:playlistId/items/:playlistItemId")
+  async removePlaylistItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("playlistItemId") playlistItemId: string,
+  ) {
+    return this.youtubeService.removePlaylistItem(user.id, playlistItemId);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post("upload")
   @UseInterceptors(

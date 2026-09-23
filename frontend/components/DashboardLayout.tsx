@@ -13,6 +13,8 @@ import {
   UserOutlined,
   SettingOutlined,
   AppstoreOutlined,
+  DashboardOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -50,9 +52,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       label: 'Utilities',
       children: [
         {
-          key: '/youtube',
+          key: 'youtube',
           icon: <YoutubeOutlined />,
-          label: <Link href="/youtube">YouTube</Link>,
+          label: 'YouTube',
+          children: [
+            {
+              key: '/youtube/dashboard',
+              icon: <DashboardOutlined />,
+              label: <Link href="/youtube/dashboard">Dashboard</Link>,
+            },
+            {
+              key: '/youtube/playlist',
+              icon: <UnorderedListOutlined />,
+              label: <Link href="/youtube/playlist">Playlist</Link>,
+            },
+          ],
         },
         {
           key: '/zoom-utilities',
@@ -102,6 +116,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           theme="light"
           mode="inline"
           selectedKeys={[pathname]}
+          // Open the groups containing the current page so nested items are visible
+          defaultOpenKeys={
+            pathname.startsWith('/youtube')
+              ? ['utilities', 'youtube']
+              : ['/zoom-utilities', '/word-cloud'].some(p => pathname.startsWith(p))
+                ? ['utilities']
+                : []
+          }
           items={menuItems}
         />
       </Sider>
