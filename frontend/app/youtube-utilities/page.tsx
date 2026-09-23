@@ -191,7 +191,7 @@ export default function YoutubeUtilities() {
       
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space orientation="vertical" style={{ width: '100%' }} size="middle">
             <Card title="Connection Status" extra={<YoutubeOutlined style={{ color: '#ff0000', fontSize: 20 }} />}>
               <div style={{ textAlign: 'center', padding: '10px 0' }}>
                 {checkingStatus ? (

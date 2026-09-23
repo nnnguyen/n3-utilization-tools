@@ -274,7 +274,7 @@ export default function ZoomUtilities() {
         switch (status) {
           case 'UPLOADING':
             return (
-              <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={0} style={{ width: '100%' }}>
                 <Tag color="blue"><Spin size="small" style={{ marginRight: 8 }} />Uploading</Tag>
                 {log.progress > 0 && <Progress percent={log.progress} size="small" status="active" />}
               </Space>
@@ -415,7 +415,7 @@ export default function ZoomUtilities() {
         }
         
         return (
-          <Space direction="vertical" size={0} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={0} style={{ width: '100%' }}>
             <Tag color={color}>{displayStatus}</Tag>
             {(syncStatus === 'UPLOADING' || status === 'Processing') && record.progress > 0 && (
               <Progress percent={record.progress} size="small" status="active" />
