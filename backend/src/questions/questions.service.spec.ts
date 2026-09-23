@@ -16,6 +16,7 @@ describe("QuestionsService", () => {
   let prisma: {
     question: {
       findUnique: jest.Mock;
+      findFirst: jest.Mock;
       findMany: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
@@ -65,6 +66,8 @@ describe("QuestionsService", () => {
     prisma = {
       question: {
         findUnique: jest.fn(),
+        // No existing question by default: create() has nothing to copy from
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -128,6 +131,42 @@ describe("QuestionsService", () => {
       expect(prisma.question.create).toHaveBeenCalledWith({
         data: { topicId, order: 1, prompt: "" },
       });
+    });
+
+    it("copies settings from the topic's first question", async () => {
+      const firstQuestion = {
+        ...question,
+        responseLimit: 3,
+        backgroundColor: "#000000",
+        questionColor: "#FFFFFF",
+        logoUrl: "/uploads/logo.png",
+        resultVisibility: "ON_CLICK",
+      };
+      topicsService.findOneForUser.mockResolvedValue({ id: topicId, ownerId });
+      prisma.question.aggregate.mockResolvedValue({ _max: { order: 1 } });
+      prisma.question.findFirst.mockResolvedValue(firstQuestion);
+      prisma.question.create.mockResolvedValue({ ...question, order: 2 });
+
+      await service.create(topicId, ownerId, { prompt: "Câu 2" });
+
+      expect(prisma.question.findFirst).toHaveBeenCalledWith({
+        where: { topicId },
+        orderBy: { order: "asc" },
+      });
+      const { data } = prisma.question.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        topicId,
+        order: 2,
+        prompt: "Câu 2",
+        responseLimit: 3,
+        backgroundColor: "#000000",
+        questionColor: "#FFFFFF",
+        logoUrl: "/uploads/logo.png",
+        resultVisibility: "ON_CLICK",
+      });
+      // Per-question state is not copied
+      expect(data).not.toHaveProperty("status");
+      expect(data).not.toHaveProperty("resultsRevealed");
     });
   });
 
