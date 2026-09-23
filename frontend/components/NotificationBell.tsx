@@ -146,32 +146,28 @@ export default function NotificationBell() {
           />
         )}
       </div>
-      <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 16px' }}>
-        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Gửi thêm qua email</Text>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <Text style={{ fontSize: 13 }}>Khi video sẵn sàng</Text>
-          <Switch
-            size="small"
-            loading={!prefs}
-            checked={prefs?.notifyEmailOnCompleted ?? false}
-            onChange={(v) => updatePref('notifyEmailOnCompleted', v)}
-          />
+      {/* Email copies only exist when the server has SMTP configured */}
+      {prefs?.emailConfigured && (
+        <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 16px' }}>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Gửi thêm qua email</Text>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={{ fontSize: 13 }}>Khi video sẵn sàng</Text>
+            <Switch
+              size="small"
+              checked={prefs.notifyEmailOnCompleted}
+              onChange={(v) => updatePref('notifyEmailOnCompleted', v)}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 13 }}>Khi sync thất bại</Text>
+            <Switch
+              size="small"
+              checked={prefs.notifyEmailOnFailed}
+              onChange={(v) => updatePref('notifyEmailOnFailed', v)}
+            />
+          </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontSize: 13 }}>Khi sync thất bại</Text>
-          <Switch
-            size="small"
-            loading={!prefs}
-            checked={prefs?.notifyEmailOnFailed ?? false}
-            onChange={(v) => updatePref('notifyEmailOnFailed', v)}
-          />
-        </div>
-        {prefs && !prefs.emailConfigured && (
-          <Text type="warning" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
-            Server chưa cấu hình SMTP (MAIL_USER / MAIL_PASS) nên email chưa được gửi.
-          </Text>
-        )}
-      </div>
+      )}
     </div>
   );
 
