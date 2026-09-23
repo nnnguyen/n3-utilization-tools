@@ -84,8 +84,22 @@ export class YoutubeController {
 
   @UseGuards(JwtAuthGuard)
   @Get("recent-uploads")
-  async getRecentUploads(@CurrentUser() user: AuthenticatedUser) {
-    return this.youtubeService.getRecentUploads(user.id);
+  async getRecentUploads(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("months") months?: string,
+  ) {
+    const monthsBack = months ? parseInt(months, 10) : NaN;
+    if (!monthsBack || monthsBack < 1) {
+      return this.youtubeService.getRecentUploads(user.id);
+    }
+    // Same window as /youtube/stats: from the 1st of the oldest month shown
+    const now = new Date();
+    const since = new Date(
+      now.getFullYear(),
+      now.getMonth() - (Math.min(monthsBack, 24) - 1),
+      1,
+    );
+    return this.youtubeService.getRecentUploads(user.id, undefined, since);
   }
 
   @UseGuards(JwtAuthGuard)

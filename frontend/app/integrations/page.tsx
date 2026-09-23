@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert } from 'antd';
-import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined, GoogleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert, Avatar, Tag, Tooltip } from 'antd';
+import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined, GoogleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
@@ -15,6 +15,7 @@ function IntegrationsContent() {
   const [authorizing, setAuthorizing] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
   const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
+  const [checkingYoutube, setCheckingYoutube] = useState(false);
   const [zoomForm] = Form.useForm();
   const [youtubeForm] = Form.useForm();
   const searchParams = useSearchParams();
@@ -74,12 +75,16 @@ function IntegrationsContent() {
     }
   };
 
+  // Connection + channel status (channels.list): verify state, channel info
   const fetchYoutubeStatus = async () => {
+    setCheckingYoutube(true);
     try {
       const status = await apiFetch('/youtube/status');
       setYoutubeStatus(status);
     } catch (error) {
       console.error('Failed to fetch YouTube status', error);
+    } finally {
+      setCheckingYoutube(false);
     }
   };
 
@@ -174,14 +179,50 @@ function IntegrationsContent() {
         <Alert
           title={youtubeStatus.connected ? "YouTube Connected" : "YouTube Not Connected"}
           description={
-            youtubeStatus.connected 
-              ? `Connected to channel: ${youtubeStatus.channelTitle}`
-              : youtubeStatus.reason === 'not_configured' 
-                ? "Please provide Client ID and Client Secret, then Authorize YouTube."
+            youtubeStatus.connected ? (
+              <div>
+                <Space align="center" style={{ marginTop: 4 }}>
+                  {youtubeStatus.channelThumbnail && <Avatar size={32} src={youtubeStatus.channelThumbnail} />}
+                  <span>Connected to channel: <strong>{youtubeStatus.channelTitle}</strong></span>
+                </Space>
+                <div style={{ marginTop: 8 }}>
+                  {youtubeStatus.longUploadsStatus === 'allowed' ? (
+                    <Tag color="success">Verified — Video &gt;15m OK</Tag>
+                  ) : (
+                    <Tooltip title="Channel chưa verify số điện thoại sẽ bị giới hạn video dưới 15 phút.">
+                      <Tag color="warning" style={{ cursor: 'help' }}>Chưa verify — giới hạn video &lt; 15m</Tag>
+                    </Tooltip>
+                  )}
+                  <a href="https://www.youtube.com/verify" target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                    Xác minh tại đây
+                  </a>
+                </div>
+              </div>
+            ) : youtubeStatus.reason === 'not_configured'
+              ? "Please provide Client ID and Client Secret, then Authorize YouTube."
+              : youtubeStatus.reason === 'token_expired'
+                ? "Token xác thực YouTube đã hết hạn hoặc bị thu hồi. Bấm Re-authorize để kết nối lại."
                 : "Invalid or expired credentials. Please re-authorize."
           }
           type={youtubeStatus.connected ? "success" : "warning"}
           showIcon
+          action={
+            <Space orientation="vertical" align="end">
+              <Button size="small" icon={<ReloadOutlined />} onClick={fetchYoutubeStatus} loading={checkingYoutube}>
+                Recheck Status
+              </Button>
+              {youtubeStatus.reason !== 'not_configured' && (
+                <Button
+                  size="small"
+                  type={youtubeStatus.connected ? 'default' : 'primary'}
+                  icon={<GoogleOutlined />}
+                  onClick={onAuthorizeYoutube}
+                >
+                  Re-authorize
+                </Button>
+              )}
+            </Space>
+          }
           style={{ marginBottom: 16 }}
         />
       )}

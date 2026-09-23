@@ -935,7 +935,12 @@ export class YoutubeService {
     );
   }
 
-  async getRecentUploads(userId: string, limit = 10) {
+  // Without `since`: the `limit` newest videos. With `since`: every video
+  // published after that date (the uploads playlist is newest first), capped
+  // at MAX_PAGES pages so a large channel cannot burn quota.
+  async getRecentUploads(userId: string, limit = 10, since?: Date) {
+    const PAGE_SIZE = 50;
+    const MAX_PAGES = 4;
     const config = await this.prisma.youtubeConfig.findUnique({
       where: { userId },
     });
@@ -969,15 +974,35 @@ export class YoutubeService {
       }
 
       // Then, get the videos from that playlist
-      const playlistItemsRes = await youtube.playlistItems.list({
-        part: ["snippet", "status", "contentDetails"],
-        playlistId: uploadsPlaylistId,
-        maxResults: limit,
-      });
+      const items: any[] = [];
+      let pageToken: string | undefined;
+      for (let page = 0; page < (since ? MAX_PAGES : 1); page++) {
+        const playlistItemsRes = await youtube.playlistItems.list({
+          part: ["snippet", "status", "contentDetails"],
+          playlistId: uploadsPlaylistId,
+          maxResults: since ? PAGE_SIZE : limit,
+          pageToken,
+        });
+        await this.trackQuotaUsage(userId, this.LIST_COST);
 
-      await this.trackQuotaUsage(userId, this.LIST_COST);
+        const pageItems = playlistItemsRes.data.items || [];
+        items.push(...pageItems);
+        pageToken = playlistItemsRes.data.nextPageToken ?? undefined;
+        const oldest = pageItems[pageItems.length - 1]?.snippet?.publishedAt;
+        if (!since || !pageToken || (oldest && new Date(oldest) < since)) {
+          break;
+        }
+      }
 
-      return (playlistItemsRes.data.items || []).map((item) => ({
+      const inRange = since
+        ? items.filter(
+            (item) =>
+              item.snippet?.publishedAt &&
+              new Date(item.snippet.publishedAt) >= since,
+          )
+        : items;
+
+      return inRange.map((item) => ({
         id: item.contentDetails?.videoId,
         title: item.snippet?.title,
         description: item.snippet?.description,

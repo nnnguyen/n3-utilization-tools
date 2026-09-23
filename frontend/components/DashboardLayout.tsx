@@ -13,7 +13,6 @@ import {
   UserOutlined,
   SettingOutlined,
   AppstoreOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -51,14 +50,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       label: 'Utilities',
       children: [
         {
-          key: '/youtube-utilities',
+          key: '/youtube',
           icon: <YoutubeOutlined />,
-          label: <Link href="/youtube-utilities">YouTube</Link>,
-        },
-        {
-          key: '/youtube-utilities/dashboard',
-          icon: <BarChartOutlined />,
-          label: <Link href="/youtube-utilities/dashboard">YouTube Dashboard</Link>,
+          label: <Link href="/youtube">YouTube</Link>,
         },
         {
           key: '/zoom-utilities',
