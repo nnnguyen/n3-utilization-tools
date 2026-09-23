@@ -15,6 +15,12 @@ export class YoutubeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("quota")
+  getQuota(@CurrentUser() user: AuthenticatedUser) {
+    return this.youtubeService.getQuotaStatus(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get("auth-url")
   async getAuthUrl(@CurrentUser() user: AuthenticatedUser) {
     const url = await this.youtubeService.getAuthUrl(user.id);

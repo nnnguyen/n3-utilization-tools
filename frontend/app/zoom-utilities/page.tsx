@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, Listy, Badge, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip } from 'antd';
+import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, List, Badge, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip } from 'antd';
 import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
@@ -46,6 +46,8 @@ export default function ZoomUtilities() {
 
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
+  const [quota, setQuota] = useState<any>(null);
+  const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
 
   // Polling for processing logs and sync status
   useEffect(() => {
@@ -151,10 +153,30 @@ export default function ZoomUtilities() {
     }
   };
 
+  const fetchQuota = async () => {
+    try {
+      const data = await apiFetch('/youtube/quota');
+      setQuota(data);
+    } catch (error) {
+      console.error('Failed to fetch quota', error);
+    }
+  };
+
+  const fetchYoutubeStatus = async () => {
+    try {
+      const data = await apiFetch('/youtube/status');
+      setYoutubeStatus(data);
+    } catch (error) {
+      console.error('Failed to fetch YouTube status', error);
+    }
+  };
+
   const fetchAllData = async (token?: string) => {
     await Promise.all([
       fetchRecordings(token),
-      fetchLogs()
+      fetchLogs(),
+      fetchQuota(),
+      fetchYoutubeStatus()
     ]);
   };
 
@@ -167,6 +189,10 @@ export default function ZoomUtilities() {
   }, [dateFilter, customDateRange]);
 
   const handleManualSync = async (record: any, privacyStatus: string = 'private') => {
+    if (quota && quota.unitsRemaining < 1650) {
+      message.error('Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai');
+      return;
+    }
     const recordingId = record.uuid || record.id;
     setSyncingIds(prev => new Set(prev).add(recordingId));
     try {
@@ -553,53 +579,55 @@ export default function ZoomUtilities() {
           <Text strong>Recording: </Text> <Text>{historyRecording?.topic}</Text>
         </div>
         <Spin spinning={historyLoading}>
-          <Listy
-            items={historyLogs}
+          <List
+            dataSource={historyLogs}
             rowKey={(log: any) => log.id}
-            itemRender={(log: any) => (
-              <div style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ marginBottom: 8 }}>
-                  <Space>
-                    <Text>{dayjs(log.createdAt).format('YYYY-MM-DD HH:mm:ss')}</Text>
-                    <Tag color={log.syncStatus === 'COMPLETED' ? 'success' : log.syncStatus === 'FAILED' ? 'error' : 'processing'}>
-                      {log.syncStatus === 'COMPLETED' ? 'Success' : log.syncStatus === 'FAILED' ? 'Failed' : log.syncStatus}
-                    </Tag>
-                  </Space>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {log.syncStatus === 'FAILED' && (
-                    <>
-                      <Text type="danger" strong>{log.syncError}</Text>
-                      {log.errorSource === 'youtube_processing' && (
-                        <Text type="secondary" italic>Error occurred after uploading to YouTube</Text>
-                      )}
-                    </>
-                  )}
-                  
-                  {log.syncStatus === 'COMPLETED' && log.youtubeVideoId && (
-                    <Button 
-                      type="link" 
-                      size="small" 
-                      style={{ padding: 0, textAlign: 'left', width: 'fit-content' }}
-                      href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`} 
-                      target="_blank"
-                    >
-                      View on YouTube
-                    </Button>
-                  )}
+            renderItem={(log: any) => (
+              <List.Item>
+                <div style={{ width: '100%' }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <Space>
+                      <Text>{dayjs(log.createdAt).format('YYYY-MM-DD HH:mm:ss')}</Text>
+                      <Tag color={log.syncStatus === 'COMPLETED' ? 'success' : log.syncStatus === 'FAILED' ? 'error' : 'processing'}>
+                        {log.syncStatus === 'COMPLETED' ? 'Success' : log.syncStatus === 'FAILED' ? 'Failed' : log.syncStatus}
+                      </Tag>
+                    </Space>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {log.syncStatus === 'FAILED' && (
+                      <>
+                        <Text type="danger" strong>{log.syncError}</Text>
+                        {log.errorSource === 'youtube_processing' && (
+                          <Text type="secondary" italic>Error occurred after uploading to YouTube</Text>
+                        )}
+                      </>
+                    )}
+                    
+                    {log.syncStatus === 'COMPLETED' && log.youtubeVideoId && (
+                      <Button 
+                        type="link" 
+                        size="small" 
+                        style={{ padding: 0, textAlign: 'left', width: 'fit-content' }}
+                        href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`} 
+                        target="_blank"
+                      >
+                        View on YouTube
+                      </Button>
+                    )}
 
-                  {(log.errorCode || log.errorMessage) && (
-                    <details style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
-                      <summary style={{ cursor: 'pointer', color: '#1890ff' }}>Technical Details</summary>
-                      <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', marginTop: 4 }}>
-                        {log.errorCode && <div><Text strong>Error Code:</Text> {log.errorCode}</div>}
-                        {log.errorMessage && <div><Text strong>Error Message:</Text> {log.errorMessage}</div>}
-                        {log.errorSource && <div><Text strong>Source:</Text> {log.errorSource}</div>}
-                      </div>
-                    </details>
-                  )}
+                    {(log.errorCode || log.errorMessage) && (
+                      <details style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                        <summary style={{ cursor: 'pointer', color: '#1890ff' }}>Technical Details</summary>
+                        <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', marginTop: 4 }}>
+                          {log.errorCode && <div><Text strong>Error Code:</Text> {log.errorCode}</div>}
+                          {log.errorMessage && <div><Text strong>Error Message:</Text> {log.errorMessage}</div>}
+                          {log.errorSource && <div><Text strong>Source:</Text> {log.errorSource}</div>}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </List.Item>
             )}
           />
         </Spin>
@@ -614,8 +642,35 @@ export default function ZoomUtilities() {
         }}
         onCancel={() => setSyncModalVisible(false)}
         okText="Start Sync"
+        okButtonProps={{ disabled: quota && quota.unitsRemaining < 1650 }}
       >
         <p>You are about to sync <strong>{syncingRecord?.topic}</strong> to YouTube.</p>
+        
+        {syncingRecord && youtubeStatus?.longUploadsStatus !== 'allowed' && syncingRecord.duration > 15 && (
+          <Alert
+            title="Video quá dài (> 15 phút)"
+            description={
+              <span>
+                Channel YouTube của bạn chưa verify nên giới hạn video dưới 15 phút. 
+                Sync video này có thể bị YouTube từ chối. 
+                Hãy <a href="https://www.youtube.com/verify" target="_blank" rel="noreferrer">xác minh channel tại đây</a> trước.
+              </span>
+            }
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {quota && quota.unitsRemaining < 1650 && (
+          <Alert
+            title="Hết Quota"
+            description="Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai."
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
         <Form layout="vertical">
           <Form.Item label="Select Privacy Status">
             <Select 

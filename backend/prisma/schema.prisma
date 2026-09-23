@@ -23,10 +23,11 @@ model User {
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
 
-  createdAt     DateTime       @default(now())
+  createdAt     DateTime            @default(now())
   topics        Topic[]
   zoomConfig    ZoomConfig?
   youtubeConfig YoutubeConfig?
+  youtubeQuotas YoutubeQuotaUsage[]
   zoomSyncLogs  ZoomSyncLog[]
 }
 
@@ -78,6 +79,7 @@ model ZoomSyncLog {
   errorCode               String? // Original error code from API
   errorMessage            String? // Original error message
   downloadUrl             String?
+  playlistId              String? // Group 1: Playlist management
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
@@ -170,6 +172,17 @@ model Question {
 
   @@unique([topicId, order])
   @@index([topicId])
+}
+
+model YoutubeQuotaUsage {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        String // Format: YYYY-MM-DD
+  unitsUsed   Int      @default(0)
+  lastUpdated DateTime @updatedAt
+
+  @@unique([userId, date])
 }
 
 model Response {

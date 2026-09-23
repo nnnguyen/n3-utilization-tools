@@ -14,13 +14,64 @@ export interface YoutubeConnectionStatus {
   channelId?: string;
   channelTitle?: string;
   channelThumbnail?: string | null;
+  longUploadsStatus?: "allowed" | "disallowed" | "eligible" | "unknown";
 }
 
 @Injectable()
 export class YoutubeService {
   private readonly logger = new Logger(YoutubeService.name);
+  private readonly QUOTA_LIMIT = parseInt(process.env.YOUTUBE_QUOTA_LIMIT || "10000", 10);
+  private readonly UPLOAD_COST = 1650; // Buffer included (1600 official)
+  private readonly LIST_COST = 5;
+  private readonly PLAYLIST_INSERT_COST = 50;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private getPacificDate(): string {
+    // Google resets quota at midnight Pacific Time
+    const now = new Date();
+    const pacificDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now);
+    return pacificDate;
+  }
+
+  private async trackQuotaUsage(userId: string, units: number) {
+    if (!userId || userId === "system") return;
+
+    const date = this.getPacificDate();
+    try {
+      await this.prisma.youtubeQuotaUsage.upsert({
+        where: { userId_date: { userId, date } },
+        update: { unitsUsed: { increment: units } },
+        create: { userId, date, unitsUsed: units },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to track quota usage for user ${userId}: ${error.message}`);
+    }
+  }
+
+  async getQuotaStatus(userId: string) {
+    const date = this.getPacificDate();
+    const usage = await this.prisma.youtubeQuotaUsage.findUnique({
+      where: { userId_date: { userId, date } },
+    });
+
+    const unitsUsed = usage?.unitsUsed || 0;
+    const unitsRemaining = Math.max(0, this.QUOTA_LIMIT - unitsUsed);
+    const estimatedUploadsRemaining = Math.floor(unitsRemaining / this.UPLOAD_COST);
+
+    return {
+      unitsUsed,
+      unitsRemaining,
+      quotaLimit: this.QUOTA_LIMIT,
+      estimatedUploadsRemaining,
+      date,
+    };
+  }
 
   private async getOAuthClient(userId?: string) {
     let clientId = process.env.YOUTUBE_CLIENT_ID;
@@ -107,9 +158,11 @@ export class YoutubeService {
 
       const youtube = google.youtube({ version: "v3", auth: oauth2Client });
       const res = await youtube.channels.list({
-        part: ["snippet"],
+        part: ["snippet", "status"],
         mine: true,
       });
+
+      await this.trackQuotaUsage(userId, this.LIST_COST);
 
       const channel = res.data.items?.[0];
       if (!channel) {
@@ -121,6 +174,7 @@ export class YoutubeService {
         channelId: channel.id ?? undefined,
         channelTitle: channel.snippet?.title ?? undefined,
         channelThumbnail: channel.snippet?.thumbnails?.default?.url ?? null,
+        longUploadsStatus: (channel.status?.longUploadsStatus as any) || "unknown",
       };
     } catch (error) {
       this.logger.warn(
@@ -230,6 +284,8 @@ export class YoutubeService {
           },
         },
       );
+
+      await this.trackQuotaUsage(userId, this.UPLOAD_COST);
 
       this.logger.log(`Video uploaded successfully: ${res.data.id}`);
 
@@ -413,6 +469,10 @@ export class YoutubeService {
         id: [videoId],
       });
 
+      if (config.userId) {
+        await this.trackQuotaUsage(config.userId, this.LIST_COST);
+      }
+
       const video = res.data.items?.[0];
       if (!video) {
         throw new Error("Video not found on YouTube");
@@ -553,6 +613,8 @@ export class YoutubeService {
         mine: true,
       });
 
+      await this.trackQuotaUsage(userId, this.LIST_COST);
+
       const uploadsPlaylistId =
         channelRes.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
 
@@ -566,6 +628,8 @@ export class YoutubeService {
         playlistId: uploadsPlaylistId,
         maxResults: limit,
       });
+
+      await this.trackQuotaUsage(userId, this.LIST_COST);
 
       return (playlistItemsRes.data.items || []).map((item) => ({
         id: item.contentDetails?.videoId,
