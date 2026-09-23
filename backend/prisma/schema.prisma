@@ -34,6 +34,7 @@ model User {
   youtubeQuotas YoutubeQuotaUsage[]
   zoomSyncLogs  ZoomSyncLog[]
   notifications Notification[]
+  channelVideos ChannelVideoCache[]
 }
 
 model ZoomConfig {
@@ -61,6 +62,8 @@ model YoutubeConfig {
   tokenObtainedAt    DateTime? // When the current refresh token was issued (OAuth callback)
   lastTokenRefreshAt DateTime? // Last time the refresh token was successfully exchanged for an access token
   tokenInvalidAt     DateTime? // Set when Google rejected the refresh token (invalid_grant); cleared on re-authorize
+
+  channelVideosFetchedAt DateTime? // Last successful refresh of ChannelVideoCache (null = never fetched)
 }
 
 enum SyncStatus {
@@ -205,6 +208,27 @@ model Notification {
   createdAt   DateTime @default(now())
 
   @@index([userId, read])
+}
+
+// Snapshot of every video on the connected channel (Channel Content → Videos),
+// refreshed on demand or when older than an hour so page views cost no quota
+model ChannelVideoCache {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId         String
+  title           String
+  thumbnail       String?
+  privacyStatus   String?
+  durationSeconds Int?
+  viewCount       Int?
+  likeCount       Int? // null when the owner hid likes
+  commentCount    Int? // null when comments are disabled
+  publishedAt     DateTime?
+  fetchedAt       DateTime  @default(now())
+
+  @@unique([userId, videoId])
+  @@index([userId])
 }
 
 model YoutubeQuotaUsage {

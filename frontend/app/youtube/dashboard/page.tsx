@@ -9,6 +9,7 @@ import EditVideoModal from '../../../components/EditVideoModal';
 import UploadVideoModal from '../../../components/UploadVideoModal';
 import YoutubeTokenBanner from '../../../components/YoutubeTokenBanner';
 import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/YoutubeConnectionBadge';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 
 const { Title, Text } = Typography;
@@ -435,7 +436,10 @@ export default function YoutubeDashboardPage() {
         {/* e. Failing recordings: hidden entirely when there are none */}
         {hasFailingRecordings && (
           <Col span={24}>
-            <Card title="Recording hay lỗi nhất">
+            <Card
+              title="Recording hay lỗi nhất"
+              extra={<Link href="/youtube/channel-content?tab=zoom-sync">Xem tại Zoom Sync</Link>}
+            >
               <Table
                 size="small"
                 rowKey="recordingId"

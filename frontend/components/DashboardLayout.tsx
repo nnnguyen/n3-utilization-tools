@@ -14,7 +14,7 @@ import {
   SettingOutlined,
   AppstoreOutlined,
   DashboardOutlined,
-  UnorderedListOutlined,
+  PlaySquareOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -62,9 +62,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               label: <Link href="/youtube/dashboard">Dashboard</Link>,
             },
             {
-              key: '/youtube/playlist',
-              icon: <UnorderedListOutlined />,
-              label: <Link href="/youtube/playlist">Playlist</Link>,
+              key: '/youtube/channel-content',
+              icon: <PlaySquareOutlined />,
+              label: <Link href="/youtube/channel-content">Channel Content</Link>,
             },
           ],
         },
@@ -108,7 +108,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} theme="light">
+      {/* 240px: "Channel Content" sits three menu levels deep and is cut off at the default 200px */}
+      <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={240}>
         <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(0, 0, 0, 0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
           {collapsed ? 'N3' : 'N3 Utils'}
         </div>

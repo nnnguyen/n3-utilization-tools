@@ -1,14 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Typography, Space, Button, Modal, Form, Input, Select, Popconfirm, Alert, Empty, Spin, message } from 'antd';
+import { Table, Tag, Typography, Space, Button, Modal, Form, Input, Select, Popconfirm, Alert, Empty, Spin, message } from 'antd';
 import { PlusOutlined, LinkOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, UnorderedListOutlined, MinusCircleOutlined } from '@ant-design/icons';
-import DashboardLayout from '../../../components/DashboardLayout';
-import YoutubeTokenBanner from '../../../components/YoutubeTokenBanner';
-import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/YoutubeConnectionBadge';
 import { apiFetch } from '@/lib/api';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface Playlist {
   id: string;
@@ -38,9 +35,8 @@ const PRIVACY_TAG: Record<string, { color: string; label: string }> = {
 const PrivacyTag = ({ value }: { value: string | null }) =>
   value ? <Tag color={PRIVACY_TAG[value]?.color}>{PRIVACY_TAG[value]?.label || value}</Tag> : <Text type="secondary">-</Text>;
 
-export default function YoutubePlaylistPage() {
-  const [status, setStatus] = useState<YoutubeStatus | null>(null);
-  const [checkingStatus, setCheckingStatus] = useState(true);
+// Channel Content → Playlists: list, create/edit/delete, and the videos in each playlist
+export default function YoutubePlaylistsPanel({ connected, checking }: { connected: boolean; checking: boolean }) {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -58,7 +54,7 @@ export default function YoutubePlaylistPage() {
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const isConnected = status?.connected ?? false;
+  const isConnected = connected;
 
   const fetchPlaylists = async () => {
     setLoading(true);
@@ -74,19 +70,8 @@ export default function YoutubePlaylistPage() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        const data = await apiFetch('/youtube/status');
-        setStatus(data);
-        if (data.connected) fetchPlaylists();
-      } catch {
-        setStatus({ connected: false, reason: 'invalid_credentials' });
-      } finally {
-        setCheckingStatus(false);
-      }
-    };
-    init();
-  }, []);
+    if (connected) fetchPlaylists();
+  }, [connected]);
 
   const openCreate = () => {
     setEditing(null);
@@ -284,12 +269,8 @@ export default function YoutubePlaylistPage() {
   ];
 
   return (
-    <DashboardLayout>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <Space size="middle" align="center" wrap>
-          <Title level={2} style={{ margin: 0 }}>YouTube Playlist</Title>
-          <YoutubeConnectionBadge status={status} checking={checkingStatus} />
-        </Space>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchPlaylists} loading={loading} disabled={!isConnected}>
             Refresh
@@ -300,19 +281,15 @@ export default function YoutubePlaylistPage() {
         </Space>
       </div>
 
-      <YoutubeTokenBanner />
-
       {loadError && <Alert type="error" title={loadError} showIcon style={{ marginBottom: 16 }} />}
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={playlists}
-          rowKey="id"
-          loading={loading || checkingStatus}
-          locale={{ emptyText: isConnected ? 'Kênh chưa có playlist nào' : 'Kết nối YouTube để xem danh sách playlist' }}
-        />
-      </Card>
+      <Table
+        columns={columns}
+        dataSource={playlists}
+        rowKey="id"
+        loading={loading || checking}
+        locale={{ emptyText: isConnected ? 'Kênh chưa có playlist nào' : 'Kết nối YouTube để xem danh sách playlist' }}
+      />
 
       <Modal
         title={editing ? 'Edit Playlist' : 'Create Playlist'}
@@ -372,6 +349,6 @@ export default function YoutubePlaylistPage() {
           </Spin>
         )}
       </Modal>
-    </DashboardLayout>
+    </>
   );
 }

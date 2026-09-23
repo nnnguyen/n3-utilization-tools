@@ -104,6 +104,19 @@ export class YoutubeController {
     return this.youtubeService.getRecentUploads(user.id, undefined, since);
   }
 
+  // Served from the DB cache; refreshed from YouTube only when older than an hour
+  @UseGuards(JwtAuthGuard)
+  @Get("channel/videos")
+  async getChannelVideos(@CurrentUser() user: AuthenticatedUser) {
+    return this.youtubeService.getChannelVideos(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("channel/videos/refresh")
+  async refreshChannelVideos(@CurrentUser() user: AuthenticatedUser) {
+    return this.youtubeService.getChannelVideos(user.id, true);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("playlists")
   async listPlaylists(@CurrentUser() user: AuthenticatedUser) {

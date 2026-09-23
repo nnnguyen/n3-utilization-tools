@@ -46,6 +46,10 @@ const PERMANENT_ERROR_CODES = new Set([
 // in "Testing" mode. The API cannot tell us the mode, so it is configured:
 // set YOUTUBE_OAUTH_TESTING_MODE=false once the app is published.
 const TESTING_TOKEN_LIFETIME_DAYS = 7;
+// Channel Content → Videos: serve the DB cache until it is this old
+const CHANNEL_VIDEOS_CACHE_TTL_MS = 60 * 60_000;
+// Upper bound per refresh (20 pages of 50) so a huge channel cannot drain quota
+const CHANNEL_VIDEOS_MAX_PAGES = 20;
 const DAY_MS = 24 * 60 * 60_000;
 
 export interface YoutubeConnectionStatus {
@@ -66,6 +70,8 @@ export class YoutubeService {
   private readonly PLAYLIST_INSERT_COST = 50;
   // playlists.update/delete and playlistItems.delete: 50 units each (YouTube docs)
   private readonly PLAYLIST_WRITE_COST = 50;
+  // One in-flight channel-videos refresh per user, shared by concurrent requests
+  private readonly channelVideoRefreshes = new Map<string, Promise<void>>();
   private readonly VIDEO_UPDATE_COST = 50;
   private readonly THUMBNAIL_SET_COST = 50;
 
@@ -159,7 +165,7 @@ export class YoutubeService {
       type: "sync_failed",
       title: "Sync thất bại",
       message: `Sync "${meeting}" thất bại: ${reason}${retried}`,
-      link: "/zoom-utilities",
+      link: "/youtube/channel-content?tab=zoom-sync",
       recordingId,
     });
   }
@@ -1245,6 +1251,10 @@ export class YoutubeService {
         },
       });
       await this.trackQuotaUsage(userId, this.VIDEO_UPDATE_COST);
+      await this.updateChannelVideoCache(userId, videoId, {
+        title: res.data.snippet?.title ?? undefined,
+        privacyStatus: res.data.status?.privacyStatus ?? undefined,
+      });
 
       return {
         id: res.data.id,
@@ -1277,6 +1287,10 @@ export class YoutubeService {
       });
       await this.trackQuotaUsage(userId, this.THUMBNAIL_SET_COST);
       const thumbnails = res.data.items?.[0];
+      const newThumbnail = thumbnails?.medium?.url || thumbnails?.default?.url;
+      if (newThumbnail) {
+        await this.updateChannelVideoCache(userId, videoId, { thumbnail: newThumbnail });
+      }
       return {
         thumbnail:
           thumbnails?.medium?.url || thumbnails?.default?.url || null,
@@ -1435,6 +1449,185 @@ export class YoutubeService {
       void this.recordTokenError(userId, error);
       this.logger.error(`Error removing playlist item ${playlistItemId} for user ${userId}`, error.stack);
       throw this.playlistError(error, "Không gỡ được video khỏi playlist");
+    }
+  }
+
+  // "PT1H2M3S" / "P1DT2H" -> seconds
+  private parseIsoDuration(value?: string | null): number | null {
+    const m = value?.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+    if (!m) return null;
+    const [, d, h, min, sec] = m.map((v) => (v ? parseInt(v, 10) : 0));
+    return d * 86400 + h * 3600 + min * 60 + sec;
+  }
+
+  private toCount(value?: string | null): number | null {
+    if (value == null) return null;
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Every video on the channel, read from the channel's "uploads" playlist
+  // (1 unit per 50 videos) instead of search.list (100 units per 50, and
+  // it can miss private or recently uploaded videos), then enriched with
+  // videos.list (1 unit per batch of 50 ids).
+  private async refreshChannelVideos(userId: string) {
+    const youtube = await this.getYoutubeClient(userId);
+    const channelRes = await youtube.channels.list({
+      part: ["contentDetails"],
+      mine: true,
+    });
+    await this.trackQuotaUsage(userId, this.LIST_COST);
+    const uploadsPlaylistId =
+      channelRes.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+
+    const videoIds: string[] = [];
+    if (uploadsPlaylistId) {
+      let pageToken: string | undefined;
+      for (let page = 0; page < CHANNEL_VIDEOS_MAX_PAGES; page++) {
+        const res = await youtube.playlistItems.list({
+          part: ["contentDetails"],
+          playlistId: uploadsPlaylistId,
+          maxResults: 50,
+          pageToken,
+        });
+        await this.trackQuotaUsage(userId, this.LIST_COST);
+        for (const item of res.data.items || []) {
+          if (item.contentDetails?.videoId) videoIds.push(item.contentDetails.videoId);
+        }
+        pageToken = res.data.nextPageToken ?? undefined;
+        if (!pageToken) break;
+      }
+    }
+
+    const rows: any[] = [];
+    for (let i = 0; i < videoIds.length; i += 50) {
+      const res = await youtube.videos.list({
+        part: ["snippet", "statistics", "status", "contentDetails"],
+        id: videoIds.slice(i, i + 50),
+        maxResults: 50,
+      });
+      await this.trackQuotaUsage(userId, this.LIST_COST);
+      for (const v of res.data.items || []) {
+        if (!v.id) continue;
+        rows.push({
+          userId,
+          videoId: v.id,
+          title: v.snippet?.title ?? "",
+          thumbnail:
+            v.snippet?.thumbnails?.medium?.url ||
+            v.snippet?.thumbnails?.default?.url ||
+            null,
+          privacyStatus: v.status?.privacyStatus ?? null,
+          durationSeconds: this.parseIsoDuration(v.contentDetails?.duration),
+          viewCount: this.toCount(v.statistics?.viewCount),
+          likeCount: this.toCount(v.statistics?.likeCount),
+          commentCount: this.toCount(v.statistics?.commentCount),
+          publishedAt: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : null,
+        });
+      }
+    }
+
+    // Replace the snapshot so videos deleted on YouTube disappear too
+    const fetchedAt = new Date();
+    await this.prisma.$transaction([
+      this.prisma.channelVideoCache.deleteMany({ where: { userId } }),
+      this.prisma.channelVideoCache.createMany({
+        data: rows.map((r) => ({ ...r, fetchedAt })),
+      }),
+      this.prisma.youtubeConfig.update({
+        where: { userId },
+        data: { channelVideosFetchedAt: fetchedAt },
+      }),
+    ]);
+  }
+
+  async getChannelVideos(userId: string, forceRefresh = false) {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+      select: { channelVideosFetchedAt: true },
+    });
+    const lastFetchedAt = config?.channelVideosFetchedAt ?? null;
+    const stale =
+      !lastFetchedAt ||
+      Date.now() - lastFetchedAt.getTime() > CHANNEL_VIDEOS_CACHE_TTL_MS;
+
+    let refreshError: string | null = null;
+    if (forceRefresh || stale) {
+      try {
+        let refresh = this.channelVideoRefreshes.get(userId);
+        if (!refresh) {
+          refresh = this.refreshChannelVideos(userId).finally(() =>
+            this.channelVideoRefreshes.delete(userId),
+          );
+          this.channelVideoRefreshes.set(userId, refresh);
+        }
+        await refresh;
+      } catch (error) {
+        void this.recordTokenError(userId, error);
+        this.logger.error(`Error refreshing channel videos for user ${userId}`, error.stack);
+        if (error instanceof UnauthorizedException) throw error;
+        // With a cache, keep serving it and report the failure; without one there is nothing to show
+        refreshError = this.mapYoutubeError(error).errorMessage;
+        if (!lastFetchedAt) {
+          throw new BadRequestException(`Không tải được danh sách video: ${refreshError}`);
+        }
+      }
+    }
+
+    const [videos, updated] = await Promise.all([
+      this.prisma.channelVideoCache.findMany({
+        where: { userId },
+        orderBy: { publishedAt: "desc" },
+      }),
+      this.prisma.youtubeConfig.findUnique({
+        where: { userId },
+        select: { channelVideosFetchedAt: true },
+      }),
+    ]);
+
+    // Soft link to Zoom sync: which videos came from a synced recording
+    const syncLogs = await this.prisma.zoomSyncLog.findMany({
+      where: { userId, youtubeVideoId: { in: videos.map((v) => v.videoId) } },
+      select: { youtubeVideoId: true, recordingId: true, meeting: true },
+    });
+    const byVideo = new Map(syncLogs.map((l) => [l.youtubeVideoId, l]));
+
+    return {
+      lastFetchedAt: updated?.channelVideosFetchedAt ?? null,
+      refreshError,
+      videos: videos.map((v) => {
+        const log = byVideo.get(v.videoId);
+        return {
+          videoId: v.videoId,
+          title: v.title,
+          thumbnail: v.thumbnail,
+          privacyStatus: v.privacyStatus,
+          durationSeconds: v.durationSeconds,
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          commentCount: v.commentCount,
+          publishedAt: v.publishedAt,
+          zoomSync: log
+            ? { recordingId: log.recordingId, meeting: log.meeting }
+            : null,
+        };
+      }),
+    };
+  }
+
+  // Keeps the cached row in step after an edit from the UI; never throws
+  private async updateChannelVideoCache(
+    userId: string,
+    videoId: string,
+    data: { title?: string; privacyStatus?: string; thumbnail?: string },
+  ) {
+    try {
+      await this.prisma.channelVideoCache.updateMany({
+        where: { userId, videoId },
+        data,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to update channel video cache for ${videoId}: ${error.message}`);
     }
   }
 }
