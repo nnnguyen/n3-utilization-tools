@@ -151,11 +151,17 @@ export default function ZoomUtilities() {
     }
   };
 
+  const fetchAllData = async (token?: string) => {
+    await Promise.all([
+      fetchRecordings(token),
+      fetchLogs()
+    ]);
+  };
+
   useEffect(() => {
     const init = async () => {
       await fetchConfigs();
-      await fetchRecordings();
-      await fetchLogs();
+      await fetchAllData();
     };
     init();
   }, [dateFilter, customDateRange]);
@@ -174,8 +180,8 @@ export default function ZoomUtilities() {
         })
       });
       message.success(`Sync started for: ${record.topic} (${privacyStatus})`);
-      // Immediately fetch logs to show "Processing" state
-      await fetchLogs();
+      // Immediately fetch logs and recordings to show "Processing" state
+      await fetchAllData();
     } catch (error: any) {
       console.error('Manual sync failed:', error);
       message.error(error.message || `Failed to sync: ${record.topic}`);
@@ -505,7 +511,7 @@ export default function ZoomUtilities() {
                     onChange={(dates) => setCustomDateRange(dates as any)}
                   />
                 )}
-                <Button icon={<ReloadOutlined />} onClick={() => fetchRecordings()} loading={loading}>Refresh</Button>
+                <Button icon={<ReloadOutlined />} onClick={() => fetchAllData()} loading={loading || logsLoading}>Refresh</Button>
               </Space>
             }
           >
