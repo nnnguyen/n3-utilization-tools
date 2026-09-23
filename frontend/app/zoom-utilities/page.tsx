@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, List, Badge, message, Spin, Divider, DatePicker, Modal, Descriptions } from 'antd';
+import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, Listy, Badge, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip } from 'antd';
 import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
@@ -13,7 +13,7 @@ const { RangePicker } = DatePicker;
 export default function ZoomUtilities() {
   const [autoUpload, setAutoUpload] = useState(true);
   const [recordings, setRecordings] = useState([]);
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [configsLoading, setConfigsLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function ZoomUtilities() {
   // Pagination & Filters
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecordings, setTotalRecordings] = useState(0);
-  const [dateFilter, setDateFilter] = useState<string>('7');
+  const [dateFilter, setDateFilter] = useState<string>('30');
   const [customDateRange, setCustomDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [nextPageToken, setNextPageToken] = useState<string>('');
 
@@ -30,10 +30,64 @@ export default function ZoomUtilities() {
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
 
+  // History Modal
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRecording, setHistoryRecording] = useState<any>(null);
+
   // Most Recent Recording (from Webhook)
   const [mostRecentRecording, setMostRecentRecording] = useState<any>(null);
 
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
+
+  // Polling for processing logs and sync status
+  useEffect(() => {
+    const activePolling = logs.some((log: any) => 
+      log.syncStatus === 'UPLOADING' || 
+      log.syncStatus === 'PROCESSING'
+    );
+    
+    if (activePolling) {
+      const interval = setInterval(() => {
+        fetchLogs();
+        // Also refresh status for specific recordings
+        logs.forEach((log: any) => {
+          if (log.syncStatus === 'PROCESSING') {
+            refreshStatus(log.recordingId);
+          }
+        });
+      }, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [logs]);
+
+  const fetchHistory = async (record: any) => {
+    const recordingId = record.uuid || record.id;
+    setHistoryRecording(record);
+    setHistoryVisible(true);
+    setHistoryLoading(true);
+    try {
+      const response = await apiFetch(`/zoom/logs?recordingId=${recordingId}`);
+      setHistoryLogs(response);
+    } catch (error: any) {
+      message.error('Failed to load sync history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const refreshStatus = async (recordingId: string) => {
+    try {
+      await apiFetch(`/youtube/recordings/${recordingId}/refresh-status`, {
+        method: 'POST'
+      });
+      // fetchLogs will be called by the interval or manually
+    } catch (error) {
+      console.error('Failed to refresh status:', error);
+    }
+  };
 
   const fetchConfigs = async () => {
     setConfigsLoading(true);
@@ -113,9 +167,9 @@ export default function ZoomUtilities() {
           startTime: record.start_time
         })
       });
-      message.success(`Sync started for: ${record.topic}. It will appear in logs once finished.`);
-      // Optionally refresh logs after a delay
-      setTimeout(fetchLogs, 5000);
+      message.success(`Sync started for: ${record.topic}`);
+      // Immediately fetch logs to show "Processing" state
+      await fetchLogs();
     } catch (error: any) {
       console.error('Manual sync failed:', error);
       message.error(error.message || `Failed to sync: ${record.topic}`);
@@ -169,30 +223,115 @@ export default function ZoomUtilities() {
       },
     },
     {
+      title: 'Status',
+      key: 'syncStatus',
+      render: (record: any) => {
+        const recordingId = record.uuid || record.id;
+        const log = logs.find((l: any) => l.recordingId === recordingId);
+        
+        if (!log) return <Tag color="default">Not synced</Tag>;
+
+        const status = log.syncStatus || 'PENDING';
+        
+        switch (status) {
+          case 'UPLOADING':
+            return (
+              <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                <Tag color="blue"><Spin size="small" style={{ marginRight: 8 }} />Uploading</Tag>
+                {log.progress > 0 && <Progress percent={log.progress} size="small" status="active" />}
+              </Space>
+            );
+          case 'PROCESSING':
+            const duration = log.syncStartedAt ? Math.floor((new Date().getTime() - new Date(log.syncStartedAt).getTime()) / 60000) : 0;
+            return <Tag color="warning">Processing {duration > 0 ? `(${duration}m)` : ''}</Tag>;
+          case 'COMPLETED':
+            return <Tag color="success">Ready</Tag>;
+          case 'FAILED':
+            return (
+              <Tooltip title={log.syncError || 'Unknown error'}>
+                <Tag color="error" style={{ cursor: 'pointer' }}>Failed</Tag>
+              </Tooltip>
+            );
+          case 'PENDING':
+          default:
+            return <Tag color="default">Not synced</Tag>;
+        }
+      }
+    },
+    {
+      title: 'YouTube',
+      key: 'youtube',
+      render: (record: any) => {
+        const recordingId = record.uuid || record.id;
+        const log = logs.find((l: any) => l.recordingId === recordingId);
+        
+        if (log && log.syncStatus === 'COMPLETED' && log.youtubeVideoId) {
+          return (
+            <Button 
+              type="link" 
+              size="small" 
+              href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`} 
+              target="_blank"
+              icon={<YoutubeOutlined />}
+            >
+              Watch on YouTube
+            </Button>
+          );
+        }
+        return '—';
+      }
+    },
+    {
       title: 'Action',
       key: 'action',
-      render: (record: any) => (
-        <Space>
-          <Button 
-            type="primary" 
-            size="small"
-            onClick={() => {
-              setSelectedRecording(record);
-              setDetailsVisible(true);
-            }}
-          >
-            See details
-          </Button>
-          <Button 
-            icon={<YoutubeOutlined />} 
-            size="small"
-            onClick={() => handleManualSync(record)}
-            loading={syncingIds.has(record.uuid || record.id)}
-          >
-            Sync
-          </Button>
-        </Space>
-      ),
+      render: (record: any) => {
+        const recordingId = record.uuid || record.id;
+        const log = logs.find((l: any) => l.recordingId === recordingId);
+        
+        const isSyncing = syncingIds.has(recordingId) || (log && (log.syncStatus === 'UPLOADING' || log.syncStatus === 'PROCESSING'));
+        const isCompleted = log && log.syncStatus === 'COMPLETED';
+        const isFailed = log && log.syncStatus === 'FAILED';
+        const hasHistory = log && log.syncStatus !== 'PENDING';
+
+        return (
+          <Space>
+            <Button 
+              type="default" 
+              size="small"
+              onClick={() => {
+                setSelectedRecording(record);
+                setDetailsVisible(true);
+              }}
+            >
+              Details
+            </Button>
+            
+            {!isCompleted && (
+              <Button 
+                icon={<YoutubeOutlined />} 
+                size="small"
+                onClick={() => handleManualSync(record)}
+                loading={syncingIds.has(recordingId)}
+                disabled={isSyncing && !isFailed}
+                danger={isFailed}
+                type={isFailed ? 'primary' : 'default'}
+              >
+                {isFailed ? 'Re-sync' : isSyncing ? 'Processing...' : 'Sync'}
+              </Button>
+            )}
+
+            {hasHistory && (
+              <Tooltip title="View sync logs">
+                <Button 
+                  icon={<HistoryOutlined />} 
+                  size="small"
+                  onClick={() => fetchHistory(record)}
+                />
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -209,6 +348,44 @@ export default function ZoomUtilities() {
       key: 'meeting',
     },
     {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string, record: any) => {
+        const syncStatus = record.syncStatus || 'PENDING';
+        let color = 'default';
+        let displayStatus = status;
+
+        if (syncStatus === 'COMPLETED') {
+          color = 'success';
+          displayStatus = 'Ready';
+        } else if (syncStatus === 'FAILED') {
+          color = 'error';
+          displayStatus = 'Failed';
+        } else if (syncStatus === 'UPLOADING' || syncStatus === 'PROCESSING') {
+          color = 'processing';
+          if (syncStatus === 'UPLOADING') {
+            displayStatus = 'Uploading';
+          } else {
+            const duration = record.syncStartedAt ? Math.floor((new Date().getTime() - new Date(record.syncStartedAt).getTime()) / 60000) : 0;
+            displayStatus = `Processing ${duration > 0 ? `(${duration}m)` : ''}`;
+          }
+        }
+        
+        return (
+          <Space direction="vertical" size={0} style={{ width: '100%' }}>
+            <Tag color={color}>{displayStatus}</Tag>
+            {(syncStatus === 'UPLOADING' || status === 'Processing') && record.progress > 0 && (
+              <Progress percent={record.progress} size="small" status="active" />
+            )}
+            {syncStatus === 'FAILED' && record.syncError && (
+              <Text type="danger" style={{ fontSize: '12px' }}>{record.syncError}</Text>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
       title: 'YouTube Link',
       dataIndex: 'youtubeId',
       key: 'youtubeId',
@@ -222,7 +399,7 @@ export default function ZoomUtilities() {
 
   return (
     <DashboardLayout>
-      <Title level={2}>Zoom Utilities</Title>
+      <Title level={2}>Zoom Recordings Management</Title>
 
       {!configs.zoom?.isActive && !configsLoading && (
         <Alert
@@ -306,12 +483,10 @@ export default function ZoomUtilities() {
 
         <Col span={24}>
           <Card 
-            title={<Space><VideoCameraOutlined /><span>Cloud Recordings</span></Space>}
+            title={<Space><VideoCameraOutlined /><span>Zoom Recordings</span></Space>}
             extra={
               <Space>
                 <Select value={dateFilter} onChange={setDateFilter} style={{ width: 150 }}>
-                  <Select.Option value="7">Last 7 days</Select.Option>
-                  <Select.Option value="14">Last 14 days</Select.Option>
                   <Select.Option value="30">Last 30 days</Select.Option>
                   <Select.Option value="custom">Custom Range</Select.Option>
                 </Select>
@@ -336,10 +511,6 @@ export default function ZoomUtilities() {
                 total: totalRecordings,
                 onChange: (page) => {
                   setCurrentPage(page);
-                  // Zoom API uses tokens, but for simplicity we'll just refetch
-                  // or we'd need to handle token sequence. 
-                  // If we don't have total_records from Zoom easily, 
-                  // we might just do "Next Page" button.
                   fetchRecordings(nextPageToken);
                 }
               }}
@@ -351,16 +522,72 @@ export default function ZoomUtilities() {
           )}
           </Card>
         </Col>
-
-        <Col span={24}>
-          <Card 
-            title={<Space><HistoryOutlined /><span>Recording Sync Logs</span></Space>}
-            extra={<Button icon={<ReloadOutlined />} onClick={fetchLogs} loading={logsLoading}>Refresh</Button>}
-          >
-            <Table columns={columns} dataSource={logs} rowKey="id" loading={logsLoading} />
-          </Card>
-        </Col>
       </Row>
+
+      <Modal
+        title="Sync History"
+        open={historyVisible}
+        onCancel={() => setHistoryVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setHistoryVisible(false)}>Close</Button>
+        ]}
+        width={700}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Recording: </Text> <Text>{historyRecording?.topic}</Text>
+        </div>
+        <Spin spinning={historyLoading}>
+          <Listy
+            items={historyLogs}
+            rowKey={(log: any) => log.id}
+            itemRender={(log: any) => (
+              <div style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ marginBottom: 8 }}>
+                  <Space>
+                    <Text>{dayjs(log.createdAt).format('YYYY-MM-DD HH:mm:ss')}</Text>
+                    <Tag color={log.syncStatus === 'COMPLETED' ? 'success' : log.syncStatus === 'FAILED' ? 'error' : 'processing'}>
+                      {log.syncStatus === 'COMPLETED' ? 'Success' : log.syncStatus === 'FAILED' ? 'Failed' : log.syncStatus}
+                    </Tag>
+                  </Space>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {log.syncStatus === 'FAILED' && (
+                    <>
+                      <Text type="danger" strong>{log.syncError}</Text>
+                      {log.errorSource === 'youtube_processing' && (
+                        <Text type="secondary" italic>Error occurred after uploading to YouTube</Text>
+                      )}
+                    </>
+                  )}
+                  
+                  {log.syncStatus === 'COMPLETED' && log.youtubeVideoId && (
+                    <Button 
+                      type="link" 
+                      size="small" 
+                      style={{ padding: 0, textAlign: 'left', width: 'fit-content' }}
+                      href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`} 
+                      target="_blank"
+                    >
+                      View on YouTube
+                    </Button>
+                  )}
+
+                  {(log.errorCode || log.errorMessage) && (
+                    <details style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                      <summary style={{ cursor: 'pointer', color: '#1890ff' }}>Technical Details</summary>
+                      <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', marginTop: 4 }}>
+                        {log.errorCode && <div><Text strong>Error Code:</Text> {log.errorCode}</div>}
+                        {log.errorMessage && <div><Text strong>Error Message:</Text> {log.errorMessage}</div>}
+                        {log.errorSource && <div><Text strong>Source:</Text> {log.errorSource}</div>}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+          />
+        </Spin>
+      </Modal>
 
       <Modal
         title={selectedRecording?.topic}

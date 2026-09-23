@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { UpdateZoomConfigDto, UpdateYoutubeConfigDto } from './dto/update-config.dto';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import {
+  UpdateZoomConfigDto,
+  UpdateYoutubeConfigDto,
+} from "./dto/update-config.dto";
 
 @Injectable()
 export class IntegrationsService {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Query, Res } from "@nestjs/common";
+import { Controller, Get, Post, Body, UseGuards, Param } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { YoutubeService } from "./youtube.service";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -22,6 +22,24 @@ export class YoutubeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("recordings/:id/status")
+  async getRecordingStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+  ) {
+    return this.youtubeService.getRecordingStatusFromDb(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("recordings/:id/refresh-status")
+  async refreshRecordingStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+  ) {
+    return this.youtubeService.refreshRecordingStatus(id, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post("callback")
   handleCallback(
     @CurrentUser() user: AuthenticatedUser,
@@ -29,5 +47,4 @@ export class YoutubeController {
   ) {
     return this.youtubeService.handleCallback(user.id, body.code);
   }
-
 }

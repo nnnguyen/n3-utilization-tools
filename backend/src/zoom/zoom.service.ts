@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { YoutubeService } from "../youtube/youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -57,8 +62,15 @@ export class ZoomService {
     const clientId = config?.clientId || process.env.ZOOM_CLIENT_ID;
     const clientSecret = config?.clientSecret || process.env.ZOOM_CLIENT_SECRET;
 
-    if (!accountId || !clientId || !clientSecret || clientSecret === "REPLACE_WITH_REAL_SECRET") {
-      throw new BadRequestException("Zoom API credentials are not fully configured");
+    if (
+      !accountId ||
+      !clientId ||
+      !clientSecret ||
+      clientSecret === "REPLACE_WITH_REAL_SECRET"
+    ) {
+      throw new BadRequestException(
+        "Zoom API credentials are not fully configured",
+      );
     }
 
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
@@ -78,9 +90,11 @@ export class ZoomService {
 
       const token = response.data.access_token;
       if (!token) {
-        throw new UnauthorizedException("Failed to obtain access token from Zoom");
+        throw new UnauthorizedException(
+          "Failed to obtain access token from Zoom",
+        );
       }
-      
+
       this.accessTokens.set(userId, {
         token,
         expiresAt: now + (response.data.expires_in - 60) * 1000,
@@ -139,29 +153,6 @@ export class ZoomService {
 
       const data = response.data;
 
-      // Filter: only show recordings not yet synced to Youtube
-      // We check our ZoomSyncLog for successful syncs
-      const syncedRecordings = await this.prisma.zoomSyncLog.findMany({
-        where: {
-          userId,
-          status: "Success",
-          recordingId: { not: null },
-        },
-        select: { recordingId: true },
-      });
-
-      const syncedIds = new Set(
-        syncedRecordings.map((log) => log.recordingId as string),
-      );
-
-      if (data.meetings) {
-        data.meetings = data.meetings.filter(
-          (meeting) =>
-            !syncedIds.has(meeting.uuid) &&
-            !syncedIds.has(meeting.id.toString()),
-        );
-      }
-
       return data;
     } catch (error) {
       this.logger.error(
@@ -174,12 +165,11 @@ export class ZoomService {
     }
   }
 
-  async getSyncLogs(userId: string) {
+  async getSyncLogs(userId: string, recordingId?: string) {
     return this.prisma.zoomSyncLog.findMany({
       where: {
         userId,
-        status: "Success",
-        youtubeId: { not: null },
+        ...(recordingId ? { recordingId } : {}),
       },
       orderBy: { createdAt: "desc" },
     });
@@ -209,11 +199,14 @@ export class ZoomService {
   ) {
     const token = await this.getAccessToken(userId);
     try {
-      const encodedRecordingId = recordingId.includes("/") || recordingId.includes("//") 
-        ? encodeURIComponent(encodeURIComponent(recordingId))
-        : recordingId;
+      const encodedRecordingId =
+        recordingId.includes("/") || recordingId.includes("//")
+          ? encodeURIComponent(encodeURIComponent(recordingId))
+          : recordingId;
 
-      this.logger.log(`Fetching recording details for sync: ${recordingId} (encoded: ${encodedRecordingId})`);
+      this.logger.log(
+        `Fetching recording details for sync: ${recordingId} (encoded: ${encodedRecordingId})`,
+      );
       const response = await firstValueFrom(
         this.httpService.get(
           `https://api.zoom.us/v2/meetings/${encodedRecordingId}/recordings`,
@@ -261,26 +254,76 @@ export class ZoomService {
     const videoFile = recordingFiles.find(
       (file) =>
         file.file_type === "MP4" &&
-        (file.recording_type === "shared_screen_with_speaker_view" || 
-         file.recording_type === "host_video" || // Fallback if requested type not found
-         true) // Or just the first MP4 if we want to be generous
+        (file.recording_type === "shared_screen_with_speaker_view" ||
+          file.recording_type === "host_video" || // Fallback if requested type not found
+          true), // Or just the first MP4 if we want to be generous
     );
 
     // Filter strictly if possible, but let's be more robust
-    const bestVideoFile = recordingFiles.find(f => f.file_type === "MP4" && f.recording_type === "shared_screen_with_speaker_view") 
-      || recordingFiles.find(f => f.file_type === "MP4");
+    const bestVideoFile =
+      recordingFiles.find(
+        (f) =>
+          f.file_type === "MP4" &&
+          f.recording_type === "shared_screen_with_speaker_view",
+      ) || recordingFiles.find((f) => f.file_type === "MP4");
 
     if (!bestVideoFile) {
       this.logger.warn(
-        `No suitable MP4 file found in Zoom recording ${recordingId}. Available files: ${JSON.stringify(recordingFiles.map(f => ({ type: f.file_type, rec_type: f.recording_type })))}`,
+        `No suitable MP4 file found in Zoom recording ${recordingId}. Available files: ${JSON.stringify(recordingFiles.map((f) => ({ type: f.file_type, rec_type: f.recording_type })))}`,
       );
-      throw new BadRequestException("No suitable MP4 file found in this recording.");
+      throw new BadRequestException(
+        "No suitable MP4 file found in this recording.",
+      );
     }
 
     const downloadUrl = bestVideoFile.download_url;
+    const fileSize = bestVideoFile.file_size;
 
     try {
-      this.logger.log(`Processing Zoom recording sync for ${topic} (${recordingId})`);
+      this.logger.log(
+        `Processing Zoom recording sync for ${topic} (${recordingId})`,
+      );
+
+      // Reset or create log entry for this sync attempt
+      // We only create a NEW log if the previous one was SUCCESS or FAILED
+      const existingLog = await this.prisma.zoomSyncLog.findUnique({
+        where: { recordingId },
+      });
+
+      const shouldCreateNew =
+        !existingLog ||
+        existingLog.syncStatus === "COMPLETED" ||
+        existingLog.syncStatus === "FAILED";
+
+      if (userId !== "system") {
+        await this.prisma.zoomSyncLog.upsert({
+          where: { recordingId },
+          update: {
+            status: "Processing",
+            syncStatus: "UPLOADING",
+            progress: 0,
+            downloadUrl,
+            syncStartedAt: new Date(),
+            syncCompletedAt: null,
+            syncError: null,
+            errorSource: null,
+            errorCode: null,
+            errorMessage: null,
+            youtubeProcessingStatus: null,
+          },
+          create: {
+            userId,
+            event: "Manual Sync" + (downloadToken ? " (Webhook)" : ""),
+            meeting: topic,
+            status: "Processing",
+            syncStatus: "UPLOADING",
+            progress: 0,
+            downloadUrl,
+            recordingId,
+            syncStartedAt: new Date(),
+          },
+        });
+      }
 
       // Upload to YouTube by streaming directly from Zoom
       const youtubeResult = await this.uploadToYoutubeDirectly(
@@ -289,50 +332,35 @@ export class ZoomService {
         topic,
         startTime,
         userId,
+        recordingId,
+        fileSize,
       );
-
-      // Log success
-      if (userId !== "system" && youtubeResult) {
-        await this.prisma.zoomSyncLog.upsert({
-          where: { recordingId },
-          update: {
-            status: "Success",
-            youtubeId: youtubeResult.id,
-            downloadUrl,
-          },
-          create: {
-            userId,
-            event: "Manual Sync" + (downloadToken ? " (Webhook)" : ""),
-            meeting: topic,
-            status: "Success",
-            youtubeId: youtubeResult.id,
-            downloadUrl,
-            recordingId,
-          },
-        });
-      }
 
       return youtubeResult;
     } catch (error) {
-      this.logger.error(`Failed to process Zoom recording ${recordingId}`, error.stack);
+      this.logger.error(
+        `Failed to process Zoom recording ${recordingId}`,
+        error.stack,
+      );
 
-      // Log failure
+      // Log failure if not already handled by youtubeService
       if (userId !== "system") {
-        await this.prisma.zoomSyncLog.upsert({
+        const existingLog = await this.prisma.zoomSyncLog.findUnique({
           where: { recordingId },
-          update: {
-            status: "Failed",
-            downloadUrl,
-          },
-          create: {
-            userId,
-            event: "Manual Sync",
-            meeting: topic,
-            status: "Failed",
-            downloadUrl,
-            recordingId,
-          },
         });
+
+        if (existingLog && existingLog.syncStatus !== "FAILED") {
+          await this.prisma.zoomSyncLog.update({
+            where: { recordingId },
+            data: {
+              status: "Failed",
+              syncStatus: "FAILED",
+              syncError: error.message,
+              errorMessage: error.message,
+              errorSource: "upload",
+            },
+          });
+        }
       }
       throw error;
     }
@@ -344,6 +372,8 @@ export class ZoomService {
     topic: string,
     startTime: string,
     userId: string,
+    recordingId: string,
+    fileSize?: number,
   ) {
     const headers: any = {};
     const params: any = {};
@@ -364,12 +394,37 @@ export class ZoomService {
       }),
     );
 
+    const stream = response.data;
+    if (fileSize) {
+      stream.length = fileSize;
+    }
+
+    let lastProgress = 0;
+    const onProgress = async (progress: number) => {
+      // Only update DB every 5% to avoid too many writes
+      if (progress >= lastProgress + 5 || progress === 100) {
+        lastProgress = progress;
+        if (userId !== "system") {
+          try {
+            await this.prisma.zoomSyncLog.update({
+              where: { recordingId },
+              data: { progress },
+            });
+          } catch (e) {
+            // Ignore DB update errors during progress
+          }
+        }
+      }
+    };
+
     return this.youtubeService.uploadVideoFromStream(
-      response.data,
+      stream,
       `Zoom Recording: ${topic}`,
       `Recorded on ${startTime}`,
       "unlisted",
       userId,
+      onProgress,
+      recordingId,
     );
   }
 }

@@ -53,17 +53,35 @@ model YoutubeConfig {
   updatedAt    DateTime @updatedAt
 }
 
+enum SyncStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model ZoomSyncLog {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       String
-  meeting     String
-  status      String
-  youtubeId   String?
-  downloadUrl String?
-  recordingId String?  @unique
-  createdAt   DateTime @default(now())
+  id                      String     @id @default(uuid())
+  userId                  String
+  user                    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event                   String
+  meeting                 String
+  status                  String // Keeping old status for compatibility or migration
+  syncStatus              SyncStatus @default(PENDING)
+  progress                Int        @default(0)
+  youtubeId               String?
+  youtubeVideoId          String? // New field as per requirement
+  youtubeProcessingStatus String? // New field for detailed processing status
+  syncError               String?
+  errorSource             String? // 'upload' | 'youtube_processing' | null
+  errorCode               String? // Original error code from API
+  errorMessage            String? // Original error message
+  downloadUrl             String?
+  recordingId             String?    @unique
+  syncStartedAt           DateTime?
+  syncCompletedAt         DateTime?
+  createdAt               DateTime   @default(now())
 
   @@index([userId])
 }

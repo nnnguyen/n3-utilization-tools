@@ -42,8 +42,11 @@ export class ZoomController {
 
   @Get("logs")
   @UseGuards(JwtAuthGuard)
-  async getLogs(@CurrentUser() user: AuthenticatedUser) {
-    return this.zoomService.getSyncLogs(user.id);
+  async getLogs(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("recordingId") recordingId?: string,
+  ) {
+    return this.zoomService.getSyncLogs(user.id, recordingId);
   }
 
   @Post("sync")
@@ -53,21 +56,29 @@ export class ZoomController {
     @Body() body: SyncRecordingDto,
   ) {
     this.logger.log(`Manual sync requested for recording: ${body.recordingId}`);
-    
-    // We run it in background or await? 
-    // Manual sync might take time, but user expects a response.
-    // Let's run it and return the promise or status.
-    this.zoomService.syncRecording(user.id, body.recordingId, body.topic, body.startTime)
-      .then(result => {
+
+    // We run it in background
+    this.zoomService
+      .syncRecording(user.id, body.recordingId, body.topic, body.startTime)
+      .then((result) => {
         if (result) {
-          this.logger.log(`Manual sync completed for ${body.recordingId}: YouTube ID ${result.id}`);
+          this.logger.log(
+            `Manual sync completed for ${body.recordingId}: YouTube ID ${result.id}`,
+          );
         } else {
-          this.logger.warn(`Manual sync finished for ${body.recordingId} but no video was uploaded.`);
+          this.logger.warn(
+            `Manual sync finished for ${body.recordingId} but no video was uploaded.`,
+          );
         }
       })
-      .catch(err => this.logger.error(`Manual sync failed for ${body.recordingId}`, err.stack));
+      .catch((err) =>
+        this.logger.error(
+          `Manual sync failed for ${body.recordingId}`,
+          err.stack,
+        ),
+      );
 
-    return { status: 'Sync started', recordingId: body.recordingId };
+    return { status: "Processing", recordingId: body.recordingId };
   }
 
   @Post("webhook")

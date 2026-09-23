@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { google } from "googleapis";
 import { PrismaService } from "../prisma/prisma.service";
 import * as fs from "fs";
@@ -20,7 +25,7 @@ export class YoutubeService {
   private async getOAuthClient(userId?: string) {
     let clientId = process.env.YOUTUBE_CLIENT_ID;
     let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-    let redirectUri =
+    const redirectUri =
       process.env.YOUTUBE_CALLBACK_URL ||
       process.env.YOUTUBE_REDIRECT_URI ||
       `${process.env.FRONTEND_URL}/api/auth/youtube/callback`;
@@ -147,8 +152,26 @@ export class YoutubeService {
     description: string,
     privacyStatus: "public" | "private" | "unlisted" = "unlisted",
     userId: string = "system",
+    onProgress?: (progress: number) => void,
+    recordingId?: string,
   ) {
     try {
+      if (recordingId) {
+        try {
+          await this.prisma.zoomSyncLog.update({
+            where: { recordingId },
+            data: {
+              syncStatus: "UPLOADING",
+              syncStartedAt: new Date(),
+            },
+          });
+        } catch (dbError) {
+          this.logger.error(
+            `Failed to update status to UPLOADING for recording ${recordingId}`,
+            dbError.stack,
+          );
+        }
+      }
       const config =
         userId !== "system"
           ? await this.prisma.youtubeConfig.findUnique({ where: { userId } })
@@ -174,29 +197,335 @@ export class YoutubeService {
         auth: oauth2Client,
       });
 
-      const res = await youtube.videos.insert({
-        part: ["snippet", "status"],
-        requestBody: {
-          snippet: {
-            title,
-            description,
+      const res = await youtube.videos.insert(
+        {
+          part: ["snippet", "status"],
+          requestBody: {
+            snippet: {
+              title,
+              description,
+            },
+            status: {
+              privacyStatus,
+            },
           },
-          status: {
-            privacyStatus,
+          media: {
+            body: stream,
           },
         },
-        media: {
-          body: stream,
+        {
+          // Support for progress monitoring
+          onUploadProgress: (evt) => {
+            if (onProgress && evt.bytesRead) {
+              // Note: For streams, total size might not be known by the event
+              // unless we set it or it's provided by the stream.
+              // YouTube API insert usually knows the content length if it's a file stream,
+              // but for passthrough streams it might be harder.
+              const progress = Math.round(
+                (evt.bytesRead / (stream.length || 1)) * 100,
+              );
+              // If total size is unknown, we might just report bytesRead or a generic progress
+              onProgress(progress);
+            }
+          },
         },
-      });
+      );
 
       this.logger.log(`Video uploaded successfully: ${res.data.id}`);
+
+      if (recordingId && res.data.id) {
+        try {
+          await this.prisma.zoomSyncLog.update({
+            where: { recordingId },
+            data: {
+              syncStatus: "PROCESSING",
+              youtubeVideoId: res.data.id,
+              youtubeId: res.data.id,
+            },
+          });
+        } catch (dbError) {
+          this.logger.error(
+            `Failed to update status to PROCESSING for recording ${recordingId}`,
+            dbError.stack,
+          );
+        }
+      }
+
       return res.data;
     } catch (error) {
       this.logger.error("Error uploading video to YouTube", error.stack);
+
+      if (recordingId) {
+        try {
+          const { errorMessage, errorCode } = this.mapYoutubeError(error);
+          await this.prisma.zoomSyncLog.update({
+            where: { recordingId },
+            data: {
+              syncStatus: "FAILED",
+              syncError: errorMessage,
+              errorSource: "upload",
+              errorCode: errorCode,
+              errorMessage: error.message,
+            },
+          });
+        } catch (dbError) {
+          this.logger.error(
+            `Failed to update status to FAILED for recording ${recordingId}`,
+            dbError.stack,
+          );
+        }
+        return null; // Return null instead of throwing as per requirement
+      }
+
       throw new BadRequestException(
         `Failed to upload video to YouTube: ${error.message}`,
       );
     }
+  }
+
+  private mapYoutubeError(error: any): {
+    errorMessage: string;
+    errorCode: string | null;
+  } {
+    const message = error.message || "";
+    const code = error.code || error.response?.data?.error?.code || null;
+    const errors = error.response?.data?.error?.errors || [];
+    const reason = errors[0]?.reason || "";
+
+    if (
+      reason === "uploadLimitExceeded" ||
+      (code === 403 && message.includes("uploadLimitExceeded"))
+    ) {
+      return {
+        errorMessage: "Kênh YouTube đã đạt giới hạn upload trong ngày",
+        errorCode: "uploadLimitExceeded",
+      };
+    }
+
+    if (
+      message.includes("exceeds the maximum duration") ||
+      reason === "videoDurationTooLong"
+    ) {
+      return {
+        errorMessage:
+          "Video quá dài — channel YouTube cần xác minh số điện thoại để upload video dài hơn 15 phút",
+        errorCode: "videoDurationTooLong",
+      };
+    }
+
+    if (
+      message.includes("invalid_grant") ||
+      message.includes("Token expired") ||
+      code === 401
+    ) {
+      return {
+        errorMessage:
+          "Token xác thực YouTube đã hết hạn — cần Authorize lại trong trang Integrations",
+        errorCode: "invalid_grant",
+      };
+    }
+
+    if (
+      reason === "quotaExceeded" ||
+      (code === 403 && message.includes("quotaExceeded"))
+    ) {
+      return {
+        errorMessage:
+          "Đã hết quota API YouTube trong ngày, thử lại vào ngày mai",
+        errorCode: "quotaExceeded",
+      };
+    }
+
+    if (message.includes("ENOTFOUND") || message.includes("ETIMEDOUT")) {
+      return {
+        errorMessage:
+          "Không tải được file từ Zoom (link download có thể đã hết hạn hoặc lỗi mạng)",
+        errorCode: "networkError",
+      };
+    }
+
+    return {
+      errorMessage: message,
+      errorCode: code ? code.toString() : null,
+    };
+  }
+
+  async checkVideoProcessingStatus(
+    videoId: string,
+    recordingId?: string,
+    userId?: string,
+  ) {
+    this.logger.log(
+      `Checking status for video ${videoId} (recording: ${recordingId}, user: ${userId})`,
+    );
+    try {
+      let finalUserId = userId;
+
+      // If userId is not provided but recordingId is, find the userId from the log
+      if (!finalUserId && recordingId) {
+        const log = await this.prisma.zoomSyncLog.findUnique({
+          where: { recordingId },
+          select: { userId: true },
+        });
+        if (log) {
+          finalUserId = log.userId;
+        }
+      }
+
+      // Find the specific config for the user
+      const config = finalUserId
+        ? await this.prisma.youtubeConfig.findUnique({
+            where: { userId: finalUserId },
+          })
+        : await this.prisma.youtubeConfig.findFirst({
+            where: { isActive: true },
+          });
+
+      if (!config || !config.isActive || !config.refreshToken) {
+        const errorMsg = `No active YouTube configuration or refresh token found${finalUserId ? ` for user ${finalUserId}` : ""}`;
+        this.logger.error(errorMsg);
+        if (recordingId) {
+          await this.prisma.zoomSyncLog.update({
+            where: { recordingId },
+            data: {
+              syncStatus: "FAILED",
+              syncError: errorMsg,
+              errorSource: "youtube_processing",
+              errorMessage: errorMsg,
+            },
+          });
+        }
+        throw new Error(errorMsg);
+      }
+
+      const oauth2Client = await this.getOAuthClient(config.userId);
+      oauth2Client.setCredentials({
+        refresh_token: config.refreshToken,
+      });
+
+      const youtube = google.youtube({
+        version: "v3",
+        auth: oauth2Client,
+      });
+
+      const res = await youtube.videos.list({
+        part: ["status", "processingDetails"],
+        id: [videoId],
+      });
+
+      const video = res.data.items?.[0];
+      if (!video) {
+        throw new Error("Video not found on YouTube");
+      }
+
+      const uploadStatus = video.status?.uploadStatus; // uploaded, processed, failed, rejected
+      const processingStatus = video.processingDetails?.processingStatus; // processing, succeeded, failed, terminated
+
+      let newSyncStatus: "COMPLETED" | "FAILED" | "PROCESSING" = "PROCESSING";
+      let syncCompletedAt: Date | undefined = undefined;
+      let syncError: string | null = null;
+
+      // Logic mapping based on both uploadStatus and processingStatus
+      if (uploadStatus === "processed" && processingStatus === "succeeded") {
+        newSyncStatus = "COMPLETED";
+        syncCompletedAt = new Date();
+      } else if (
+        uploadStatus === "failed" ||
+        uploadStatus === "rejected" ||
+        processingStatus === "failed" ||
+        processingStatus === "terminated"
+      ) {
+        newSyncStatus = "FAILED";
+        syncError =
+          video.status?.failureReason ||
+          video.processingDetails?.processingFailureReason ||
+          "YouTube processing failed";
+      } else if (
+        uploadStatus === "uploaded" &&
+        processingStatus === "processing"
+      ) {
+        newSyncStatus = "PROCESSING";
+      }
+
+      if (recordingId) {
+        const errorMapping =
+          newSyncStatus === "FAILED"
+            ? this.mapYoutubeError({
+                message: syncError,
+                code: video.status?.failureReason,
+                response: {
+                  data: {
+                    error: {
+                      errors: [{ reason: video.status?.failureReason }],
+                    },
+                  },
+                },
+              })
+            : { errorMessage: syncError, errorCode: null };
+
+        await this.prisma.zoomSyncLog.update({
+          where: { recordingId },
+          data: {
+            syncStatus: newSyncStatus,
+            youtubeProcessingStatus: processingStatus,
+            syncCompletedAt,
+            syncError: errorMapping.errorMessage,
+            errorSource:
+              newSyncStatus === "FAILED" ? "youtube_processing" : null,
+            errorCode:
+              errorMapping.errorCode || video.status?.failureReason || null,
+            errorMessage: syncError,
+          },
+        });
+      }
+
+      return {
+        syncStatus: newSyncStatus,
+        uploadStatus,
+        processingStatus,
+        youtubeVideoId: videoId,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error checking YouTube video status for ${videoId}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async getRecordingStatusFromDb(recordingId: string) {
+    const log = await this.prisma.zoomSyncLog.findUnique({
+      where: { recordingId },
+      select: {
+        syncStatus: true,
+        youtubeVideoId: true,
+        syncError: true,
+      },
+    });
+
+    if (!log) {
+      throw new BadRequestException("Sync log not found");
+    }
+
+    return log;
+  }
+
+  async refreshRecordingStatus(recordingId: string, userId?: string) {
+    const log = await this.prisma.zoomSyncLog.findUnique({
+      where: { recordingId },
+    });
+
+    if (!log || !log.youtubeVideoId) {
+      throw new BadRequestException(
+        "No YouTube video ID found for this recording",
+      );
+    }
+
+    return this.checkVideoProcessingStatus(
+      log.youtubeVideoId,
+      recordingId,
+      userId || log.userId,
+    );
   }
 }
