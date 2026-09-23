@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert } from 'antd';
 import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -9,7 +9,7 @@ import { apiFetch } from '@/lib/api';
 
 const { Title, Text } = Typography;
 
-export default function IntegrationsPage() {
+function IntegrationsContent() {
   const [configsLoading, setConfigsLoading] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
@@ -222,26 +222,34 @@ export default function IntegrationsPage() {
   ];
 
   return (
-    <DashboardLayout>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <Title level={2}>
-          <Space>
-            <SettingOutlined />
-            <span>Integration & API Credentials</span>
-          </Space>
-        </Title>
-        <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
-          Manage your third-party API credentials and activation status here.
-        </Text>
+    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <Title level={2}>
+        <Space>
+          <SettingOutlined />
+          <span>Integration & API Credentials</span>
+        </Space>
+      </Title>
+      <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
+        Manage your third-party API credentials and activation status here.
+      </Text>
 
-        <Card loading={configsLoading}>
-          <Tabs 
-            activeKey={searchParams.get('tab') || 'zoom'} 
-            onChange={(key) => router.push(`/integrations?tab=${key}`)}
-            items={items} 
-          />
-        </Card>
-      </div>
+      <Card loading={configsLoading}>
+        <Tabs 
+          activeKey={searchParams.get('tab') || 'zoom'} 
+          onChange={(key) => router.push(`/integrations?tab=${key}`)}
+          items={items} 
+        />
+      </Card>
+    </div>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <DashboardLayout>
+      <Suspense fallback={<Card loading={true} />}>
+        <IntegrationsContent />
+      </Suspense>
     </DashboardLayout>
   );
 }
