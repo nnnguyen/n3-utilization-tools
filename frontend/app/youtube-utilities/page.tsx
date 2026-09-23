@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Tag, Typography, Upload, Form, Input, Select, Table, Space, Progress, message, Avatar, Spin } from 'antd';
 import type { UploadFile } from 'antd';
-import { YoutubeOutlined, UploadOutlined, LinkOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { YoutubeOutlined, UploadOutlined, LinkOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import DashboardLayout from '../../components/DashboardLayout';
+import EditVideoModal from '../../components/EditVideoModal';
 import { apiFetch, API_URL } from '@/lib/api';
 import { Tooltip } from 'antd';
 
@@ -74,6 +75,7 @@ export default function YoutubeUtilities() {
   // 'server' = browser -> backend (real %), 'youtube' = backend -> YouTube (no % available)
   const [uploadPhase, setUploadPhase] = useState<'server' | 'youtube' | null>(null);
   const [form] = Form.useForm();
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
 
   const checkStatus = async () => {
     setCheckingStatus(true);
@@ -177,6 +179,9 @@ export default function YoutubeUtilities() {
             target="_blank"
           >
             View
+          </Button>
+          <Button icon={<EditOutlined />} size="small" onClick={() => setEditingVideoId(record.id)}>
+            Edit
           </Button>
         </Space>
       ),
@@ -493,6 +498,18 @@ export default function YoutubeUtilities() {
           </Card>
         </Col>
       </Row>
+
+      <EditVideoModal
+        videoId={editingVideoId}
+        open={!!editingVideoId}
+        onClose={() => setEditingVideoId(null)}
+        onSaved={(video) => {
+          setRecentUploads(prev => prev.map(v => v.id === video.id
+            ? { ...v, title: video.title, description: video.description, privacyStatus: video.privacyStatus, thumbnail: video.thumbnail || v.thumbnail }
+            : v));
+          fetchQuota();
+        }}
+      />
     </DashboardLayout>
   );
 }

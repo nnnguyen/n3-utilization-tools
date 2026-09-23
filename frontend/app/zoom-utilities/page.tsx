@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Switch, Alert, List, Badge, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip } from 'antd';
-import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
+import EditVideoModal from '../../components/EditVideoModal';
 import { apiFetch } from '@/lib/api';
 import dayjs from 'dayjs';
 
@@ -29,6 +30,7 @@ export default function ZoomUtilities() {
   // Details Modal
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
 
   // Sync Confirmation Modal
   const [syncModalVisible, setSyncModalVisible] = useState(false);
@@ -797,6 +799,28 @@ export default function ZoomUtilities() {
               <Descriptions.Item label="Topic">{selectedRecording.topic}</Descriptions.Item>
               <Descriptions.Item label="Start Time">{new Date(selectedRecording.start_time).toLocaleString()}</Descriptions.Item>
               <Descriptions.Item label="Duration">{selectedRecording.duration} minutes</Descriptions.Item>
+              {(() => {
+                const log = logs.find((l: any) => l.recordingId === (selectedRecording.uuid || selectedRecording.id));
+                if (!log || log.syncStatus !== 'COMPLETED' || !log.youtubeVideoId) return null;
+                return (
+                  <Descriptions.Item label="YouTube">
+                    <Space>
+                      <Button
+                        type="link"
+                        size="small"
+                        style={{ padding: 0 }}
+                        href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`}
+                        target="_blank"
+                      >
+                        View on YouTube
+                      </Button>
+                      <Button size="small" icon={<EditOutlined />} onClick={() => setEditingVideoId(log.youtubeVideoId)}>
+                        Edit
+                      </Button>
+                    </Space>
+                  </Descriptions.Item>
+                );
+              })()}
             </Descriptions>
 
             <Divider titlePlacement="left"><PlayCircleOutlined /> Video Preview</Divider>
@@ -842,6 +866,13 @@ export default function ZoomUtilities() {
           </div>
         )}
       </Modal>
+
+      <EditVideoModal
+        videoId={editingVideoId}
+        open={!!editingVideoId}
+        onClose={() => setEditingVideoId(null)}
+        onSaved={() => fetchQuota()}
+      />
     </DashboardLayout>
   );
 }

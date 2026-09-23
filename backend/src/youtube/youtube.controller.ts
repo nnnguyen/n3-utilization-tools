@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   UseGuards,
   Param,
@@ -10,7 +11,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
+import { diskStorage, memoryStorage } from "multer";
 import { tmpdir } from "os";
 import { extname } from "path";
 import { randomUUID } from "crypto";
@@ -23,6 +24,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import type { Response } from "express";
 import { UploadVideoDto } from "./upload-video.dto";
+import { UpdateVideoDto } from "./update-video.dto";
 
 const MANUAL_UPLOAD_MAX_MB = parseInt(
   process.env.YOUTUBE_MANUAL_UPLOAD_MAX_MB || "2048",
@@ -138,6 +140,51 @@ export class YoutubeController {
     } finally {
       fs.promises.unlink(file.path).catch(() => undefined);
     }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("videos/:videoId")
+  async getVideo(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("videoId") videoId: string,
+  ) {
+    return this.youtubeService.getVideoMetadata(user.id, videoId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch("videos/:videoId")
+  async updateVideo(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("videoId") videoId: string,
+    @Body() body: UpdateVideoDto,
+  ) {
+    return this.youtubeService.updateVideoMetadata(user.id, videoId, body);
+  }
+
+  // YouTube accepts JPG/PNG thumbnails up to 2MB
+  @UseGuards(JwtAuthGuard)
+  @Post("videos/:videoId/thumbnail")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
+          return cb(new BadRequestException("Thumbnail must be a JPG or PNG image"), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async setThumbnail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("videoId") videoId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("Thumbnail image is required");
+    }
+    return this.youtubeService.setThumbnail(user.id, videoId, file.buffer, file.mimetype);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -7,6 +7,7 @@ import {
 import { google } from "googleapis";
 import { PrismaService } from "../prisma/prisma.service";
 import * as fs from "fs";
+import { Readable } from "stream";
 
 export interface YoutubeConnectionStatus {
   connected: boolean;
@@ -24,6 +25,8 @@ export class YoutubeService {
   private readonly UPLOAD_COST = 1650; // Buffer included (1600 official)
   private readonly LIST_COST = 5;
   private readonly PLAYLIST_INSERT_COST = 50;
+  private readonly VIDEO_UPDATE_COST = 50;
+  private readonly THUMBNAIL_SET_COST = 50;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -810,6 +813,153 @@ export class YoutubeService {
         error.stack,
       );
       throw error;
+    }
+  }
+
+  private async getYoutubeClient(userId: string) {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+    });
+    const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+    if (!config?.isActive || !refreshToken) {
+      throw new UnauthorizedException("YouTube not connected");
+    }
+    const oauth2Client = await this.getOAuthClient(userId);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    return google.youtube({ version: "v3", auth: oauth2Client });
+  }
+
+  private async fetchVideo(userId: string, videoId: string) {
+    const youtube = await this.getYoutubeClient(userId);
+    const res = await youtube.videos.list({
+      part: ["snippet", "status"],
+      id: [videoId],
+    });
+    await this.trackQuotaUsage(userId, this.LIST_COST);
+    const video = res.data.items?.[0];
+    if (!video) {
+      throw new BadRequestException("Video not found on YouTube");
+    }
+    return { youtube, video };
+  }
+
+  async getVideoMetadata(userId: string, videoId: string) {
+    try {
+      const { video } = await this.fetchVideo(userId, videoId);
+      return {
+        id: video.id,
+        title: video.snippet?.title ?? "",
+        description: video.snippet?.description ?? "",
+        tags: video.snippet?.tags ?? [],
+        privacyStatus: video.status?.privacyStatus ?? "private",
+        thumbnail:
+          video.snippet?.thumbnails?.medium?.url ||
+          video.snippet?.thumbnails?.default?.url ||
+          null,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error(`Error fetching video ${videoId} for user ${userId}`, error.stack);
+      throw new BadRequestException(this.mapYoutubeError(error).errorMessage);
+    }
+  }
+
+  // videos.update replaces the whole snippet/status parts, so the current
+  // values are fetched first and only the edited fields are overridden.
+  async updateVideoMetadata(
+    userId: string,
+    videoId: string,
+    update: {
+      title: string;
+      description?: string;
+      tags?: string[];
+      privacyStatus?: "public" | "private" | "unlisted";
+    },
+  ) {
+    const tags = (update.tags || []).map((t) => t.trim()).filter(Boolean);
+    // YouTube caps the combined tag length at 500 characters (commas included)
+    if (tags.join(",").length > 500) {
+      throw new BadRequestException("Tags must be at most 500 characters in total");
+    }
+
+    try {
+      const { youtube, video } = await this.fetchVideo(userId, videoId);
+      const snippet = video.snippet || {};
+      const status = video.status || {};
+      const privacyStatus = update.privacyStatus || status.privacyStatus || "private";
+
+      const res = await youtube.videos.update({
+        part: ["snippet", "status"],
+        requestBody: {
+          id: videoId,
+          snippet: {
+            title: update.title.trim(),
+            description: update.description ?? snippet.description ?? "",
+            tags: update.tags ? tags : snippet.tags,
+            categoryId: snippet.categoryId,
+            defaultLanguage: snippet.defaultLanguage,
+          },
+          status: {
+            privacyStatus,
+            embeddable: status.embeddable,
+            license: status.license,
+            publicStatsViewable: status.publicStatsViewable,
+            selfDeclaredMadeForKids: status.selfDeclaredMadeForKids,
+            // A scheduled publish time is only valid on private videos
+            publishAt: privacyStatus === "private" ? status.publishAt : undefined,
+          },
+        },
+      });
+      await this.trackQuotaUsage(userId, this.VIDEO_UPDATE_COST);
+
+      return {
+        id: res.data.id,
+        title: res.data.snippet?.title,
+        description: res.data.snippet?.description,
+        tags: res.data.snippet?.tags ?? [],
+        privacyStatus: res.data.status?.privacyStatus,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error(`Error updating video ${videoId} for user ${userId}`, error.stack);
+      throw new BadRequestException(this.mapYoutubeError(error).errorMessage);
+    }
+  }
+
+  async setThumbnail(
+    userId: string,
+    videoId: string,
+    image: Buffer,
+    mimeType: string,
+  ) {
+    try {
+      const youtube = await this.getYoutubeClient(userId);
+      const res = await youtube.thumbnails.set({
+        videoId,
+        media: { mimeType, body: Readable.from(image) },
+      });
+      await this.trackQuotaUsage(userId, this.THUMBNAIL_SET_COST);
+      const thumbnails = res.data.items?.[0];
+      return {
+        thumbnail:
+          thumbnails?.medium?.url || thumbnails?.default?.url || null,
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error(`Error setting thumbnail for video ${videoId}`, error.stack);
+      const code = error.code || error.response?.status;
+      if (code === 403) {
+        throw new BadRequestException(
+          "Channel chưa được phép dùng thumbnail tuỳ chỉnh — cần xác minh channel tại https://www.youtube.com/verify",
+        );
+      }
+      throw new BadRequestException(this.mapYoutubeError(error).errorMessage);
     }
   }
 }
