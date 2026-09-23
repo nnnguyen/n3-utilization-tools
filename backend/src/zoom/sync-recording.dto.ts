@@ -16,4 +16,8 @@ export class SyncRecordingDto {
   @IsString()
   @IsOptional()
   privacyStatus?: "public" | "private" | "unlisted";
+
+  @IsString()
+  @IsOptional()
+  playlistId?: string;
 }

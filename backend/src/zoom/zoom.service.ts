@@ -197,6 +197,7 @@ export class ZoomService {
     topic: string,
     startTime: string,
     privacyStatus?: "public" | "private" | "unlisted",
+    playlistId?: string,
   ) {
     const token = await this.getAccessToken(userId);
     try {
@@ -232,6 +233,7 @@ export class ZoomService {
         userId,
         undefined,
         privacyStatus,
+        playlistId,
       );
     } catch (error) {
       this.logger.error(
@@ -253,6 +255,7 @@ export class ZoomService {
     userId: string,
     downloadToken?: string,
     privacyStatus?: "public" | "private" | "unlisted",
+    playlistId?: string,
   ) {
     // Find the shared_screen_with_speaker_view MP4 file
     const videoFile = recordingFiles.find(
@@ -339,6 +342,7 @@ export class ZoomService {
         recordingId,
         fileSize,
         privacyStatus,
+        playlistId,
       );
 
       return youtubeResult;
@@ -380,6 +384,7 @@ export class ZoomService {
     recordingId: string,
     fileSize?: number,
     privacyStatus?: "public" | "private" | "unlisted",
+    playlistId?: string,
   ) {
     const headers: any = {};
     const params: any = {};
@@ -431,6 +436,7 @@ export class ZoomService {
       userId,
       onProgress,
       recordingId,
+      playlistId,
     );
   }
 }

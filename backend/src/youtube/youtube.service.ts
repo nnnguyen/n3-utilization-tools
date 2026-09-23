@@ -100,6 +100,8 @@ export class YoutubeService {
     const scopes = [
       "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube",
+      "https://www.googleapis.com/auth/youtube.force-ssl",
     ];
 
     return oauth2Client.generateAuthUrl({
@@ -190,14 +192,51 @@ export class YoutubeService {
     description: string,
     privacyStatus: "public" | "private" | "unlisted" = "private",
     userId: string = "system",
+    playlistId?: string,
   ) {
+    const stream: any = fs.createReadStream(filePath);
+    // Lets onUploadProgress compute a real percentage
+    stream.length = fs.statSync(filePath).size;
     return this.uploadVideoFromStream(
-      fs.createReadStream(filePath),
+      stream,
       title,
       description,
       privacyStatus,
       userId,
+      undefined,
+      undefined,
+      playlistId,
     );
+  }
+
+  // Manual Video Uploader: the file was already saved to a temp path by multer.
+  async uploadManualVideo(
+    userId: string,
+    filePath: string,
+    title: string,
+    description: string,
+    privacyStatus: "public" | "private" | "unlisted" = "private",
+    playlistId?: string,
+  ) {
+    const quota = await this.getQuotaStatus(userId);
+    if (quota.unitsRemaining < this.UPLOAD_COST) {
+      throw new BadRequestException(
+        "Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai",
+      );
+    }
+
+    const result = await this.uploadVideo(
+      filePath,
+      title,
+      description,
+      privacyStatus,
+      userId,
+      playlistId,
+    );
+    if (!result) {
+      throw new UnauthorizedException("YouTube not connected");
+    }
+    return result;
   }
 
   async uploadVideoFromStream(
@@ -208,6 +247,7 @@ export class YoutubeService {
     userId: string = "system",
     onProgress?: (progress: number) => void,
     recordingId?: string,
+    playlistId?: string,
   ) {
     try {
       if (recordingId) {
@@ -217,6 +257,8 @@ export class YoutubeService {
             data: {
               syncStatus: "UPLOADING",
               syncStartedAt: new Date(),
+              playlistId: playlistId || null,
+              playlistError: null,
             },
           });
         } catch (dbError) {
@@ -307,7 +349,32 @@ export class YoutubeService {
         }
       }
 
-      return res.data;
+      // Playlist assignment is best-effort: the upload already succeeded, so a
+      // failure here is recorded separately and never fails the sync.
+      let playlistErrorMessage: string | null = null;
+      if (res.data.id && playlistId) {
+        try {
+          await this.addVideoToPlaylist(userId, playlistId, res.data.id);
+        } catch (playlistError) {
+          const { errorMessage } = this.mapYoutubeError(playlistError);
+          playlistErrorMessage = errorMessage;
+          if (recordingId) {
+            try {
+              await this.prisma.zoomSyncLog.update({
+                where: { recordingId },
+                data: { playlistError: errorMessage },
+              });
+            } catch (dbError) {
+              this.logger.error(
+                `Failed to save playlist error for recording ${recordingId}`,
+                dbError.stack,
+              );
+            }
+          }
+        }
+      }
+
+      return { ...res.data, playlistError: playlistErrorMessage };
     } catch (error) {
       this.logger.error("Error uploading video to YouTube", error.stack);
 
@@ -644,6 +711,102 @@ export class YoutubeService {
     } catch (error) {
       this.logger.error(
         `Error fetching recent YouTube uploads for user ${userId}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async listPlaylists(userId: string) {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+    });
+    const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+    if (!config?.isActive || !refreshToken) {
+      throw new UnauthorizedException("YouTube not connected");
+    }
+    try {
+      const oauth2Client = await this.getOAuthClient(userId);
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+      const res = await youtube.playlists.list({
+        part: ["snippet"],
+        mine: true,
+        maxResults: 50,
+      });
+      await this.trackQuotaUsage(userId, this.LIST_COST);
+      return (res.data.items || []).map((p) => ({
+        id: p.id,
+        title: p.snippet?.title,
+      }));
+    } catch (error) {
+      this.logger.error(`Error listing playlists for user ${userId}`, error.stack);
+      throw error;
+    }
+  }
+
+  async createPlaylist(userId: string, title: string, privacyStatus: "public" | "private" | "unlisted" = "private") {
+    if (!title?.trim()) {
+      throw new BadRequestException("Playlist title is required");
+    }
+    // YouTube rejects playlist titles longer than 150 characters
+    if (title.trim().length > 150) {
+      throw new BadRequestException("Playlist title must be at most 150 characters");
+    }
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+    });
+    const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+    if (!config?.isActive || !refreshToken) {
+      throw new UnauthorizedException("YouTube not connected");
+    }
+    try {
+      const oauth2Client = await this.getOAuthClient(userId);
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+      const res = await youtube.playlists.insert({
+        part: ["snippet", "status"],
+        requestBody: {
+          snippet: { title: title.trim() },
+          status: { privacyStatus },
+        },
+      });
+      await this.trackQuotaUsage(userId, this.PLAYLIST_INSERT_COST);
+      return { id: res.data.id, title: res.data.snippet?.title };
+    } catch (error) {
+      this.logger.error(`Error creating playlist for user ${userId}`, error.stack);
+      throw error;
+    }
+  }
+
+  async addVideoToPlaylist(userId: string, playlistId: string, videoId: string) {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+    });
+    const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
+    if (!config?.isActive || !refreshToken) {
+      throw new UnauthorizedException("YouTube not connected");
+    }
+    try {
+      const oauth2Client = await this.getOAuthClient(userId);
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+      await youtube.playlistItems.insert({
+        part: ["snippet"],
+        requestBody: {
+          snippet: {
+            playlistId,
+            resourceId: {
+              kind: "youtube#video",
+              videoId,
+            },
+          },
+        },
+      });
+      await this.trackQuotaUsage(userId, this.PLAYLIST_INSERT_COST);
+    } catch (error) {
+      this.logger.error(
+        `Error adding video ${videoId} to playlist ${playlistId} for user ${userId}`,
         error.stack,
       );
       throw error;

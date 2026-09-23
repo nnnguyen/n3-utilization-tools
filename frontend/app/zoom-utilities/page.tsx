@@ -34,6 +34,10 @@ export default function ZoomUtilities() {
   const [syncModalVisible, setSyncModalVisible] = useState(false);
   const [syncingRecord, setSyncingRecord] = useState<any>(null);
   const [syncPrivacyStatus, setSyncPrivacyStatus] = useState('private');
+  const [syncPlaylistId, setSyncPlaylistId] = useState('none');
+  const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
 
   // History Modal
   const [historyVisible, setHistoryVisible] = useState(false);
@@ -166,8 +170,23 @@ export default function ZoomUtilities() {
     try {
       const data = await apiFetch('/youtube/status');
       setYoutubeStatus(data);
+      if (data.connected) {
+        fetchPlaylists();
+      }
     } catch (error) {
       console.error('Failed to fetch YouTube status', error);
+    }
+  };
+
+  const fetchPlaylists = async () => {
+    setLoadingPlaylists(true);
+    try {
+      const data = await apiFetch('/youtube/playlists');
+      setPlaylists(data);
+    } catch (error) {
+      console.error('Failed to fetch playlists', error);
+    } finally {
+      setLoadingPlaylists(false);
     }
   };
 
@@ -188,7 +207,7 @@ export default function ZoomUtilities() {
     init();
   }, [dateFilter, customDateRange]);
 
-  const handleManualSync = async (record: any, privacyStatus: string = 'private') => {
+  const handleManualSync = async (record: any, privacyStatus: string = 'private', playlistId?: string) => {
     if (quota && quota.unitsRemaining < 1650) {
       message.error('Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai');
       return;
@@ -196,13 +215,38 @@ export default function ZoomUtilities() {
     const recordingId = record.uuid || record.id;
     setSyncingIds(prev => new Set(prev).add(recordingId));
     try {
+      let finalPlaylistId = playlistId === 'none' ? undefined : playlistId;
+      
+      if (playlistId === 'create_new') {
+        if (!newPlaylistTitle) {
+          message.error('Please enter a title for the new playlist');
+          setSyncingIds(prev => {
+            const next = new Set(prev);
+            next.delete(recordingId);
+            return next;
+          });
+          return;
+        }
+        const newPlaylist = await apiFetch('/youtube/playlists', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: newPlaylistTitle,
+            privacyStatus: privacyStatus
+          })
+        });
+        finalPlaylistId = newPlaylist.id;
+        message.success(`Playlist "${newPlaylistTitle}" created`);
+        fetchPlaylists();
+      }
+
       await apiFetch('/zoom/sync', {
         method: 'POST',
         body: JSON.stringify({
           recordingId: recordingId,
           topic: record.topic,
           startTime: record.start_time,
-          privacyStatus: privacyStatus
+          privacyStatus: privacyStatus,
+          playlistId: finalPlaylistId
         })
       });
       message.success(`Sync started for: ${record.topic} (${privacyStatus})`);
@@ -615,6 +659,18 @@ export default function ZoomUtilities() {
                       </Button>
                     )}
 
+                    {log.playlistId && (
+                      <Text type="secondary">
+                        Playlist:{' '}
+                        <a href={`https://www.youtube.com/playlist?list=${log.playlistId}`} target="_blank" rel="noreferrer">
+                          {playlists.find(p => p.id === log.playlistId)?.title || log.playlistId}
+                        </a>
+                      </Text>
+                    )}
+                    {log.playlistError && (
+                      <Text type="warning">Video đã upload nhưng không gán được vào playlist: {log.playlistError}</Text>
+                    )}
+
                     {(log.errorCode || log.errorMessage) && (
                       <details style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
                         <summary style={{ cursor: 'pointer', color: '#1890ff' }}>Technical Details</summary>
@@ -637,10 +693,20 @@ export default function ZoomUtilities() {
         title="Confirm YouTube Sync"
         open={syncModalVisible}
         onOk={() => {
-          handleManualSync(syncingRecord, syncPrivacyStatus);
+          if (syncPlaylistId === 'create_new' && !newPlaylistTitle.trim()) {
+            message.error('Please enter a title for the new playlist');
+            return;
+          }
+          handleManualSync(syncingRecord, syncPrivacyStatus, syncPlaylistId);
           setSyncModalVisible(false);
+          setSyncPlaylistId('none');
+          setNewPlaylistTitle('');
         }}
-        onCancel={() => setSyncModalVisible(false)}
+        onCancel={() => {
+          setSyncModalVisible(false);
+          setSyncPlaylistId('none');
+          setNewPlaylistTitle('');
+        }}
         okText="Start Sync"
         okButtonProps={{ disabled: quota && quota.unitsRemaining < 1650 }}
       >
@@ -672,17 +738,47 @@ export default function ZoomUtilities() {
           />
         )}
         <Form layout="vertical">
-          <Form.Item label="Select Privacy Status">
-            <Select 
-              value={syncPrivacyStatus} 
-              onChange={setSyncPrivacyStatus}
-              style={{ width: '100%' }}
-            >
-              <Select.Option value="public">Public</Select.Option>
-              <Select.Option value="unlisted">Unlisted</Select.Option>
-              <Select.Option value="private">Private</Select.Option>
-            </Select>
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Select Privacy Status">
+                <Select 
+                  value={syncPrivacyStatus} 
+                  onChange={setSyncPrivacyStatus}
+                  style={{ width: '100%' }}
+                >
+                  <Select.Option value="public">Public</Select.Option>
+                  <Select.Option value="unlisted">Unlisted</Select.Option>
+                  <Select.Option value="private">Private</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Playlist">
+                <Select 
+                  value={syncPlaylistId} 
+                  onChange={setSyncPlaylistId}
+                  style={{ width: '100%' }}
+                  loading={loadingPlaylists}
+                >
+                  <Select.Option value="none">None</Select.Option>
+                  {playlists.map(p => (
+                    <Select.Option key={p.id} value={p.id}>{p.title}</Select.Option>
+                  ))}
+                  <Select.Option value="create_new">+ Create new playlist...</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {syncPlaylistId === 'create_new' && (
+            <Form.Item label="New Playlist Title" required>
+              <Input 
+                placeholder="Enter new playlist title" 
+                value={newPlaylistTitle}
+                onChange={(e) => setNewPlaylistTitle(e.target.value)}
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
 

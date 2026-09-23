@@ -80,6 +80,7 @@ model ZoomSyncLog {
   errorMessage            String? // Original error message
   downloadUrl             String?
   playlistId              String? // Group 1: Playlist management
+  playlistError           String? // Set when adding the video to the playlist failed (upload itself still succeeded)
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
