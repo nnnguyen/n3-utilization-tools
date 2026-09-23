@@ -12,6 +12,7 @@ import {
   LogoutOutlined,
   UserOutlined,
   SettingOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -43,19 +44,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       label: <Link href="/">Home</Link>,
     },
     {
-      key: '/youtube-utilities',
-      icon: <YoutubeOutlined />,
-      label: <Link href="/youtube-utilities">YouTube Utils</Link>,
-    },
-    {
-      key: '/zoom-utilities',
-      icon: <VideoCameraOutlined />,
-      label: <Link href="/zoom-utilities">Zoom Utils</Link>,
-    },
-    {
-      key: '/word-cloud/dashboard',
-      icon: <CloudOutlined />,
-      label: <Link href="/word-cloud/dashboard">Word Cloud</Link>,
+      key: 'utilities',
+      icon: <AppstoreOutlined />,
+      label: 'Utilities',
+      children: [
+        {
+          key: '/youtube-utilities',
+          icon: <YoutubeOutlined />,
+          label: <Link href="/youtube-utilities">YouTube</Link>,
+        },
+        {
+          key: '/zoom-utilities',
+          icon: <VideoCameraOutlined />,
+          label: <Link href="/zoom-utilities">Zoom</Link>,
+        },
+        {
+          key: '/word-cloud/dashboard',
+          icon: <CloudOutlined />,
+          label: <Link href="/word-cloud/dashboard">Word Cloud</Link>,
+        },
+      ]
     },
     {
       key: '/integrations',

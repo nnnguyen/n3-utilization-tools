@@ -170,7 +170,7 @@ export default function YoutubeUtilities() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item label="Privacy Status" name="privacy" initialValue="unlisted">
+                  <Form.Item label="Privacy Status" name="privacy" initialValue="private">
                     <Select>
                       <Select.Option value="public">Public</Select.Option>
                       <Select.Option value="unlisted">Unlisted</Select.Option>

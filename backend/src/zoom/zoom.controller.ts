@@ -59,7 +59,13 @@ export class ZoomController {
 
     // We run it in background
     this.zoomService
-      .syncRecording(user.id, body.recordingId, body.topic, body.startTime)
+      .syncRecording(
+        user.id,
+        body.recordingId,
+        body.topic,
+        body.startTime,
+        body.privacyStatus,
+      )
       .then((result) => {
         if (result) {
           this.logger.log(

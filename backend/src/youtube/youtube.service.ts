@@ -134,7 +134,7 @@ export class YoutubeService {
     filePath: string,
     title: string,
     description: string,
-    privacyStatus: "public" | "private" | "unlisted" = "unlisted",
+    privacyStatus: "public" | "private" | "unlisted" = "private",
     userId: string = "system",
   ) {
     return this.uploadVideoFromStream(
@@ -150,7 +150,7 @@ export class YoutubeService {
     stream: any,
     title: string,
     description: string,
-    privacyStatus: "public" | "private" | "unlisted" = "unlisted",
+    privacyStatus: "public" | "private" | "unlisted" = "private",
     userId: string = "system",
     onProgress?: (progress: number) => void,
     recordingId?: string,

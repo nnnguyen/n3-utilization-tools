@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional } from "class-validator";
 
 export class SyncRecordingDto {
   @IsString()
@@ -12,4 +12,8 @@ export class SyncRecordingDto {
   @IsString()
   @IsNotEmpty()
   startTime: string;
+
+  @IsString()
+  @IsOptional()
+  privacyStatus?: "public" | "private" | "unlisted";
 }

@@ -30,6 +30,11 @@ export default function ZoomUtilities() {
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
 
+  // Sync Confirmation Modal
+  const [syncModalVisible, setSyncModalVisible] = useState(false);
+  const [syncingRecord, setSyncingRecord] = useState<any>(null);
+  const [syncPrivacyStatus, setSyncPrivacyStatus] = useState('private');
+
   // History Modal
   const [historyVisible, setHistoryVisible] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
@@ -155,7 +160,7 @@ export default function ZoomUtilities() {
     init();
   }, [dateFilter, customDateRange]);
 
-  const handleManualSync = async (record: any) => {
+  const handleManualSync = async (record: any, privacyStatus: string = 'private') => {
     const recordingId = record.uuid || record.id;
     setSyncingIds(prev => new Set(prev).add(recordingId));
     try {
@@ -164,10 +169,11 @@ export default function ZoomUtilities() {
         body: JSON.stringify({
           recordingId: recordingId,
           topic: record.topic,
-          startTime: record.start_time
+          startTime: record.start_time,
+          privacyStatus: privacyStatus
         })
       });
-      message.success(`Sync started for: ${record.topic}`);
+      message.success(`Sync started for: ${record.topic} (${privacyStatus})`);
       // Immediately fetch logs to show "Processing" state
       await fetchLogs();
     } catch (error: any) {
@@ -310,7 +316,11 @@ export default function ZoomUtilities() {
               <Button 
                 icon={<YoutubeOutlined />} 
                 size="small"
-                onClick={() => handleManualSync(record)}
+                onClick={() => {
+                  setSyncingRecord(record);
+                  setSyncPrivacyStatus('private');
+                  setSyncModalVisible(true);
+                }}
                 loading={syncingIds.has(recordingId)}
                 disabled={isSyncing && !isFailed}
                 danger={isFailed}
@@ -399,7 +409,7 @@ export default function ZoomUtilities() {
 
   return (
     <DashboardLayout>
-      <Title level={2}>Zoom Recordings Management</Title>
+      <Title level={2}>Zoom Utilities</Title>
 
       {!configs.zoom?.isActive && !configsLoading && (
         <Alert
@@ -449,7 +459,7 @@ export default function ZoomUtilities() {
 
         <Col xs={24} lg={24}>
           <Card title={<Space><ThunderboltOutlined /><span>Automation Workflow Manager</span></Space>}>
-            <Form layout="vertical" initialValues={{ autoUpload: true, privacy: 'unlisted', titleTemplate: '[Zoom] {topic} - {date}' }} onFinish={onUpdateSettings}>
+            <Form layout="vertical" initialValues={{ autoUpload: true, privacy: 'private', titleTemplate: '[Zoom] {topic} - {date}' }} onFinish={onUpdateSettings}>
               <Row gutter={16}>
                 <Col xs={24} md={8}>
                   <Form.Item label="Auto-upload to YouTube" name="autoUpload" valuePropName="checked">
@@ -587,6 +597,32 @@ export default function ZoomUtilities() {
             )}
           />
         </Spin>
+      </Modal>
+
+      <Modal
+        title="Confirm YouTube Sync"
+        open={syncModalVisible}
+        onOk={() => {
+          handleManualSync(syncingRecord, syncPrivacyStatus);
+          setSyncModalVisible(false);
+        }}
+        onCancel={() => setSyncModalVisible(false)}
+        okText="Start Sync"
+      >
+        <p>You are about to sync <strong>{syncingRecord?.topic}</strong> to YouTube.</p>
+        <Form layout="vertical">
+          <Form.Item label="Select Privacy Status">
+            <Select 
+              value={syncPrivacyStatus} 
+              onChange={setSyncPrivacyStatus}
+              style={{ width: '100%' }}
+            >
+              <Select.Option value="public">Public</Select.Option>
+              <Select.Option value="unlisted">Unlisted</Select.Option>
+              <Select.Option value="private">Private</Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
       </Modal>
 
       <Modal

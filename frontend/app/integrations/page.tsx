@@ -150,7 +150,7 @@ function IntegrationsContent() {
     <>
       {authorizing && (
         <Alert
-          message="Authorizing YouTube..."
+          title="Authorizing YouTube..."
           description="Please wait while we complete the connection."
           type="info"
           showIcon
@@ -159,7 +159,7 @@ function IntegrationsContent() {
       )}
       {youtubeStatus && (
         <Alert
-          message={youtubeStatus.connected ? "YouTube Connected" : "YouTube Not Connected"}
+          title={youtubeStatus.connected ? "YouTube Connected" : "YouTube Not Connected"}
           description={
             youtubeStatus.connected 
               ? `Connected to channel: ${youtubeStatus.channelTitle}`

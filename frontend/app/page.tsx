@@ -160,7 +160,8 @@ export default function Home() {
             </Card>
           </Col>
         </Row>
-
+      </div>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Getting Started Section */}
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Title level={3}>Getting Started</Title>
@@ -171,13 +172,13 @@ export default function Home() {
                 </div>
             ) : (
                 <Row gutter={[24, 24]} align="middle">
-                  <Col xs={24} md={18}>
+                  <Col md={24}>
                     <Steps
                         current={isZoomActive && isYoutubeActive ? 3 : (isYoutubeActive ? 2 : (isZoomActive ? 1 : 0))}
                         items={gettingStartedSteps}
                     />
                   </Col>
-                  <Col xs={24} md={6} style={{ textAlign: 'right' }}>
+                  <Col md={24} style={{ textAlign: 'center' }}>
                     <Link href="/integrations">
                       <Button type="primary">Setup Integrations</Button>
                     </Link>
