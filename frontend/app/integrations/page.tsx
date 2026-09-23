@@ -6,6 +6,7 @@ import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined, Go
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
+import { AUTH_RETURN_TO_KEY } from '../../components/YoutubeTokenBanner';
 
 const { Title, Text } = Typography;
 
@@ -27,6 +28,18 @@ function IntegrationsContent() {
         body: JSON.stringify({ code }),
       });
       message.success('YouTube authorization successful!');
+      // Re-authorize started from another page (e.g. YouTube Utilities): go back there
+      let returnTo: string | null = null;
+      try {
+        returnTo = sessionStorage.getItem(AUTH_RETURN_TO_KEY);
+        sessionStorage.removeItem(AUTH_RETURN_TO_KEY);
+      } catch {
+        // Storage unavailable: stay on Integrations
+      }
+      if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+        router.replace(returnTo);
+        return;
+      }
       // Clean up URL
       router.replace('/integrations?tab=youtube');
       fetchConfigs();

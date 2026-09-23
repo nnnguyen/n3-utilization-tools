@@ -7,6 +7,7 @@ import { YoutubeOutlined, UploadOutlined, LinkOutlined, EditOutlined, CheckCircl
 import Link from 'next/link';
 import DashboardLayout from '../../components/DashboardLayout';
 import EditVideoModal from '../../components/EditVideoModal';
+import YoutubeTokenBanner, { startYoutubeReauthorize } from '../../components/YoutubeTokenBanner';
 import { apiFetch, API_URL } from '@/lib/api';
 import { Tooltip } from 'antd';
 
@@ -15,7 +16,7 @@ const { Dragger } = Upload;
 
 interface YoutubeStatus {
   connected: boolean;
-  reason?: 'not_configured' | 'invalid_credentials';
+  reason?: 'not_configured' | 'invalid_credentials' | 'token_expired';
   channelId?: string;
   channelTitle?: string;
   channelThumbnail?: string | null;
@@ -49,6 +50,11 @@ const STATUS_MESSAGE: Record<string, string | React.ReactNode> = {
     <span>
       YouTube integration is not fully configured. 
       Go to <Link href="/integrations?tab=youtube" style={{ color: '#1890ff' }}>Integrations</Link> to set Client ID, Secret and Authorize.
+    </span>
+  ),
+  token_expired: (
+    <span>
+      Token xác thực YouTube đã hết hạn hoặc bị thu hồi. Bấm Re-authorize bên dưới để kết nối lại.
     </span>
   ),
   invalid_credentials: (
@@ -293,6 +299,7 @@ export default function YoutubeUtilities() {
   return (
     <DashboardLayout>
       <Title level={2}>YouTube Utilities</Title>
+      <YoutubeTokenBanner />
       
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
@@ -329,7 +336,10 @@ export default function YoutubeUtilities() {
                     </div>
 
                     <div style={{ marginTop: 20 }}>
-                      <Button icon={<ReloadOutlined />} onClick={checkStatus} size="small">Recheck Status</Button>
+                      <Space>
+                        <Button icon={<ReloadOutlined />} onClick={checkStatus} size="small">Recheck Status</Button>
+                        <Button onClick={startYoutubeReauthorize} size="small">Re-authorize</Button>
+                      </Space>
                     </div>
                   </>
                 ) : (
@@ -340,7 +350,12 @@ export default function YoutubeUtilities() {
                       {STATUS_MESSAGE[status?.reason ?? 'not_configured']}
                     </Text>
                     <div style={{ marginTop: 20 }}>
-                      <Button icon={<ReloadOutlined />} onClick={checkStatus} size="small">Check Again</Button>
+                      <Space>
+                        <Button icon={<ReloadOutlined />} onClick={checkStatus} size="small">Check Again</Button>
+                        {status?.reason !== 'not_configured' && (
+                          <Button type="primary" onClick={startYoutubeReauthorize} size="small">Re-authorize</Button>
+                        )}
+                      </Space>
                     </div>
                   </>
                 )}

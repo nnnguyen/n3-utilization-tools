@@ -53,6 +53,10 @@ model YoutubeConfig {
   refreshToken String?
   isActive     Boolean  @default(false)
   updatedAt    DateTime @updatedAt
+
+  tokenObtainedAt    DateTime? // When the current refresh token was issued (OAuth callback)
+  lastTokenRefreshAt DateTime? // Last time the refresh token was successfully exchanged for an access token
+  tokenInvalidAt     DateTime? // Set when Google rejected the refresh token (invalid_grant); cleared on re-authorize
 }
 
 enum SyncStatus {

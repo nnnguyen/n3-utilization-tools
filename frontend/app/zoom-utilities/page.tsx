@@ -5,6 +5,7 @@ import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Sp
 import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ThunderboltOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import EditVideoModal from '../../components/EditVideoModal';
+import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { apiFetch } from '@/lib/api';
 import dayjs from 'dayjs';
 
@@ -497,6 +498,7 @@ export default function ZoomUtilities() {
   return (
     <DashboardLayout>
       <Title level={2}>Zoom Utilities</Title>
+      <YoutubeTokenBanner />
 
       {!configs.zoom?.isActive && !configsLoading && (
         <Alert

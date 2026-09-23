@@ -40,9 +40,15 @@ const PERMANENT_ERROR_CODES = new Set([
   "invalid_grant",
 ]);
 
+// Google expires refresh tokens after 7 days while the OAuth consent screen is
+// in "Testing" mode. The API cannot tell us the mode, so it is configured:
+// set YOUTUBE_OAUTH_TESTING_MODE=false once the app is published.
+const TESTING_TOKEN_LIFETIME_DAYS = 7;
+const DAY_MS = 24 * 60 * 60_000;
+
 export interface YoutubeConnectionStatus {
   connected: boolean;
-  reason?: "not_configured" | "invalid_credentials";
+  reason?: "not_configured" | "invalid_credentials" | "token_expired";
   channelId?: string;
   channelTitle?: string;
   channelThumbnail?: string | null;
@@ -218,7 +224,106 @@ export class YoutubeService {
       }
     }
 
-    return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    const oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      redirectUri,
+    );
+    if (userId && userId !== "system") {
+      // Emitted whenever the refresh token is exchanged for an access token,
+      // i.e. the refresh token is still valid
+      oauth2Client.on("tokens", () => void this.recordTokenRefresh(userId));
+    }
+    return oauth2Client;
+  }
+
+  private isInvalidGrant(error: any) {
+    return (
+      error?.response?.data?.error === "invalid_grant" ||
+      String(error?.message || "").includes("invalid_grant")
+    );
+  }
+
+  // Never throws: token bookkeeping must not affect the calling flow.
+  private async recordTokenRefresh(userId: string) {
+    try {
+      const now = new Date();
+      // Throttled: API calls refresh the token often, one write per 5 min is enough
+      await this.prisma.youtubeConfig.updateMany({
+        where: {
+          userId,
+          OR: [
+            { lastTokenRefreshAt: null },
+            { lastTokenRefreshAt: { lt: new Date(now.getTime() - 5 * 60_000) } },
+            { tokenInvalidAt: { not: null } },
+          ],
+        },
+        data: { lastTokenRefreshAt: now, tokenInvalidAt: null },
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to record token refresh for ${userId}: ${error.message}`);
+    }
+  }
+
+  private async recordTokenError(userId: string | undefined, error: any) {
+    if (!userId || userId === "system" || !this.isInvalidGrant(error)) return;
+    try {
+      await this.prisma.youtubeConfig.updateMany({
+        where: { userId, tokenInvalidAt: null },
+        data: { tokenInvalidAt: new Date() },
+      });
+      this.logger.warn(`YouTube refresh token rejected (invalid_grant) for user ${userId}`);
+    } catch (e) {
+      this.logger.warn(`Failed to record token error for ${userId}: ${e.message}`);
+    }
+  }
+
+  // Cheap (DB only, no API call), so the UI can poll it for the banner.
+  async getTokenStatus(userId: string) {
+    const config = await this.prisma.youtubeConfig.findUnique({
+      where: { userId },
+      select: {
+        refreshToken: true,
+        isActive: true,
+        tokenObtainedAt: true,
+        lastTokenRefreshAt: true,
+        tokenInvalidAt: true,
+      },
+    });
+    const testingMode = process.env.YOUTUBE_OAUTH_TESTING_MODE !== "false";
+    const warnAfterDays = parseInt(
+      process.env.YOUTUBE_TOKEN_WARN_AFTER_DAYS || "5",
+      10,
+    );
+
+    if (!config?.isActive || !config.refreshToken) {
+      return { configured: false, testingMode, tokenInvalid: false, expiringSoon: false };
+    }
+
+    let expiresAt: Date | null = null;
+    let daysRemaining: number | null = null;
+    let expiringSoon = false;
+    if (testingMode && config.tokenObtainedAt) {
+      const obtained = config.tokenObtainedAt.getTime();
+      expiresAt = new Date(obtained + TESTING_TOKEN_LIFETIME_DAYS * DAY_MS);
+      daysRemaining = Math.max(
+        0,
+        Math.ceil((expiresAt.getTime() - Date.now()) / DAY_MS),
+      );
+      expiringSoon = Date.now() - obtained >= warnAfterDays * DAY_MS;
+    }
+
+    return {
+      configured: true,
+      testingMode,
+      tokenObtainedAt: config.tokenObtainedAt,
+      lastTokenRefreshAt: config.lastTokenRefreshAt,
+      expiresAt,
+      daysRemaining,
+      tokenInvalid: !!config.tokenInvalidAt,
+      tokenInvalidAt: config.tokenInvalidAt,
+      expiringSoon: expiringSoon && !config.tokenInvalidAt,
+    };
   }
 
   async getAuthUrl(userId: string): Promise<string> {
@@ -247,16 +352,24 @@ export class YoutubeService {
       this.logger.warn(`No refresh token returned for user ${userId}`);
     }
 
+    const now = new Date();
+    // Only a newly issued refresh token restarts the expiry clock
+    const tokenLifecycle = tokens.refresh_token
+      ? { tokenObtainedAt: now, lastTokenRefreshAt: now, tokenInvalidAt: null }
+      : {};
+
     await this.prisma.youtubeConfig.upsert({
       where: { userId },
       update: {
         refreshToken: tokens.refresh_token ?? undefined,
         isActive: true,
+        ...tokenLifecycle,
       },
       create: {
         userId,
         refreshToken: tokens.refresh_token || "",
         isActive: true,
+        ...tokenLifecycle,
       },
     });
 
@@ -306,10 +419,14 @@ export class YoutubeService {
         longUploadsStatus: (channel.status?.longUploadsStatus as any) || "unknown",
       };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.warn(
         `YouTube connection check failed for user ${userId}: ${error.message ?? error}`,
       );
-      return { connected: false, reason: "invalid_credentials" };
+      return {
+        connected: false,
+        reason: this.isInvalidGrant(error) ? "token_expired" : "invalid_credentials",
+      };
     }
   }
 
@@ -503,6 +620,7 @@ export class YoutubeService {
 
       return { ...res.data, playlistError: playlistErrorMessage };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.error("Error uploading video to YouTube", error.stack);
 
       if (recordingId) {
@@ -757,6 +875,7 @@ export class YoutubeService {
         youtubeVideoId: videoId,
       };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.error(
         `Error checking YouTube video status for ${videoId}`,
         error.stack,
@@ -869,6 +988,7 @@ export class YoutubeService {
         privacyStatus: item.status?.privacyStatus,
       }));
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.error(
         `Error fetching recent YouTube uploads for user ${userId}`,
         error.stack,
@@ -900,6 +1020,7 @@ export class YoutubeService {
         title: p.snippet?.title,
       }));
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.error(`Error listing playlists for user ${userId}`, error.stack);
       throw error;
     }
@@ -934,6 +1055,7 @@ export class YoutubeService {
       await this.trackQuotaUsage(userId, this.PLAYLIST_INSERT_COST);
       return { id: res.data.id, title: res.data.snippet?.title };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.error(`Error creating playlist for user ${userId}`, error.stack);
       throw error;
     }
@@ -965,6 +1087,7 @@ export class YoutubeService {
       });
       await this.trackQuotaUsage(userId, this.PLAYLIST_INSERT_COST);
     } catch (error) {
+      void this.recordTokenError(userId, error);
       this.logger.error(
         `Error adding video ${videoId} to playlist ${playlistId} for user ${userId}`,
         error.stack,
@@ -1015,6 +1138,7 @@ export class YoutubeService {
           null,
       };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         throw error;
       }
@@ -1079,6 +1203,7 @@ export class YoutubeService {
         privacyStatus: res.data.status?.privacyStatus,
       };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         throw error;
       }
@@ -1106,6 +1231,7 @@ export class YoutubeService {
           thumbnails?.medium?.url || thumbnails?.default?.url || null,
       };
     } catch (error) {
+      void this.recordTokenError(userId, error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }

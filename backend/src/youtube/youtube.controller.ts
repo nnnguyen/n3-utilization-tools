@@ -46,6 +46,12 @@ export class YoutubeController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("token-status")
+  getTokenStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.youtubeService.getTokenStatus(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get("quota")
   getQuota(@CurrentUser() user: AuthenticatedUser) {
     return this.youtubeService.getQuotaStatus(user.id);
