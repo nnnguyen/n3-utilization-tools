@@ -1,18 +1,17 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { Card, Tabs, Typography, Space } from 'antd';
+import { Card, Tabs, Space } from 'antd';
 import { PlaySquareOutlined, VideoCameraOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '../../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../../components/YoutubeTokenBanner';
 import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/YoutubeConnectionBadge';
+import { YoutubePageTitle } from '../../../components/BrandLogos';
 import YoutubeVideosPanel from '../../../components/YoutubeVideosPanel';
 import ZoomRecordingsPanel from '../../../components/ZoomRecordingsPanel';
 import YoutubePlaylistsPanel from '../../../components/YoutubePlaylistsPanel';
 import { apiFetch } from '@/lib/api';
-
-const { Title } = Typography;
 
 const TABS = ['videos', 'zoom-sync', 'playlists'] as const;
 
@@ -62,7 +61,7 @@ function ChannelContent() {
   return (
     <>
       <Space size="middle" align="center" wrap style={{ marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0 }}>Channel Content</Title>
+        <YoutubePageTitle title="Channel Content" />
         <YoutubeConnectionBadge status={status} checking={checkingStatus} />
       </Space>
 

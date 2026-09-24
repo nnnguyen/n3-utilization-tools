@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Typography, Button, Space, Steps, Alert, Spin, message } from 'antd';
 import { 
-  YoutubeOutlined, 
-  VideoCameraOutlined, 
   CloudOutlined, 
   ArrowRightOutlined,
   SettingOutlined,
@@ -13,6 +11,7 @@ import {
   CheckCircleOutlined,
   HomeOutlined
 } from '@ant-design/icons';
+import { YoutubeLogo, ZoomLogo } from '../components/BrandLogos';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
@@ -92,7 +91,8 @@ export default function Home() {
                 hoverable
                 style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
                 styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                title={<Space><YoutubeOutlined style={{ color: '#ff0000' }} /> YouTube</Space>}
+                // Official full-color logo; it already reads "YouTube", so no extra label
+                title={<YoutubeLogo height={20} />}
                 actions={[
                   <Link href="/youtube/dashboard" key="go">
                     <Button type="primary" style={{ backgroundColor: 'transparent', color: '#ff0000', borderColor: '#ff0000' }} icon={<ArrowRightOutlined />}>Explore</Button>
@@ -116,7 +116,8 @@ export default function Home() {
                 hoverable
                 style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
                 styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                title={<Space><VideoCameraOutlined style={{ color: '#2D8CFF' }} /> Zoom</Space>}
+                // Official Zoom wordmark; it already reads "zoom", so no extra label
+                title={<ZoomLogo height={16} />}
                 actions={[
                   <Link href="/zoom-utilities" key="go">
                     <Button type="primary" style={{ backgroundColor: 'transparent', color: '#2D8CFF', borderColor: '#2D8CFF' }} icon={<ArrowRightOutlined />}>Explore</Button>

@@ -6,9 +6,10 @@ import { ThunderboltOutlined, VideoCameraOutlined } from '@ant-design/icons';
 import NextLink from 'next/link';
 import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
+import { ZoomPageTitle } from '../../components/BrandLogos';
 import { apiFetch } from '@/lib/api';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function ZoomUtilities() {
   const [autoUpload, setAutoUpload] = useState(true);
@@ -40,7 +41,9 @@ export default function ZoomUtilities() {
 
   return (
     <DashboardLayout>
-      <Title level={2}>Zoom Utilities</Title>
+      <div style={{ marginBottom: 16 }}>
+        <ZoomPageTitle title="Dashboard" />
+      </div>
       <YoutubeTokenBanner />
 
       {!configs.zoom?.isActive && !configsLoading && (

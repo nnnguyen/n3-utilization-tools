@@ -8,10 +8,11 @@ import dayjs from 'dayjs';
 import DashboardLayout from '../../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../../components/YoutubeTokenBanner';
 import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/YoutubeConnectionBadge';
+import { YoutubePageTitle } from '../../../components/BrandLogos';
 import MonthlyBarChart, { type MonthlyPoint } from '../../../components/MonthlyBarChart';
 import { apiFetch } from '@/lib/api';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface ChannelVideo {
   videoId: string;
@@ -164,7 +165,7 @@ export default function YoutubeAnalyticsPage() {
     <DashboardLayout>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <Space size="middle" align="center" wrap>
-          <Title level={2} style={{ margin: 0 }}>YouTube Analytics</Title>
+          <YoutubePageTitle title="Analytics" />
           <YoutubeConnectionBadge status={status} checking={checkingStatus} />
         </Space>
         <Space wrap>

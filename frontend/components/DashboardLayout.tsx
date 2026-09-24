@@ -5,8 +5,6 @@ import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography } from
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  YoutubeOutlined,
-  VideoCameraOutlined,
   CloudOutlined,
   HomeOutlined,
   LogoutOutlined,
@@ -21,6 +19,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import NotificationBell from './NotificationBell';
+import { YoutubeLogo, ZoomLogo } from './BrandLogos';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -54,8 +53,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       children: [
         {
           key: 'youtube',
-          icon: <YoutubeOutlined />,
-          label: 'YouTube',
+          // Official logos replace icon + text (alt text keeps the item named).
+          // These are second-level items, so the collapsed sidebar never shows them as bare icons.
+          label: <YoutubeLogo height={16} />,
           children: [
             {
               key: '/youtube/dashboard',
@@ -76,8 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
         {
           key: '/zoom-utilities',
-          icon: <VideoCameraOutlined />,
-          label: <Link href="/zoom-utilities">Zoom</Link>,
+          label: <Link href="/zoom-utilities"><ZoomLogo height={13} /></Link>,
         },
         {
           key: '/word-cloud/dashboard',

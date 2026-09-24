@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert, Avatar, Tag, Tooltip } from 'antd';
-import { SettingOutlined, VideoCameraOutlined, YoutubeOutlined, LockOutlined, GoogleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
 import { AUTH_RETURN_TO_KEY } from '../../components/YoutubeTokenBanner';
+import { YoutubeLogo, ZoomLogo } from '../../components/BrandLogos';
 
 const { Title, Text } = Typography;
 
@@ -262,15 +263,16 @@ function IntegrationsContent() {
 
   const items = [
     {
-      key: 'zoom',
-      label: <Space><VideoCameraOutlined />Zoom</Space>,
-      children: zoomTabContent,
+      key: 'youtube',
+      // Official logos (they already spell the names; alt text keeps the tab labels readable)
+      label: <YoutubeLogo height={18} />,
+      children: youtubeTabContent,
       forceRender: true,
     },
     {
-      key: 'youtube',
-      label: <Space><YoutubeOutlined />YouTube</Space>,
-      children: youtubeTabContent,
+      key: 'zoom',
+      label: <ZoomLogo height={14} />,
+      children: zoomTabContent,
       forceRender: true,
     },
   ];
@@ -289,7 +291,7 @@ function IntegrationsContent() {
 
       <Card loading={configsLoading}>
         <Tabs 
-          activeKey={searchParams.get('tab') || 'zoom'} 
+          activeKey={searchParams.get('tab') || 'youtube'} 
           onChange={(key) => router.push(`/integrations?tab=${key}`)}
           items={items} 
         />
