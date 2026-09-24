@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import NotificationBell from './NotificationBell';
 import LanguageSwitcher from './LanguageSwitcher';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from './BrandLogos';
+import { N3ConnectLogotype, N3ConnectMark } from './N3ConnectLogo';
 import { useT } from '@/lib/i18n';
 
 const { Header, Sider, Content } = Layout;
@@ -136,9 +137,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <Layout style={{ minHeight: '100vh' }}>
       {/* 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much */}
       <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
-        <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'var(--color-surface)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-          {collapsed ? 'N3' : 'N3 Connect'}
-        </div>
+        {/* The app's logo leads home: the mark alone when the sidebar is collapsed */}
+        <Link
+          href="/"
+          style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? 0 : '0 24px' }}
+        >
+          {collapsed ? <N3ConnectMark size={32} /> : <N3ConnectLogotype height={26} />}
+        </Link>
         <Menu
           theme="light"
           mode="inline"

@@ -375,7 +375,6 @@ export const en: Record<MessageKey, string> = {
   'integ.authorizeYoutube': 'Authorize YouTube',
 
   // — home —
-  'home.title': 'N3 Connect',
   'app.slogan': 'Let us connect your digital world.',
   'home.explore': 'Explore',
   'home.ytDesc': 'Manage your YouTube channel, upload videos manually, and track your upload history.',

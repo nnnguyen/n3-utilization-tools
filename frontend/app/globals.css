@@ -68,7 +68,11 @@
   /* Muted ink for secondary text, and the page-name color next to brand logos */
   --color-text-muted: color-mix(in srgb, var(--color-text) 55%, transparent);
   --color-title: #424242;
+  /* The N3 Connect logo's lettering (components/N3ConnectLogo.tsx): navy in every
+     style, white on dark grounds */
+  --color-logo-ink: #0A1A2F;
 }
+:root[data-theme-mode="dark"] { --color-logo-ink: #FFFFFF; }
 
 /* Broadsheet dark — derived from the same palette (Broadsheet itself ships no
    dark surfaces): warm ink ground, paper text, the lighter accent step */

@@ -374,7 +374,6 @@ export const vi = {
   'integ.authorizeYoutube': 'Uỷ quyền YouTube',
 
   // — home —
-  'home.title': 'N3 Connect',
   'app.slogan': 'Để chúng tôi kết nối thế giới số của bạn.',
   'home.explore': 'Khám phá',
   'home.ytDesc': 'Quản lý kênh YouTube, upload video thủ công và theo dõi lịch sử upload.',

@@ -11,6 +11,7 @@ import {
   HomeOutlined
 } from '@ant-design/icons';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from '../components/BrandLogos';
+import { N3ConnectLogotype } from '../components/N3ConnectLogo';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
@@ -115,7 +116,9 @@ export default function Home() {
     <DashboardLayout>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={2}>{t('home.title')}</Title>
+          <Title level={1} style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            <N3ConnectLogotype height={52} />
+          </Title>
           <Paragraph>
             {t('app.slogan')}
           </Paragraph>

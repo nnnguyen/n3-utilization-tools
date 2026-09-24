@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Button, message, Typography } from 'antd';
 import { apiFetch } from '@/lib/api';
+import { N3ConnectMark } from '@/components/N3ConnectLogo';
 import { useT } from '@/lib/i18n';
 
 const { Title } = Typography;
@@ -48,7 +49,7 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
       width={400}
     >
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <img src="/logo.jpg" alt="Logo" style={{ width: 80, height: 80, marginBottom: 16, borderRadius: 8 }} />
+        <N3ConnectMark size={72} style={{ margin: '0 auto 12px' }} />
         <Title level={2} style={{ margin: 0 }}>N3 Connect</Title>
         <Title level={4} style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>{t('auth.register')}</Title>
       </div>
