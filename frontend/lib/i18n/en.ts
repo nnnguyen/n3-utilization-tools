@@ -375,7 +375,7 @@ export const en: Record<MessageKey, string> = {
   'integ.authorizeYoutube': 'Authorize YouTube',
 
   // — home —
-  'app.slogan': 'Let us connect your digital world.',
+  'app.slogan': 'Connect Your Digital World',
   'home.explore': 'Explore',
   'home.ytDesc': 'Manage your YouTube channel, upload videos manually, and track your upload history.',
   'home.ytF1': 'OAuth2 Connection',
