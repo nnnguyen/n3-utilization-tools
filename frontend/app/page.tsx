@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Typography, Button, Space, Steps, Alert, Spin, message } from 'antd';
+import { Card, Row, Col, Typography, Button, Steps, Alert, Spin, message } from 'antd';
 import { 
-  CloudOutlined, 
   ArrowRightOutlined,
   SettingOutlined,
   LinkOutlined,
@@ -11,7 +10,7 @@ import {
   CheckCircleOutlined,
   HomeOutlined
 } from '@ant-design/icons';
-import { YoutubeLogo, ZoomLogo } from '../components/BrandLogos';
+import { WordCloudLogo, YoutubeLogo, ZoomLogo } from '../components/BrandLogos';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
@@ -143,7 +142,8 @@ export default function Home() {
                 hoverable
                 style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
                 styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                title={<Space><CloudOutlined style={{ color: 'var(--color-accent)' }} /> {t('nav.wordCloud')}</Space>}
+                // The wordmark already reads "Wordcloud", so no extra label
+                title={<WordCloudLogo height={18} />}
                 actions={[
                   <Link href="/word-cloud" key="go">
                     <Button icon={<ArrowRightOutlined />}>{t('home.explore')}</Button>

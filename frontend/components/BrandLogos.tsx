@@ -23,6 +23,11 @@ import { usePreferences } from '@/lib/preferences';
 //   (Zoom_Logo_White_RGB.svg, same source); never recolor or restyle it
 // - clear space is the height of the "Z" (half of it where space is tight)
 // - only source it from the Brand Center, never from third-party logo sites
+//
+// Word Cloud (the app's own "Playful" wordmark, source file
+// brand/wordcloud/Playful — Wordmark@2x.png): the "Wordcloud" wordmark cropped
+// from it with the cream background removed; on dark grounds "Word" is white
+// instead of navy #1f2937 ("cloud" keeps its pink #fb7185)
 
 export function YoutubeIcon({ width = 20, style }: { width?: number; style?: React.CSSProperties }) {
   return (
@@ -57,6 +62,19 @@ export function ZoomLogo({ height = 22, style }: { height?: number; style?: Reac
       alt="Zoom"
       height={height}
       width={Math.round((height * 351.845) / 80)}
+      style={{ display: 'inline-block', verticalAlign: 'middle', ...style }}
+    />
+  );
+}
+
+export function WordCloudLogo({ height = 16, style }: { height?: number; style?: React.CSSProperties }) {
+  const { resolvedMode } = usePreferences();
+  return (
+    <img
+      src={resolvedMode === 'dark' ? '/brand/wordcloud/wordcloud-wordmark-white.png' : '/brand/wordcloud/wordcloud-wordmark.png'}
+      alt="Word Cloud"
+      height={height}
+      width={Math.round((height * 526) / 82)}
       style={{ display: 'inline-block', verticalAlign: 'middle', ...style }}
     />
   );

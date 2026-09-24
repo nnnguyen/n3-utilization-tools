@@ -5,7 +5,6 @@ import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography } from
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  CloudOutlined,
   HomeOutlined,
   LogoutOutlined,
   UserOutlined,
@@ -21,7 +20,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import NotificationBell from './NotificationBell';
-import { YoutubeLogo, ZoomLogo } from './BrandLogos';
+import { WordCloudLogo, YoutubeLogo, ZoomLogo } from './BrandLogos';
 import { useT } from '@/lib/i18n';
 
 const { Header, Sider, Content } = Layout;
@@ -84,8 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
         {
           key: '/word-cloud/dashboard',
-          icon: <CloudOutlined />,
-          label: <Link href="/word-cloud/dashboard">{t('nav.wordCloud')}</Link>,
+          label: <Link href="/word-cloud/dashboard"><WordCloudLogo height={15} /></Link>,
         },
       ]
     },
