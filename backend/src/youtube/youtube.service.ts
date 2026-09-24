@@ -1,3 +1,4 @@
+import { recordingIdFromDescription } from "../zoom/youtube-match";
 import {
   Injectable,
   Logger,
@@ -1523,6 +1524,7 @@ export class YoutubeService {
           likeCount: this.toCount(v.statistics?.likeCount),
           commentCount: this.toCount(v.statistics?.commentCount),
           publishedAt: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : null,
+          zoomRecordingId: recordingIdFromDescription(v.snippet?.description),
         });
       }
     }

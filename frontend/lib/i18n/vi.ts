@@ -604,6 +604,26 @@ export const vi = {
   // — settings: personalization (organic) —
   'personalization.style.organic': 'Organic',
   'personalization.style.organicDesc': 'Nền kem ấm, màu nhấn đất nung và xanh xô thơm, góc bo tròn mềm mại.',
+
+  // — zoom recordings: link to videos already on YouTube —
+  'zoomRec.maybeOnYouTube': 'Có thể đã có trên YouTube',
+  'zoomRec.foundOnYouTube': 'Đã có trên YouTube',
+  'zoomRec.linked': 'Đã liên kết',
+  'zoomRec.link': 'Liên kết',
+  'zoomRec.notThis': 'Không phải',
+  'zoomRec.linkConfirm': 'Liên kết recording này với video “{title}”? Recording sẽ được xem như đã sync và không upload lại.',
+  'zoomRec.linkExisting': 'Liên kết video có sẵn',
+  'zoomRec.linkPickerTitle': 'Liên kết với video đã có trên YouTube',
+  'zoomRec.linkPickerHint': 'Chọn video trên kênh của bạn là bản của recording “{topic}”. Recording sẽ được xem như đã sync và không upload lại.',
+  'zoomRec.linkPickerPlaceholder': 'Tìm video theo tiêu đề',
+  'zoomRec.linkPickerEmpty': 'Chưa có danh sách video của kênh. Hãy kết nối YouTube hoặc làm mới ở trang Nội dung kênh.',
+  'zoomRec.alreadyLinkedTo': 'đã liên kết: {meeting}',
+  'zoomRec.linkSuccess': 'Đã liên kết với video YouTube',
+  'zoomRec.unlink': 'Bỏ liên kết',
+  'zoomRec.unlinkConfirm': 'Bỏ liên kết với video này? Recording sẽ trở lại trạng thái chưa sync. Video trên YouTube không bị ảnh hưởng.',
+  'zoomRec.unlinkSuccess': 'Đã bỏ liên kết',
+  'zoomRec.dismissed': 'Đã ẩn gợi ý này',
+  'zoomRec.actionFailed': 'Thao tác thất bại: {error}',
 } as const;
 
 export type MessageKey = keyof typeof vi;

@@ -605,4 +605,24 @@ export const en: Record<MessageKey, string> = {
   // — settings: personalization (organic) —
   'personalization.style.organic': 'Organic',
   'personalization.style.organicDesc': 'Warm cream ground, terracotta and sage accents, soft rounded shapes.',
+
+  // — zoom recordings: link to videos already on YouTube —
+  'zoomRec.maybeOnYouTube': 'Possibly already on YouTube',
+  'zoomRec.foundOnYouTube': 'Already on YouTube',
+  'zoomRec.linked': 'Linked',
+  'zoomRec.link': 'Link',
+  'zoomRec.notThis': 'Not this one',
+  'zoomRec.linkConfirm': 'Link this recording to “{title}”? It will count as synced and won\'t be uploaded again.',
+  'zoomRec.linkExisting': 'Link existing video',
+  'zoomRec.linkPickerTitle': 'Link to a video already on YouTube',
+  'zoomRec.linkPickerHint': 'Pick the video on your channel that is the recording “{topic}”. The recording will count as synced and won\'t be uploaded again.',
+  'zoomRec.linkPickerPlaceholder': 'Search videos by title',
+  'zoomRec.linkPickerEmpty': 'No channel video list yet. Connect YouTube or refresh it on the Channel Content page.',
+  'zoomRec.alreadyLinkedTo': 'linked to: {meeting}',
+  'zoomRec.linkSuccess': 'Linked to the YouTube video',
+  'zoomRec.unlink': 'Unlink',
+  'zoomRec.unlinkConfirm': 'Unlink this video? The recording goes back to not synced. The video on YouTube is not affected.',
+  'zoomRec.unlinkSuccess': 'Unlinked',
+  'zoomRec.dismissed': 'Suggestion hidden',
+  'zoomRec.actionFailed': 'Action failed: {error}',
 };

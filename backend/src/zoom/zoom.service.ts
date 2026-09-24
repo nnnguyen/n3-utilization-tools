@@ -1,3 +1,4 @@
+import { RECORDING_ID_PREFIX } from "./youtube-match";
 import {
   Injectable,
   Logger,
@@ -554,7 +555,9 @@ export class ZoomService {
     return this.youtubeService.uploadVideoFromStream(
       stream,
       `Zoom Recording: ${topic}`,
-      `Recorded on ${startTime}`,
+      // The recording ID line lets the app recognize this video later
+      // (youtube-match.ts), even without its sync record
+      `Recorded on ${startTime}\n\n${RECORDING_ID_PREFIX} ${recordingId}`,
       privacyStatus || "private",
       userId,
       onProgress,

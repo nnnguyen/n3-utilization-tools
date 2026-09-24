@@ -15,13 +15,18 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { SyncRecordingDto } from "./sync-recording.dto";
+import { DismissMatchDto, LinkRecordingDto, UnlinkRecordingDto } from "./youtube-link.dto";
+import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import * as crypto from "crypto";
 
 @Controller("zoom")
 export class ZoomController {
   private readonly logger = new Logger(ZoomController.name);
 
-  constructor(private readonly zoomService: ZoomService) {}
+  constructor(
+    private readonly zoomService: ZoomService,
+    private readonly youtubeMatchService: ZoomYoutubeMatchService,
+  ) {}
 
   @Get("recordings")
   @UseGuards(JwtAuthGuard)
@@ -32,12 +37,39 @@ export class ZoomController {
     @Query("from") from?: string,
     @Query("to") to?: string,
   ) {
-    return this.zoomService.listRecordings(user.id, {
+    const result = await this.zoomService.listRecordings(user.id, {
       page_size: pageSize,
       next_page_token: nextPageToken,
       from,
       to,
     });
+    // Recordings the app has no sync record of may already be on YouTube:
+    // suggest the matching channel video (a suggestion never breaks the list)
+    try {
+      result.meetings = await this.youtubeMatchService.attachMatches(user.id, result.meetings || []);
+    } catch (error) {
+      this.logger.warn(`YouTube match suggestions failed: ${error.message}`);
+    }
+    return result;
+  }
+
+  // Mark a recording as already on YouTube as the given channel video
+  @Post("recordings/link")
+  @UseGuards(JwtAuthGuard)
+  async linkRecording(@CurrentUser() user: AuthenticatedUser, @Body() body: LinkRecordingDto) {
+    return this.youtubeMatchService.link(user.id, body);
+  }
+
+  @Post("recordings/unlink")
+  @UseGuards(JwtAuthGuard)
+  async unlinkRecording(@CurrentUser() user: AuthenticatedUser, @Body() body: UnlinkRecordingDto) {
+    return this.youtubeMatchService.unlink(user.id, body.recordingId);
+  }
+
+  @Post("recordings/dismiss-match")
+  @UseGuards(JwtAuthGuard)
+  async dismissMatch(@CurrentUser() user: AuthenticatedUser, @Body() body: DismissMatchDto) {
+    return this.youtubeMatchService.dismiss(user.id, body.recordingId, body.videoId);
   }
 
   @Get("logs")

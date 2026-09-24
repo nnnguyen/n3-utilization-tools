@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Alert, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip } from 'antd';
-import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Alert, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip, Popconfirm } from 'antd';
+import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined, LinkOutlined, DisconnectOutlined } from '@ant-design/icons';
 import EditVideoModal from './EditVideoModal';
 import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
@@ -11,6 +11,15 @@ import dayjs from 'dayjs';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
+
+// 3725 -> "1:02:05", 185 -> "3:05"
+function formatSeconds(total?: number | null) {
+  if (total == null) return '';
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
 
 // Zoom Recordings table with its sync flow (moved as-is from the Zoom
 // Utilities page into YouTube → Channel Content → Zoom Sync)
@@ -45,6 +54,13 @@ export default function ZoomRecordingsPanel() {
 
   // History Modal
   const [historyRecording, setHistoryRecording] = useState<any>(null);
+
+  // Linking a recording to a video already on YouTube (suggested, or picked by hand)
+  const [linkingIds, setLinkingIds] = useState<Set<string>>(new Set());
+  const [pickerRecord, setPickerRecord] = useState<any>(null);
+  const [channelVideos, setChannelVideos] = useState<any[]>([]);
+  const [channelVideosLoading, setChannelVideosLoading] = useState(false);
+  const [pickedVideoId, setPickedVideoId] = useState<string | undefined>(undefined);
 
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
@@ -196,6 +212,75 @@ export default function ZoomRecordingsPanel() {
     init();
   }, [dateFilter, customDateRange]);
 
+  const withLinking = async (recordingId: string, action: () => Promise<void>) => {
+    setLinkingIds(prev => new Set(prev).add(recordingId));
+    try {
+      await action();
+    } catch (error: any) {
+      message.error(t('zoomRec.actionFailed', { error: error.message || '' }));
+    } finally {
+      setLinkingIds(prev => {
+        const next = new Set(prev);
+        next.delete(recordingId);
+        return next;
+      });
+    }
+  };
+
+  // The recording counts as synced from now on (a COMPLETED record pointing at the video)
+  const linkRecording = (record: any, videoId: string) =>
+    withLinking(record.uuid || record.id, async () => {
+      await apiFetch('/zoom/recordings/link', {
+        method: 'POST',
+        body: JSON.stringify({
+          recordingId: record.uuid || record.id,
+          videoId,
+          topic: record.topic,
+          startTime: record.start_time,
+        }),
+      });
+      message.success(t('zoomRec.linkSuccess'));
+      setPickerRecord(null);
+      await fetchAllData();
+    });
+
+  const unlinkRecording = (record: any) =>
+    withLinking(record.uuid || record.id, async () => {
+      await apiFetch('/zoom/recordings/unlink', {
+        method: 'POST',
+        body: JSON.stringify({ recordingId: record.uuid || record.id }),
+      });
+      message.success(t('zoomRec.unlinkSuccess'));
+      await fetchAllData();
+    });
+
+  const dismissMatch = (record: any) =>
+    withLinking(record.uuid || record.id, async () => {
+      await apiFetch('/zoom/recordings/dismiss-match', {
+        method: 'POST',
+        body: JSON.stringify({ recordingId: record.uuid || record.id, videoId: record.youtubeMatch.videoId }),
+      });
+      message.success(t('zoomRec.dismissed'));
+      // Only this row changes: drop its suggestion without reloading the list
+      setRecordings((prev: any) =>
+        prev.map((r: any) => (r === record ? { ...r, youtubeMatch: undefined } : r)),
+      );
+    });
+
+  const openLinkPicker = async (record: any) => {
+    setPickerRecord(record);
+    setPickedVideoId(record.youtubeMatch?.videoId);
+    setChannelVideosLoading(true);
+    try {
+      const data = await apiFetch('/youtube/channel/videos');
+      setChannelVideos(data.videos || []);
+    } catch {
+      setChannelVideos([]);
+    } finally {
+      setChannelVideosLoading(false);
+    }
+  };
+
   const handleManualSync = async (record: any, privacyStatus: string = 'private', playlistId?: string) => {
     if (quota && quota.unitsRemaining < 1650) {
       message.error(t('quota.exhausted'));
@@ -300,7 +385,26 @@ export default function ZoomRecordingsPanel() {
         const recordingId = record.uuid || record.id;
         const log = logs.find((l: any) => l.recordingId === recordingId);
         
+        const match = record.youtubeMatch;
+        if ((!log || log.syncStatus === 'PENDING') && match) {
+          return (
+            <Space orientation="vertical" size={2} style={{ maxWidth: 260 }}>
+              <Tag color={match.exact ? 'success' : 'gold'} icon={<LinkOutlined />}>
+                {match.exact ? t('zoomRec.foundOnYouTube') : t('zoomRec.maybeOnYouTube')}
+              </Tag>
+              <a href={`https://www.youtube.com/watch?v=${match.videoId}`} target="_blank" rel="noreferrer">
+                <Text ellipsis style={{ maxWidth: 260, color: 'inherit' }}>{match.title}</Text>
+              </a>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {[formatSeconds(match.durationSeconds), match.publishedAt ? fmt.date(match.publishedAt) : null].filter(Boolean).join(' · ')}
+              </Text>
+            </Space>
+          );
+        }
         if (!log) return <Tag color="default">{t('zoomRec.notSynced')}</Tag>;
+        if (log.source === 'linked') {
+          return <Tag color="success" icon={<LinkOutlined />}>{t('zoomRec.linked')}</Tag>;
+        }
 
         const status = log.syncStatus || 'PENDING';
         
@@ -369,10 +473,42 @@ export default function ZoomRecordingsPanel() {
         const isSyncing = syncingIds.has(recordingId) || (log && (log.syncStatus === 'UPLOADING' || log.syncStatus === 'PROCESSING'));
         const isCompleted = log && log.syncStatus === 'COMPLETED';
         const isFailed = log && log.syncStatus === 'FAILED';
-        const hasHistory = log && log.syncStatus !== 'PENDING';
+        const hasHistory = log && log.syncStatus !== 'PENDING' && log.source !== 'linked';
+        const isLinked = log?.source === 'linked';
+        const match = !log || log.syncStatus === 'PENDING' ? record.youtubeMatch : null;
+        const busy = linkingIds.has(recordingId);
 
         return (
-          <Space>
+          <Space wrap>
+            {match && (
+              <>
+                <Popconfirm
+                  title={t('zoomRec.linkConfirm', { title: match.title })}
+                  onConfirm={() => linkRecording(record, match.videoId)}
+                  okText={t('zoomRec.link')}
+                  cancelText={t('common.cancel')}
+                >
+                  <Button type="primary" size="small" icon={<LinkOutlined />} loading={busy}>
+                    {t('zoomRec.link')}
+                  </Button>
+                </Popconfirm>
+                <Button size="small" onClick={() => dismissMatch(record)} disabled={busy}>
+                  {t('zoomRec.notThis')}
+                </Button>
+              </>
+            )}
+            {isLinked && (
+              <Popconfirm
+                title={t('zoomRec.unlinkConfirm')}
+                onConfirm={() => unlinkRecording(record)}
+                okText={t('zoomRec.unlink')}
+                cancelText={t('common.cancel')}
+              >
+                <Button size="small" icon={<DisconnectOutlined />} loading={busy}>
+                  {t('zoomRec.unlink')}
+                </Button>
+              </Popconfirm>
+            )}
             <Button 
               type="default" 
               size="small"
@@ -400,6 +536,18 @@ export default function ZoomRecordingsPanel() {
               >
                 {isFailed ? t('zoomRec.resync') : isSyncing ? t('zoomRec.processingEllipsis') : t('zoomRec.sync')}
               </Button>
+            )}
+
+            {!isCompleted && !isSyncing && (
+              <Tooltip title={t('zoomRec.linkExisting')}>
+                <Button
+                  size="small"
+                  icon={<LinkOutlined />}
+                  aria-label={t('zoomRec.linkExisting')}
+                  onClick={() => openLinkPicker(record)}
+                  disabled={busy}
+                />
+              </Tooltip>
             )}
 
             {hasHistory && (
@@ -644,6 +792,54 @@ export default function ZoomRecordingsPanel() {
         onClose={() => setEditingVideoId(null)}
         onSaved={() => fetchQuota()}
       />
+
+      <Modal
+        title={t('zoomRec.linkPickerTitle')}
+        open={!!pickerRecord}
+        onCancel={() => setPickerRecord(null)}
+        onOk={() => pickerRecord && pickedVideoId && linkRecording(pickerRecord, pickedVideoId)}
+        okText={t('zoomRec.link')}
+        cancelText={t('common.cancel')}
+        okButtonProps={{
+          disabled: !pickedVideoId,
+          loading: pickerRecord ? linkingIds.has(pickerRecord.uuid || pickerRecord.id) : false,
+        }}
+      >
+        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+          {t('zoomRec.linkPickerHint', { topic: pickerRecord?.topic || '' })}
+        </Text>
+        {!channelVideosLoading && channelVideos.length === 0 ? (
+          <Alert type="info" showIcon title={t('zoomRec.linkPickerEmpty')} />
+        ) : (
+          <Select
+            showSearch
+            style={{ width: '100%' }}
+            placeholder={t('zoomRec.linkPickerPlaceholder')}
+            loading={channelVideosLoading}
+            value={pickedVideoId}
+            onChange={setPickedVideoId}
+            optionFilterProp="title"
+            options={channelVideos.map((v: any) => ({
+              value: v.videoId,
+              title: v.title,
+              // A video already linked to another recording can't take a second one
+              disabled: !!v.zoomSync,
+              label: (
+                <Space orientation="vertical" size={0}>
+                  <Text ellipsis style={{ maxWidth: 400 }}>{v.title}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {[
+                      formatSeconds(v.durationSeconds),
+                      v.publishedAt ? fmt.date(v.publishedAt) : null,
+                      v.zoomSync ? t('zoomRec.alreadyLinkedTo', { meeting: v.zoomSync.meeting }) : null,
+                    ].filter(Boolean).join(' · ')}
+                  </Text>
+                </Space>
+              ),
+            }))}
+          />
+        )}
+      </Modal>
 
       <SyncHistoryModal
         open={!!historyRecording}

@@ -4,8 +4,9 @@ import { PrismaService } from "../prisma/prisma.service";
 const QUOTA_AVERAGE_DAYS = 30;
 const TOP_FAILING_LIMIT = 10;
 
-// Stats cover Zoom -> YouTube syncs (ZoomSyncLog). Manual uploads from the
-// YouTube Utilities page are not logged there and are not included.
+// Stats cover Zoom -> YouTube syncs (ZoomSyncLog) the app made itself. Manual
+// uploads from the YouTube page are not logged there, and recordings the user
+// linked to a video already on YouTube (source "linked") are left out.
 @Injectable()
 export class YoutubeStatsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,29 +25,30 @@ export class YoutubeStatsService {
       quotaRows,
     ] = await Promise.all([
       this.prisma.zoomSyncLog.aggregate({
-        where: { userId, syncStatus: "COMPLETED" },
+        where: { userId, source: "upload", syncStatus: "COMPLETED" },
         _count: { _all: true },
         _sum: { fileSize: true, durationSeconds: true },
       }),
       this.prisma.zoomSyncLog.groupBy({
         by: ["syncStatus"],
-        where: { userId },
+        where: { userId, source: "upload" },
         _count: { _all: true },
       }),
       this.prisma.zoomSyncLog.aggregate({
-        where: { userId },
+        where: { userId, source: "upload" },
         _sum: { attemptCount: true, failureCount: true },
       }),
       this.prisma.zoomSyncLog.findMany({
         where: {
           userId,
+          source: "upload",
           syncStatus: "COMPLETED",
           syncCompletedAt: { gte: since },
         },
         select: { syncCompletedAt: true },
       }),
       this.prisma.zoomSyncLog.findMany({
-        where: { userId, failureCount: { gt: 0 } },
+        where: { userId, source: "upload", failureCount: { gt: 0 } },
         orderBy: [{ failureCount: "desc" }, { createdAt: "desc" }],
         take: TOP_FAILING_LIMIT,
         select: {

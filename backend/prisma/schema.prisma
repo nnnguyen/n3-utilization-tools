@@ -40,6 +40,7 @@ model User {
   zoomSyncLogs  ZoomSyncLog[]
   notifications Notification[]
   channelVideos ChannelVideoCache[]
+  youtubeMatchDismissals ZoomYoutubeMatchDismissal[]
 }
 
 model ZoomConfig {
@@ -109,6 +110,7 @@ model ZoomSyncLog {
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
+  source                  String     @default("upload") // 'upload' (synced by this app) | 'linked' (a video already on YouTube, linked by the user)
   createdAt               DateTime   @default(now())
 
   @@index([userId])
@@ -230,9 +232,23 @@ model ChannelVideoCache {
   likeCount       Int? // null when the owner hid likes
   commentCount    Int? // null when comments are disabled
   publishedAt     DateTime?
+  zoomRecordingId String? // From the "Zoom recording ID:" line this app writes in the description of its uploads
   fetchedAt       DateTime  @default(now())
 
   @@unique([userId, videoId])
+  @@index([userId])
+}
+
+// A suggested Zoom recording <-> YouTube video match the user rejected ("not this one")
+model ZoomYoutubeMatchDismissal {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recordingId String
+  videoId     String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, recordingId, videoId])
   @@index([userId])
 }
 
