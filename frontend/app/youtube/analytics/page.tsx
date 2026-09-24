@@ -306,6 +306,7 @@ export default function YoutubeAnalyticsPage() {
             }
           >
             <Table
+              scroll={{ x: 'max-content' }}
               size="small"
               columns={topColumns}
               dataSource={topVideos}

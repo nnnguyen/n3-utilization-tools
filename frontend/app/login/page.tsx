@@ -113,14 +113,14 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 24,
+        padding: 'clamp(12px, 4vw, 24px)',
         backgroundColor: 'var(--color-bg)'
       }}
     >
       <Suspense fallback={null}>
         <LoginErrorHandler router={router} />
       </Suspense>
-      <Card style={{ width: 400, boxShadow: 'var(--shadow-md)' }}>
+      <Card style={{ width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-md)' }}>
         {/* No account yet on this page: the choice is kept in this browser until sign-in */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
           <LanguageSwitcher />

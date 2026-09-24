@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography } from 'antd';
+import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography, Drawer, Grid } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MenuOutlined,
   HomeOutlined,
   LogoutOutlined,
   UserOutlined,
@@ -30,6 +31,10 @@ const { Text } = Typography;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  // Phones and portrait tablets (below antd's lg, 992px): the menu is a drawer
+  const screens = Grid.useBreakpoint();
+  const isCompact = !screens.lg;
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
@@ -44,6 +49,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // A page opened from the drawer closes it
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   const menuItems = [
     {
@@ -133,70 +143,106 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return null;
   }
 
+  // Sidebar and drawer share the logo and the menu; the mark alone when the sidebar is collapsed
+  const iconOnly = collapsed && !isCompact;
+  const navigation = (
+    <>
+      {/* The app's logo with its slogan leads home. The lockup spans the sidebar (272px less 20px each side) */}
+      <Link
+        href="/"
+        style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: iconOnly ? 'center' : 'flex-start', padding: iconOnly ? 0 : '0 20px' }}
+      >
+        {iconOnly ? <N3ConnectMark size={32} /> : <N3ConnectLockup height={44} />}
+      </Link>
+      <Menu
+        theme="light"
+        mode="inline"
+        selectedKeys={[pathname]}
+        // Open the groups containing the current page so nested items are visible
+        defaultOpenKeys={
+          pathname.startsWith('/youtube')
+            ? ['utilities', 'youtube']
+            : ['/zoom-utilities', '/word-cloud'].some(p => pathname.startsWith(p))
+              ? ['utilities']
+              : pathname.startsWith('/settings')
+                ? ['settings']
+                : []
+        }
+        items={menuItems}
+      />
+    </>
+  );
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much */}
-      <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
-        {/* The app's logo with its slogan leads home: the mark alone when the sidebar is collapsed.
-            The lockup spans the sidebar (272px less 20px each side) */}
-        <Link
-          href="/"
-          style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? 0 : '0 20px' }}
+      {isCompact ? (
+        <Drawer
+          placement="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          closable={false}
+          size={288}
+          styles={{ body: { padding: 0 } }}
         >
-          {collapsed ? <N3ConnectMark size={32} /> : <N3ConnectLockup height={44} />}
-        </Link>
-        <Menu
-          theme="light"
-          mode="inline"
-          selectedKeys={[pathname]}
-          // Open the groups containing the current page so nested items are visible
-          defaultOpenKeys={
-            pathname.startsWith('/youtube')
-              ? ['utilities', 'youtube']
-              : ['/zoom-utilities', '/word-cloud'].some(p => pathname.startsWith(p))
-                ? ['utilities']
-                : pathname.startsWith('/settings')
-                  ? ['settings']
-                  : []
-          }
-          items={menuItems}
-        />
-      </Sider>
-      <Layout>
-        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          {navigation}
+        </Drawer>
+      ) : (
+        // 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much
+        <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
+          {navigation}
+        </Sider>
+      )}
+      <Layout style={{ minWidth: 0 }}>
+        <Header
+          style={{
+            padding: isCompact ? '0 8px' : '0 24px',
+            background: colorBgContainer,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <Button
               type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
+              icon={isCompact ? <MenuOutlined /> : collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => (isCompact ? setDrawerOpen(true) : setCollapsed(!collapsed))}
               aria-label={t('nav.toggleSidebar')}
               style={{
                 fontSize: '16px',
-                width: 64,
-                height: 64,
+                width: isCompact ? 48 : 64,
+                height: isCompact ? 48 : 64,
               }}
             />
-            <h2 style={{ margin: 0 }}>{t('nav.dashboard')}</h2>
+            {/* Without the sidebar, the mark keeps the brand (and the way home) in view */}
+            {isCompact ? (
+              <Link href="/" aria-label="N3 Connect"><N3ConnectMark size={32} /></Link>
+            ) : (
+              <h2 style={{ margin: 0 }}>{t('nav.dashboard')}</h2>
+            )}
           </div>
-          <Space size="middle">
+          <Space size={isCompact ? 'small' : 'middle'}>
             <LanguageSwitcher />
             <NotificationBell />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar icon={<UserOutlined />} src={user?.avatarUrl} />
-                <Text>{user?.name || user?.email}</Text>
+                {/* The name only where there is room for it; the avatar opens the same menu */}
+                {screens.md && <Text>{user?.name || user?.email}</Text>}
               </Space>
             </Dropdown>
           </Space>
         </Header>
         <Content
           style={{
-            margin: '24px 16px',
-            padding: 24,
+            margin: isCompact ? '8px' : '24px 16px',
+            padding: screens.sm ? 24 : 12,
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
-            overflow: 'initial'
+            overflow: 'initial',
+            minWidth: 0,
           }}
         >
           {children}

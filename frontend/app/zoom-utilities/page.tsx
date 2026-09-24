@@ -84,7 +84,7 @@ export default function ZoomUtilities() {
         {mostRecentRecording && (
           <Col span={24}>
             <Card title={<Space><ThunderboltOutlined /><span>{t('zoomDash.mostRecent')}</span></Space>}>
-              <Descriptions column={3}>
+              <Descriptions column={{ xs: 1, sm: 2, md: 3 }}>
                 <Descriptions.Item label={t('zoomDash.topic')}>{mostRecentRecording.topic}</Descriptions.Item>
                 <Descriptions.Item label={t('zoomDash.startTime')}>{fmt.dateTime(mostRecentRecording.start_time)}</Descriptions.Item>
                 <Descriptions.Item label={t('zoomDash.duration')}>{t('zoomDash.minutes', { count: mostRecentRecording.duration })}</Descriptions.Item>

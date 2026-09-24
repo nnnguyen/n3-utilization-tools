@@ -113,7 +113,7 @@ export default function NotificationBell() {
   };
 
   const panel = (
-    <div style={{ width: 360, background: 'var(--color-surface)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
+    <div style={{ width: 360, maxWidth: 'calc(100vw - 16px)', background: 'var(--color-surface)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--color-divider)' }}>
         <Text strong>{t('notif.title')}</Text>
         <Button type="link" size="small" onClick={markAllRead} disabled={unreadCount === 0}>

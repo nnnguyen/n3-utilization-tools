@@ -383,6 +383,7 @@ export default function YoutubeDashboardPage() {
               extra={<Link href="/youtube/channel-content?tab=zoom-sync">{t('ytDash.viewInZoomSync')}</Link>}
             >
               <Table
+                scroll={{ x: 'max-content' }}
                 size="small"
                 rowKey="recordingId"
                 pagination={false}
@@ -400,6 +401,7 @@ export default function YoutubeDashboardPage() {
               <InfoCircleOutlined /> {t('ytDash.recentNote')}
             </Text>
             <Table
+              scroll={{ x: 'max-content' }}
               columns={uploadColumns}
               dataSource={recentUploads}
               rowKey="id"

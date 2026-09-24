@@ -84,7 +84,7 @@ export function N3ConnectLogotype({ height = 24, style }: { height?: number; sty
   const id = useId();
   const [x, y, w, h] = LOGOTYPE_VIEWBOX;
   return (
-    <svg width={Math.round((height * w) / h)} height={height} viewBox={`${x} ${y} ${w} ${h}`} role="img" aria-label="N3 Connect" style={{ display: 'block', ...style }}>
+    <svg width={Math.round((height * w) / h)} height={height} viewBox={`${x} ${y} ${w} ${h}`} role="img" aria-label="N3 Connect" style={{ display: 'block', maxWidth: '100%', height: 'auto', ...style }}>
       <Gradients id={id} outer={[2, 98]} inner={[23, 77]} />
       <Wordmark id={id} />
     </svg>
@@ -99,7 +99,7 @@ export function N3ConnectLockup({ height = 64, style }: { height?: number; style
   const [x, y, w, h] = LOCKUP_VIEWBOX;
   const label = `N3 Connect — ${t('app.slogan')}`;
   return (
-    <svg width={Math.round((height * w) / h)} height={height} viewBox={`${x} ${y} ${w} ${h}`} role="img" aria-label={label} style={{ display: 'block', ...style }}>
+    <svg width={Math.round((height * w) / h)} height={height} viewBox={`${x} ${y} ${w} ${h}`} role="img" aria-label={label} style={{ display: 'block', maxWidth: '100%', height: 'auto', ...style }}>
       <Gradients id={id} outer={[2, 98]} inner={[23, 77]} />
       <Wordmark id={id} />
       <path d={LOGO.slogan[language] ?? LOGO.slogan.en} style={{ fill: 'var(--color-logo-slogan)' }} />

@@ -46,6 +46,7 @@ export function WordStatsTable({ words, totalResponses, filename }: WordStatsTab
         </Button>
       </div>
       <Table
+        scroll={{ x: 'max-content' }}
         size="small"
         rowKey={(_, index) => index ?? 0}
         dataSource={words}

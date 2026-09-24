@@ -99,6 +99,7 @@ export default function MonthlyBarChart({ title, data, valueLabel, unit = 'video
           </div>
         ) : (
           <Table
+            scroll={{ x: 'max-content' }}
             size="small"
             pagination={false}
             rowKey="month"

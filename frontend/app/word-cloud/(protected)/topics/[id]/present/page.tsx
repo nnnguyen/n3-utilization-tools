@@ -385,7 +385,9 @@ export default function TopicPresentPage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '16px 24px',
+            flexWrap: 'wrap',
+            gap: 8,
+            padding: '16px clamp(12px, 3vw, 24px)',
             flexShrink: 0,
             position: 'relative',
             minHeight: 120, // Tăng chiều cao tối thiểu để logo không đè content top bar
@@ -480,8 +482,8 @@ export default function TopicPresentPage() {
               display: isFullscreen ? 'none' : 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 24,
-              padding: '0 24px',
+              gap: 'clamp(8px, 3vw, 24px)',
+              padding: '0 clamp(8px, 3vw, 24px)',
               flexShrink: 0,
             }}
           >
@@ -500,7 +502,7 @@ export default function TopicPresentPage() {
                 }}
               />
             )}
-            <div style={{ textAlign: 'center', width: '100%', padding: '0 80px' }}>
+            <div style={{ textAlign: 'center', width: '100%', padding: '0 clamp(0px, 6vw, 80px)' }}>
               {currentQuestion && (
                 <>
                   <Title level={2} style={{ margin: 0, color: 'inherit' }}>
@@ -643,10 +645,10 @@ export default function TopicPresentPage() {
           top: 0,
           right: 0,
           height: '100%',
-          width: QR_PANEL_WIDTH,
+          width: `min(${QR_PANEL_WIDTH}px, 100vw)`,
           background: 'var(--color-surface)',
           boxShadow: '-4px 0 16px rgba(0,0,0,0.15)',
-          transform: qrPanelOpen ? 'translateX(0)' : `translateX(${QR_PANEL_WIDTH}px)`,
+          transform: qrPanelOpen ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.3s ease',
           zIndex: 20,
           display: 'flex',
@@ -666,7 +668,7 @@ export default function TopicPresentPage() {
 
         {qrUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={qrUrl} alt={t('wc.joinQrAlt')} width={440} height={440} />
+          <img src={qrUrl} alt={t('wc.joinQrAlt')} width={440} height={440} style={{ maxWidth: '100%', height: 'auto' }} />
         ) : (
           <Spin />
         )}

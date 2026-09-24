@@ -268,3 +268,14 @@ h1, h2, h3, h4, h5, h6,
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
 }
+
+/* Phones (below antd's md, 768px): a card's title and its extra (filters,
+   buttons) wrap onto their own lines instead of overflowing, and cards give
+   their content more of the narrow width */
+@media (max-width: 767px) {
+  .ant-card-head-wrapper { flex-wrap: wrap; gap: 8px; padding-block: 8px; }
+  .ant-card-extra { margin-inline-start: 0; max-width: 100%; }
+  .ant-card-extra .ant-space { flex-wrap: wrap; }
+  .ant-card .ant-card-body { padding: 16px; }
+  .ant-card .ant-card-head { padding-inline: 16px; }
+}

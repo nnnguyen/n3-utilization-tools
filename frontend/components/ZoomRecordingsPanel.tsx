@@ -437,7 +437,8 @@ export default function ZoomRecordingsPanel() {
         }
       >
       {configs.zoom?.isActive ? (
-        <Table 
+        <Table
+          scroll={{ x: 'max-content' }}
           columns={recordingColumns} 
           dataSource={recordings} 
           rowKey={(record: any) => record.uuid || record.id}
@@ -511,7 +512,7 @@ export default function ZoomRecordingsPanel() {
         )}
         <Form layout="vertical">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label={t('zoomRec.selectPrivacy')}>
                 <Select 
                   value={syncPrivacyStatus} 
@@ -524,7 +525,7 @@ export default function ZoomRecordingsPanel() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item label={t('field.playlist')}>
                 <Select 
                   value={syncPlaylistId} 
@@ -610,22 +611,22 @@ export default function ZoomRecordingsPanel() {
               </div>
             ) : <Alert title={t('zoomRec.noVideoFile')} type="warning" />}
 
-            <Row gutter={16} style={{ marginTop: 20 }}>
-              <Col span={8}>
+            <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
+              <Col xs={24} sm={8}>
                 <Card size="small" title={<Space><AudioOutlined /> {t('zoomRec.audio')}</Space>}>
                   {selectedRecording.recording_files?.find((f: any) => f.file_type === 'M4A') ? (
                     <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'M4A').download_url} target="_blank">{t('zoomRec.downloadAudio')}</Button>
                   ) : <Text type="secondary">{t('zoomRec.notAvailable')}</Text>}
                 </Card>
               </Col>
-              <Col span={8}>
+              <Col xs={24} sm={8}>
                 <Card size="small" title={<Space><MessageOutlined /> {t('zoomRec.chat')}</Space>}>
                    {selectedRecording.recording_files?.find((f: any) => f.file_type === 'CHAT') ? (
                     <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'CHAT').download_url} target="_blank">{t('zoomRec.downloadChat')}</Button>
                   ) : <Text type="secondary">{t('zoomRec.notAvailable')}</Text>}
                 </Card>
               </Col>
-              <Col span={8}>
+              <Col xs={24} sm={8}>
                 <Card size="small" title={<Space><FilePdfOutlined /> {t('zoomRec.transcript')}</Space>}>
                   {selectedRecording.recording_files?.find((f: any) => f.file_type === 'TRANSCRIPT') ? (
                     <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'TRANSCRIPT').download_url} target="_blank">{t('zoomRec.downloadTranscript')}</Button>

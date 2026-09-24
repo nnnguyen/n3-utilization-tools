@@ -202,6 +202,7 @@ export default function YoutubeVideosPanel({ connected, checking }: { connected:
       {error && <Alert type="warning" showIcon title={error} style={{ marginBottom: 16 }} />}
 
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={videos}
         rowKey="videoId"

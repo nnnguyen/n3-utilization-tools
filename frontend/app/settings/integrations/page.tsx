@@ -249,7 +249,7 @@ function IntegrationsContent() {
           <Input.Password prefix={<LockOutlined />} placeholder="Google OAuth Refresh Token" />
         </Form.Item>
         <Form.Item>
-          <Space>
+          <Space wrap>
             <Button type="primary" htmlType="submit">{t('integ.saveYoutube')}</Button>
             <Button 
               icon={<GoogleOutlined />} 

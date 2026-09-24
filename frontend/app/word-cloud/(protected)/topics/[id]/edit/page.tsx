@@ -369,7 +369,9 @@ export default function TopicEditPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 24px',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '12px clamp(12px, 3vw, 24px)',
           borderBottom: '1px solid var(--color-divider)',
         }}
       >

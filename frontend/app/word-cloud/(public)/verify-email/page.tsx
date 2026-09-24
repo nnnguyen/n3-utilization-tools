@@ -46,7 +46,7 @@ function VerifyEmailContent() {
   }
 
   return (
-    <Card style={{ width: 500 }}>
+    <Card style={{ width: '100%', maxWidth: 500 }}>
       {success ? (
         <Result
           status="success"

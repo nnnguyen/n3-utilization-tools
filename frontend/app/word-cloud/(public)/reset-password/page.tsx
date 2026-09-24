@@ -42,7 +42,7 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <Card style={{ width: 400 }}>
+      <Card style={{ width: '100%', maxWidth: 400 }}>
         <Result
           status="error"
           title={t('reset.missingToken')}
@@ -55,7 +55,7 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <Card style={{ width: 400 }}>
+      <Card style={{ width: '100%', maxWidth: 400 }}>
         <Result
           status="success"
           title={t('reset.success')}
@@ -70,7 +70,7 @@ function ResetPasswordContent() {
   }
 
   return (
-    <Card style={{ width: 400 }}>
+    <Card style={{ width: '100%', maxWidth: 400 }}>
       <Title level={2} style={{ textAlign: 'center' }}>{t('reset.title')}</Title>
       <Paragraph type="secondary" style={{ textAlign: 'center' }}>
         {t('reset.desc')}

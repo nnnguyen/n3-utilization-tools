@@ -291,6 +291,7 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       {loadError && <Alert type="error" title={loadError} showIcon style={{ marginBottom: 16 }} />}
 
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={playlists}
         rowKey="id"
@@ -346,6 +347,7 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('playlists.noVideos')} />
             ) : (
               <Table
+                scroll={{ x: 'max-content' }}
                 size="small"
                 columns={itemColumns}
                 dataSource={items}

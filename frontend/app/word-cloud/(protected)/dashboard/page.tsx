@@ -152,6 +152,7 @@ export default function DashboardPage() {
         }
       >
           <Table
+            scroll={{ x: 'max-content' }}
             rowKey="id"
             loading={loadingTopics}
             dataSource={topics}
