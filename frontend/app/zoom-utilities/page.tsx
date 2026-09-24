@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions } from 'antd';
-import { ThunderboltOutlined, VideoCameraOutlined } from '@ant-design/icons';
-import NextLink from 'next/link';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { ZoomPageTitle } from '../../components/BrandLogos';
+import ZoomRecordingsPanel from '../../components/ZoomRecordingsPanel';
 import { apiFetch } from '@/lib/api';
 
 const { Text } = Typography;
@@ -127,18 +127,8 @@ export default function ZoomUtilities() {
         </Col>
 
         <Col span={24}>
-          <Alert
-            type="info"
-            showIcon
-            icon={<VideoCameraOutlined />}
-            title="Danh sách Zoom Recordings đã chuyển sang YouTube → Channel Content → Zoom Sync"
-            description="Xem, sync lên YouTube và theo dõi sync log của từng recording tại tab Zoom Sync."
-            action={
-              <NextLink href="/youtube/channel-content?tab=zoom-sync">
-                <Button type="primary" size="small">Mở Zoom Sync</Button>
-              </NextLink>
-            }
-          />
+          {/* Same panel as YouTube → Channel Content → Zoom Sync */}
+          <ZoomRecordingsPanel />
         </Col>
       </Row>
     </DashboardLayout>
