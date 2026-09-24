@@ -121,21 +121,21 @@ export default function Home() {
           <ToolCard
             href="/youtube/dashboard"
             // Official full-color logo; it already reads "YouTube", so no extra label
-            logo={<YoutubeLogo height={40} />}
+            logo={<YoutubeLogo height={32} />}
             description={t('home.ytDesc')}
             features={[t('home.ytF1'), t('home.ytF2'), t('home.ytF3')]}
           />
           <ToolCard
             href="/zoom-utilities"
             // Official Zoom wordmark; it already reads "zoom", so no extra label
-            logo={<ZoomLogo height={40} />}
+            logo={<ZoomLogo height={32} />}
             description={t('home.zoomDesc')}
             features={[t('home.zoomF1'), t('home.zoomF2'), t('home.zoomF3')]}
           />
           <ToolCard
             href="/word-cloud"
             // The wordmark already reads "Wordcloud", so no extra label
-            logo={<WordCloudLogo height={40} />}
+            logo={<WordCloudLogo height={32} />}
             description={t('home.wcDesc')}
             features={[t('home.wcF1'), t('home.wcF2'), t('home.wcF3')]}
           />

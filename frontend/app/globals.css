@@ -240,7 +240,7 @@ h1, h2, h3, h4, h5, h6,
 
 /* Home tool cards (app/page.tsx ToolCard). Three equal-height cards in a row;
    each card is a column whose body grows, so the footer with "Explore" sits at
-   the same height in all three. Logos share a 40px box so they line up
+   the same height in all three. Logos share a 32px box so they line up
    whatever their proportions. */
 .tool-cards-area { container-type: inline-size; }
 .tool-cards {
@@ -249,10 +249,10 @@ h1, h2, h3, h4, h5, h6,
   gap: 24px;
   align-items: stretch;
 }
-/* Three columns once each card fits the widest logo (Wordcloud, 257px at 40px
+/* Three columns once each card fits the widest logo (Wordcloud, 206px at 32px
    high) plus its padding: by the space the cards get, not the screen width,
    since the sidebar takes 272px of it */
-@container (min-width: 1000px) {
+@container (min-width: 880px) {
   .tool-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .tool-card {
@@ -282,7 +282,7 @@ h1, h2, h3, h4, h5, h6,
   /* The phone rule for card headers (below) adds 8px around them; not here */
   .tool-card .ant-card-head-wrapper { padding-block: 0; }
 }
-.tool-card-logo { height: 40px; display: flex; align-items: center; }
+.tool-card-logo { height: 32px; display: flex; align-items: center; }
 /* max-width: a wide logo in a narrow card scales down rather than overflowing */
 .tool-card-logo img,
 .tool-card-logo svg { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
