@@ -29,8 +29,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "N3 Utilization Tools",
-  description: "A collection of productivity tools",
+  title: "N3 Connect",
+  description: "One hub for your apps: YouTube, Zoom and more",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

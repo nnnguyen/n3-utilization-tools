@@ -117,7 +117,7 @@ export default function Home() {
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={2}>{t('home.title')}</Title>
           <Paragraph>
-            {t('home.subtitle')}
+            {t('app.slogan')}
           </Paragraph>
         </div>
         <Row gutter={[24, 24]} style={{ display: 'flex' }}>

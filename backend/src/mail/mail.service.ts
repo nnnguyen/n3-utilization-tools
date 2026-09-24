@@ -38,7 +38,7 @@ export class MailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"N3 Utilization Tools" <${process.env.MAIL_USER}>`,
+        from: `"N3 Connect" <${process.env.MAIL_USER}>`,
         to,
         subject,
         html,
@@ -86,12 +86,12 @@ export class MailService {
             : ""
         }
         <div style="border-top: 1px solid #eee; padding-top: 16px; font-size: 12px; color: #888;">
-          Đây là email tự động từ N3 Utilization Tools. Bạn có thể tắt email thông báo trong mục Notifications (biểu tượng chuông) tại
+          Đây là email tự động từ N3 Connect. Bạn có thể tắt email thông báo trong mục Notifications (biểu tượng chuông) tại
           <a href="${escapeHtml(settingsUrl)}" style="color: #888;">${escapeHtml(settingsUrl)}</a>.
         </div>
       </div>
     `;
-    await this.sendMail(email, `[N3 Utils] ${notification.title}`, html);
+    await this.sendMail(email, `[N3 Connect] ${notification.title}`, html);
   }
 
   async sendVerificationEmail(email: string, token: string) {

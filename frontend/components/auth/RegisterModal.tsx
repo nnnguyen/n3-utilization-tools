@@ -49,7 +49,7 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
     >
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <img src="/logo.jpg" alt="Logo" style={{ width: 80, height: 80, marginBottom: 16, borderRadius: 8 }} />
-        <Title level={2} style={{ margin: 0 }}>SOH Word Cloud</Title>
+        <Title level={2} style={{ margin: 0 }}>N3 Connect</Title>
         <Title level={4} style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>{t('auth.register')}</Title>
       </div>
       <Form

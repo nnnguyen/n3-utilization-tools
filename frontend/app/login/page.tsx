@@ -125,7 +125,8 @@ export default function LoginPage() {
           <LanguageSwitcher />
         </div>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ margin: 0 }}>N3 Utilization Tools</Title>
+          <Title level={2} style={{ margin: 0 }}>N3 Connect</Title>
+          <Text type="secondary">{t('app.slogan')}</Text>
           <Title level={4} style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>{t('auth.login')}</Title>
         </div>
 

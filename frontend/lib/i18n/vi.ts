@@ -374,8 +374,8 @@ export const vi = {
   'integ.authorizeYoutube': 'Uỷ quyền YouTube',
 
   // — home —
-  'home.title': 'Utilization Tools',
-  'home.subtitle': 'Bộ công cụ giúp bạn làm việc hiệu quả hơn với YouTube, Zoom và nhiều hơn nữa.',
+  'home.title': 'N3 Connect',
+  'app.slogan': 'Để chúng tôi kết nối thế giới số của bạn.',
   'home.explore': 'Khám phá',
   'home.ytDesc': 'Quản lý kênh YouTube, upload video thủ công và theo dõi lịch sử upload.',
   'home.ytF1': 'Kết nối OAuth2',

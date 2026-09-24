@@ -137,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much */}
       <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
         <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'var(--color-surface)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-          {collapsed ? 'N3' : 'N3 Utils'}
+          {collapsed ? 'N3' : 'N3 Connect'}
         </div>
         <Menu
           theme="light"
