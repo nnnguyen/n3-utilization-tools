@@ -9,7 +9,7 @@ export const vi = {
 
   // — navigation —
   'nav.home': 'Trang chủ',
-  'nav.utilities': 'Tiện ích',
+  'nav.apps': 'Ứng dụng',
   'nav.dashboard': 'Tổng quan',
   'nav.channelContent': 'Nội dung kênh',
   'nav.analytics': 'Phân tích',

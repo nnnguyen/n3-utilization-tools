@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import NotificationBell from './NotificationBell';
 import LanguageSwitcher from './LanguageSwitcher';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from './BrandLogos';
-import { N3ConnectLogotype, N3ConnectMark } from './N3ConnectLogo';
+import { N3ConnectLockup, N3ConnectMark } from './N3ConnectLogo';
 import { useT } from '@/lib/i18n';
 
 const { Header, Sider, Content } = Layout;
@@ -54,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     {
       key: 'utilities',
       icon: <AppstoreOutlined />,
-      label: t('nav.utilities'),
+      label: t('nav.apps'),
       children: [
         {
           key: 'youtube',
@@ -137,12 +137,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <Layout style={{ minHeight: '100vh' }}>
       {/* 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much */}
       <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
-        {/* The app's logo leads home: the mark alone when the sidebar is collapsed */}
+        {/* The app's logo with its slogan leads home: the mark alone when the sidebar is collapsed.
+            The lockup spans the sidebar (272px less 20px each side) */}
         <Link
           href="/"
-          style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? 0 : '0 24px' }}
+          style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? 0 : '0 20px' }}
         >
-          {collapsed ? <N3ConnectMark size={32} /> : <N3ConnectLogotype height={26} />}
+          {collapsed ? <N3ConnectMark size={32} /> : <N3ConnectLockup height={44} />}
         </Link>
         <Menu
           theme="light"

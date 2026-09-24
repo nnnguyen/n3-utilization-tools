@@ -10,7 +10,7 @@ export const en: Record<MessageKey, string> = {
 
   // — navigation —
   'nav.home': 'Home',
-  'nav.utilities': 'Utilities',
+  'nav.apps': 'Apps',
   'nav.dashboard': 'Dashboard',
   'nav.channelContent': 'Channel Content',
   'nav.analytics': 'Analytics',
