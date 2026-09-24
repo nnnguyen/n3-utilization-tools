@@ -255,8 +255,33 @@ h1, h2, h3, h4, h5, h6,
 @container (min-width: 1000px) {
   .tool-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-.tool-card { position: relative; display: flex; flex-direction: column; height: 100%; }
-.tool-card > .ant-card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+.tool-card {
+  /* One inner margin on all four sides: the theme's card padding, 16px on phones */
+  --tool-card-pad: var(--ant-card-body-padding);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+/* The logo row is part of the card's content, not a separate header strip:
+   no fixed strip height (which centred the logo close to the top edge), no
+   divider, and the same top margin as the card's sides and bottom */
+.ant-card.tool-card > .ant-card-head {
+  min-height: 0;
+  padding: var(--tool-card-pad) var(--tool-card-pad) 0;
+  border-bottom: 0;
+}
+.ant-card.tool-card > .ant-card-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--tool-card-pad) var(--tool-card-pad);
+}
+@media (max-width: 767px) {
+  .tool-card { --tool-card-pad: 16px; }
+  /* The phone rule for card headers (below) adds 8px around them; not here */
+  .tool-card .ant-card-head-wrapper { padding-block: 0; }
+}
 .tool-card-logo { height: 40px; display: flex; align-items: center; }
 /* max-width: a wide logo in a narrow card scales down rather than overflowing */
 .tool-card-logo img,
