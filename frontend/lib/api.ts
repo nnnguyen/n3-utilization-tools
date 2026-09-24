@@ -1,3 +1,5 @@
+import { authHeaders } from './auth-token';
+
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api').replace(/\/$/, '');
 export const API_BASE_URL = API_URL.replace(/\/api$/, '');
 
@@ -8,6 +10,7 @@ export async function apiFetch(path: string, init?: RequestInit & { silent?: boo
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...init?.headers,
     },
   });
@@ -23,7 +26,8 @@ export async function apiFetch(path: string, init?: RequestInit & { silent?: boo
       console.error(`API request failed: ${response.status} ${response.statusText}`, errorMessage);
     }
     
-    throw new Error(errorMessage);
+    // status lets callers tell "not logged in" (401) apart from network/server errors
+    throw Object.assign(new Error(errorMessage), { status: response.status });
   }
 
   return data || response;

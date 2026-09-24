@@ -3,6 +3,7 @@ import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { AuthCodeStore } from "./auth-code.store";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { MailModule } from "../mail/mail.module";
@@ -22,6 +23,6 @@ import { YoutubeModule } from "../youtube/youtube.module";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy],
+  providers: [AuthService, GoogleStrategy, JwtStrategy, AuthCodeStore],
 })
 export class AuthModule {}

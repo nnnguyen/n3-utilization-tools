@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { apiFetch } from './api';
+import { clearAuthToken } from './auth-token';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -30,7 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userData = await apiFetch('/auth/session', { silent: true });
       setUser(userData);
-    } catch (error) {
+    } catch (error: any) {
+      // An expired or revoked token is useless; drop it so we stop sending it
+      if (error?.status === 401) clearAuthToken();
       setUser(null);
     } finally {
       setLoading(false);
@@ -48,10 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await apiFetch('/auth/logout', { method: 'POST' });
-      setUser(null);
-      router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);
+    } finally {
+      // Always forget the local token, even if the server call failed
+      clearAuthToken();
+      setUser(null);
+      router.push('/login');
     }
   };
 

@@ -13,6 +13,7 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
+import { AuthCodeStore } from "./auth-code.store";
 import { YoutubeService } from "../youtube/youtube.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { CurrentUser } from "./decorators/current-user.decorator";
@@ -35,6 +36,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly youtubeService: YoutubeService,
+    private readonly authCodeStore: AuthCodeStore,
   ) {}
 
   @Post("register")
@@ -57,6 +59,8 @@ export class AuthController {
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      // For browsers that drop the cross-site cookie (Safari, Firefox)
+      accessToken: token,
     });
   }
 
@@ -100,11 +104,30 @@ export class AuthController {
         ...ACCESS_TOKEN_COOKIE_OPTIONS,
         maxAge: ACCESS_TOKEN_COOKIE_MAX_AGE_MS,
       });
-      res.redirect(`${process.env.FRONTEND_URL}/`);
+      // The login page trades this one-time code for the token (POST /auth/exchange)
+      const code = this.authCodeStore.create(token, {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      });
+      res.redirect(
+        `${process.env.FRONTEND_URL}/login?authCode=${encodeURIComponent(code)}`,
+      );
     } catch (error) {
       console.error("Google Auth Error:", error);
       res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_error`);
     }
+  }
+
+  @Post("exchange")
+  @HttpCode(200)
+  exchange(@Body("code") code: string) {
+    const login = typeof code === "string" ? this.authCodeStore.consume(code) : null;
+    if (!login) {
+      throw new UnauthorizedException("Mã đăng nhập không hợp lệ hoặc đã hết hạn");
+    }
+    return { ...login.user, accessToken: login.token };
   }
 
   @Get("session")

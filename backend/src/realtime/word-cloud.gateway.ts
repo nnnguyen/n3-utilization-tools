@@ -70,8 +70,11 @@ export class WordCloudGateway implements OnGatewayConnection {
   ) {}
 
   handleConnection(client: PresenterSocket) {
+    // Token from the socket.io auth payload (Safari/Firefox drop the cross-site
+    // cookie), falling back to the cookie
     const cookies = parseCookieHeader(client.handshake.headers.cookie);
-    const token = cookies[ACCESS_TOKEN_COOKIE];
+    const authToken = (client.handshake.auth as { token?: unknown } | undefined)?.token;
+    const token = typeof authToken === "string" && authToken ? authToken : cookies[ACCESS_TOKEN_COOKIE];
     if (!token) {
       client.disconnect();
       return;

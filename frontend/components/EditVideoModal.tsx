@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Form, Input, Select, Upload, Button, Spin, Alert, Typography, Space, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { apiFetch, API_URL } from '@/lib/api';
+import { authHeaders } from '@/lib/auth-token';
 
 const { Text } = Typography;
 
@@ -34,6 +35,7 @@ async function uploadThumbnail(videoId: string, file: File) {
   const response = await fetch(`${API_URL}/youtube/videos/${videoId}/thumbnail`, {
     method: 'POST',
     body: formData,
+    headers: authHeaders(),
     credentials: 'include',
   });
   const data = await response.json().catch(() => null);

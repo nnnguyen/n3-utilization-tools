@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useRef, useState } from 'react';
 import { Button, Card, Typography, Form, Input, Checkbox, message, Divider } from 'antd';
 import { GoogleOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { API_URL, apiFetch } from '@/lib/api';
@@ -9,11 +9,42 @@ import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { setAuthToken } from '@/lib/auth-token';
 
 const { Title, Text } = Typography;
 
+// Stores the token and hands the user (without the token) to the auth context
+function completeLogin(data: any, login: (user: any) => void) {
+  const { accessToken, ...user } = data;
+  setAuthToken(accessToken);
+  login(user);
+}
+
 function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> }) {
   const searchParams = useSearchParams();
+  const { login } = useAuth();
+  // The code is single-use; don't trade it twice (e.g. React Strict Mode re-running effects)
+  const exchangedCode = useRef<string | null>(null);
+
+  // After Google sign-in the backend redirects here with a one-time code
+  useEffect(() => {
+    const code = searchParams.get('authCode');
+    if (!code || exchangedCode.current === code) return;
+    exchangedCode.current = code;
+    (async () => {
+      try {
+        const data = await apiFetch('/auth/exchange', {
+          method: 'POST',
+          body: JSON.stringify({ code }),
+        });
+        completeLogin(data, login);
+        router.replace('/');
+      } catch (error: any) {
+        message.error(error.message || 'Đăng nhập Google thất bại. Vui lòng thử lại.');
+        router.replace('/login');
+      }
+    })();
+  }, [searchParams, router, login]);
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -59,7 +90,7 @@ export default function LoginPage() {
         }),
       });
 
-      login(userData);
+      completeLogin(userData, login);
       message.success('Đăng nhập thành công!');
       router.push('/');
     } catch (error: any) {

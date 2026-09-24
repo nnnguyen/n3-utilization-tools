@@ -5,6 +5,7 @@ import { Modal, Row, Col, Form, Input, Select, Upload, Progress, Typography, mes
 import type { UploadFile } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { apiFetch, API_URL } from '@/lib/api';
+import { authHeaders } from '@/lib/auth-token';
 
 const { Text } = Typography;
 const { Dragger } = Upload;
@@ -32,6 +33,7 @@ function uploadWithProgress(
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_URL}/youtube/upload`);
     xhr.withCredentials = true;
+    Object.entries(authHeaders()).forEach(([name, value]) => xhr.setRequestHeader(name, value));
     xhr.upload.onprogress = (evt) => {
       if (evt.lengthComputable) {
         onProgress(Math.round((evt.loaded / evt.total) * 100));

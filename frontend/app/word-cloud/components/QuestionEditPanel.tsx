@@ -17,6 +17,7 @@ import {
   message,
 } from 'antd';
 import { API_BASE_URL, API_URL, apiFetch } from '@/lib/api';
+import { authHeaders } from '@/lib/auth-token';
 import { CloseOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { TEXT_COLOR_SCHEME_OPTIONS } from '@/app/word-cloud/lib/text-color-schemes';
 import {
@@ -213,6 +214,7 @@ export function QuestionEditPanel({
               showUploadList={false}
               action={`${API_URL}/questions/upload-logo`}
               withCredentials={true}
+              headers={authHeaders()}
               beforeUpload={(file) => {
                 const isLt2M = file.size / 1024 / 1024 < 2;
                 if (!isLt2M) {

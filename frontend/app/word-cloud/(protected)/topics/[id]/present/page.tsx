@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import { io, Socket } from 'socket.io-client';
 import { apiFetch, API_BASE_URL } from '@/lib/api';
+import { getAuthToken } from '@/lib/auth-token';
 import { WordCloud, WordCloudWord } from '@/app/word-cloud/components/WordCloud';
 import { WordStatsTable } from '@/app/word-cloud/components/WordStatsTable';
 import { StatsVisualizer } from '@/app/word-cloud/components/StatsVisualizer';
@@ -207,7 +208,7 @@ export default function TopicPresentPage() {
     fetchSnapshot().then(() => {
       if (cancelled) return;
 
-      socket = io(`${API_BASE_URL}/presenter`, { withCredentials: true });
+      socket = io(`${API_BASE_URL}/presenter`, { withCredentials: true, auth: { token: getAuthToken() } });
 
       socket.on('connect', () => {
         setConnectionStatus('connected');
