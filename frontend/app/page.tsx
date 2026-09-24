@@ -21,9 +21,10 @@ import { useT } from '@/lib/i18n';
 
 const { Title, Paragraph, Text } = Typography;
 
-// One tool on the home page. The whole card opens the tool: the "Explore"
-// link stretches over the card (globals.css .tool-card-cta), so it stays a
-// single link rather than a clickable box around one
+// One tool on the home page (layout: globals.css .tool-card*). The logo sits in
+// a fixed-height box so the three line up; the body grows so "Explore" stays at
+// the foot of every card. The whole card opens the tool: the "Explore" link
+// stretches over the card, so it stays a single link rather than a clickable box
 function ToolCard({ href, logo, description, features }: {
   href: string;
   logo: React.ReactNode;
@@ -32,26 +33,20 @@ function ToolCard({ href, logo, description, features }: {
 }) {
   const t = useT();
   return (
-    <Col xs={24} md={8} style={{ display: 'flex' }}>
-      <Card
-        hoverable
-        className="tool-card"
-        style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
-        styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-        title={logo}
-      >
-        <div style={{ flex: 1 }}>
-          <Paragraph>{description}</Paragraph>
-          <ul style={{ paddingLeft: 20 }}>
-            {features.map((feature) => <li key={feature}>{feature}</li>)}
-          </ul>
-        </div>
+    <Card hoverable className="tool-card" title={<div className="tool-card-logo">{logo}</div>}>
+      <div className="tool-card-body">
+        <Paragraph>{description}</Paragraph>
+        <ul className="tool-card-features">
+          {features.map((feature) => <li key={feature}>{feature}</li>)}
+        </ul>
+      </div>
+      <div className="tool-card-footer">
         <Link href={href} className="tool-card-cta">
           {t('home.explore')}
           <ArrowRightOutlined className="tool-card-cta-arrow" />
         </Link>
-      </Card>
-    </Col>
+      </div>
+    </Card>
   );
 }
 
@@ -121,29 +116,31 @@ export default function Home() {
             <N3ConnectLockup height={76} />
           </Title>
         </div>
-        <Row gutter={[24, 24]} style={{ display: 'flex' }}>
+        <div className="tool-cards-area">
+        <div className="tool-cards">
           <ToolCard
             href="/youtube/dashboard"
             // Official full-color logo; it already reads "YouTube", so no extra label
-            logo={<YoutubeLogo height={20} />}
+            logo={<YoutubeLogo height={40} />}
             description={t('home.ytDesc')}
             features={[t('home.ytF1'), t('home.ytF2'), t('home.ytF3')]}
           />
           <ToolCard
             href="/zoom-utilities"
             // Official Zoom wordmark; it already reads "zoom", so no extra label
-            logo={<ZoomLogo height={16} />}
+            logo={<ZoomLogo height={40} />}
             description={t('home.zoomDesc')}
             features={[t('home.zoomF1'), t('home.zoomF2'), t('home.zoomF3')]}
           />
           <ToolCard
             href="/word-cloud"
             // The wordmark already reads "Wordcloud", so no extra label
-            logo={<WordCloudLogo height={18} />}
+            logo={<WordCloudLogo height={40} />}
             description={t('home.wcDesc')}
             features={[t('home.wcF1'), t('home.wcF2'), t('home.wcF3')]}
           />
-        </Row>
+        </div>
+        </div>
       </div>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Getting Started Section */}

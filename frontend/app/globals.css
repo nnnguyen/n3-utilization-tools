@@ -238,16 +238,45 @@ h1, h2, h3, h4, h5, h6,
   border-bottom: 1px solid var(--color-divider);
 }
 
-/* Home tool cards: the "Explore" link in the theme's link color, right-aligned
-   under the content (no action bar or divider). Its ::after covers the card,
-   so the whole card opens the tool while staying a single link. */
-.tool-card { position: relative; }
+/* Home tool cards (app/page.tsx ToolCard). Three equal-height cards in a row;
+   each card is a column whose body grows, so the footer with "Explore" sits at
+   the same height in all three. Logos share a 40px box so they line up
+   whatever their proportions. */
+.tool-cards-area { container-type: inline-size; }
+.tool-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+/* Three columns once each card fits the widest logo (Wordcloud, 257px at 40px
+   high) plus its padding: by the space the cards get, not the screen width,
+   since the sidebar takes 272px of it */
+@container (min-width: 1000px) {
+  .tool-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.tool-card { position: relative; display: flex; flex-direction: column; height: 100%; }
+.tool-card > .ant-card-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+.tool-card-logo { height: 40px; display: flex; align-items: center; }
+/* max-width: a wide logo in a narrow card scales down rather than overflowing */
+.tool-card-logo img,
+.tool-card-logo svg { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+.tool-card-body { flex: 1 1 auto; }
+.tool-card-features { list-style: none; padding: 0; margin: 0 0 var(--space-3); }
+.tool-card-features li::before { content: "•"; margin-right: 8px; color: var(--color-text-muted); }
+.tool-card-footer {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+/* "Explore" in the theme's link color; its ::after covers the card, so the
+   whole card opens the tool while staying a single link */
 .tool-card-cta {
-  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-3);
   font-size: 14px;
   font-weight: 600;
   color: var(--ant-color-link);
