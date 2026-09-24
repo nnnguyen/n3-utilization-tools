@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import NotificationBell from './NotificationBell';
+import LanguageSwitcher from './LanguageSwitcher';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from './BrandLogos';
 import { useT } from '@/lib/i18n';
 
@@ -172,6 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <h2 style={{ margin: 0 }}>{t('nav.dashboard')}</h2>
           </div>
           <Space size="middle">
+            <LanguageSwitcher />
             <NotificationBell />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Space style={{ cursor: 'pointer' }}>

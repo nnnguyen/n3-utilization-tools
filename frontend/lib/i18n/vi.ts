@@ -427,7 +427,6 @@ export const vi = {
   'auth.forgotSent': 'Email khôi phục đã được gửi đến {email}. Vui lòng kiểm tra email và nhấp vào liên kết.',
   'auth.resend': 'Gửi lại',
   'auth.sendRequest': 'Gửi yêu cầu',
-  'auth.language': 'Ngôn ngữ',
 
   // — word cloud: topics dashboard —
   'wc.statusDraft': 'Nháp',

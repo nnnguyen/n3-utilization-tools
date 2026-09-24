@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useRef, useState } from 'react';
-import { Button, Card, Typography, Form, Input, Checkbox, message, Divider, Segmented } from 'antd';
+import { Button, Card, Typography, Form, Input, Checkbox, message, Divider } from 'antd';
 import { GoogleOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { API_URL, apiFetch } from '@/lib/api';
 import RegisterModal from '@/components/auth/RegisterModal';
@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { setAuthToken } from '@/lib/auth-token';
 import { useT, translateNow } from '@/lib/i18n';
-import { usePreferences, type Language } from '@/lib/preferences';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 const { Title, Text } = Typography;
 
@@ -66,7 +66,6 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
 
 export default function LoginPage() {
   const t = useT();
-  const { language, updatePreferences } = usePreferences();
   const router = useRouter();
   const { login, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -123,13 +122,7 @@ export default function LoginPage() {
       <Card style={{ width: 400, boxShadow: 'var(--shadow-md)' }}>
         {/* No account yet on this page: the choice is kept in this browser until sign-in */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-          <Segmented
-            size="small"
-            aria-label={t('auth.language')}
-            value={language}
-            onChange={(value) => updatePreferences({ language: value as Language })}
-            options={[{ label: 'VI', value: 'vi' }, { label: 'EN', value: 'en' }]}
-          />
+          <LanguageSwitcher />
         </div>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={2} style={{ margin: 0 }}>N3 Utilization Tools</Title>

@@ -428,7 +428,6 @@ export const en: Record<MessageKey, string> = {
   'auth.forgotSent': 'A recovery email has been sent to {email}. Please check your inbox and click the link.',
   'auth.resend': 'Resend',
   'auth.sendRequest': 'Send request',
-  'auth.language': 'Language',
 
   // — word cloud: topics dashboard —
   'wc.statusDraft': 'Draft',
