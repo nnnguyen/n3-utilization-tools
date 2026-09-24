@@ -233,12 +233,12 @@ h1, h2, h3, h4, h5, h6,
   border-bottom: 1px solid var(--color-divider);
 }
 
-/* Home tool cards: the "Explore" link in the theme's link color, left-aligned
+/* Home tool cards: the "Explore" link in the theme's link color, right-aligned
    under the content (no action bar or divider). Its ::after covers the card,
    so the whole card opens the tool while staying a single link. */
 .tool-card { position: relative; }
 .tool-card-cta {
-  align-self: flex-start;
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
