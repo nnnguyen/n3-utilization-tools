@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import { Card, Segmented, Spin, Table } from 'antd';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 
-// Single series, so one hue (antd primary) and no legend: the card title names it
-const BAR_COLOR = '#1677ff';
-const GRID_COLOR = '#f0f0f0';
-const AXIS_TEXT_COLOR = 'rgba(0, 0, 0, 0.45)';
+// Single series, so one hue (the Broadsheet accent) and no legend: the card title names it
+const BAR_COLOR = '#0088b0'; // Broadsheet accent (cyan)
+const GRID_COLOR = 'rgba(32, 30, 29, 0.08)'; // Broadsheet rule (ink 8%), visible on the card surface
+const AXIS_TEXT_COLOR = 'rgba(32, 30, 29, 0.55)'; // Broadsheet muted ink
 
 export interface MonthlyPoint {
   month: string; // "YYYY-MM"
@@ -23,7 +23,7 @@ export const formatMonth = (month: string) => {
 function MonthlyTooltip({ active, payload, label, unit }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 6, padding: '8px 12px', boxShadow: '0 3px 6px rgba(0,0,0,0.08)' }}>
+    <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-divider)', borderRadius: 6, padding: '8px 12px', boxShadow: '0 3px 6px rgba(0,0,0,0.08)' }}>
       <div style={{ color: AXIS_TEXT_COLOR, fontSize: 12 }}>{formatMonth(label)}</div>
       <div style={{ fontWeight: 600 }}>{payload[0].value} {unit}</div>
     </div>

@@ -346,7 +346,7 @@ export default function YoutubeDashboardPage() {
             <Select
               value={months}
               onChange={setMonths}
-              style={{ width: 170 }}
+              style={{ width: 200 }}
               options={[
                 { value: 3, label: '3 tháng gần nhất' },
                 { value: 6, label: '6 tháng gần nhất' },

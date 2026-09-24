@@ -113,8 +113,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* 240px: "Channel Content" sits three menu levels deep and is cut off at the default 200px */}
-      <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={240}>
+      {/* 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much */}
+      <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
         <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(0, 0, 0, 0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
           {collapsed ? 'N3' : 'N3 Utils'}
         </div>
