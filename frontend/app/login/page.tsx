@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { setAuthToken } from '@/lib/auth-token';
 import { useT, translateNow } from '@/lib/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-import { N3ConnectLogotype } from '@/components/N3ConnectLogo';
+import { N3ConnectLockup } from '@/components/N3ConnectLogo';
 
 const { Title, Text } = Typography;
 
@@ -127,9 +127,8 @@ export default function LoginPage() {
         </div>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={1} style={{ margin: '0 0 8px', display: 'flex', justifyContent: 'center' }}>
-            <N3ConnectLogotype height={40} />
+            <N3ConnectLockup height={62} />
           </Title>
-          <Text type="secondary">{t('app.slogan')}</Text>
           <Title level={4} style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>{t('auth.login')}</Title>
         </div>
 

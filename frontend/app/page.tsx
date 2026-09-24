@@ -11,7 +11,7 @@ import {
   HomeOutlined
 } from '@ant-design/icons';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from '../components/BrandLogos';
-import { N3ConnectLogotype } from '../components/N3ConnectLogo';
+import { N3ConnectLockup } from '../components/N3ConnectLogo';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
@@ -116,12 +116,10 @@ export default function Home() {
     <DashboardLayout>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={1} style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-            <N3ConnectLogotype height={52} />
+          {/* The logo with its slogan (the slogan is part of the lockup's artwork) */}
+          <Title level={1} style={{ display: 'flex', justifyContent: 'center', margin: '8px 0 32px' }}>
+            <N3ConnectLockup height={76} />
           </Title>
-          <Paragraph>
-            {t('app.slogan')}
-          </Paragraph>
         </div>
         <Row gutter={[24, 24]} style={{ display: 'flex' }}>
           <ToolCard
