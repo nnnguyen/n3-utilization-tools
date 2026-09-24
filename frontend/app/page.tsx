@@ -20,6 +20,40 @@ import { useT } from '@/lib/i18n';
 
 const { Title, Paragraph, Text } = Typography;
 
+// One tool on the home page. The whole card opens the tool: the "Explore"
+// link stretches over the card (globals.css .tool-card-cta), so it stays a
+// single link rather than a clickable box around one
+function ToolCard({ href, logo, description, features }: {
+  href: string;
+  logo: React.ReactNode;
+  description: string;
+  features: string[];
+}) {
+  const t = useT();
+  return (
+    <Col xs={24} md={8} style={{ display: 'flex' }}>
+      <Card
+        hoverable
+        className="tool-card"
+        style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
+        title={logo}
+      >
+        <div style={{ flex: 1 }}>
+          <Paragraph>{description}</Paragraph>
+          <ul style={{ paddingLeft: 20 }}>
+            {features.map((feature) => <li key={feature}>{feature}</li>)}
+          </ul>
+        </div>
+        <Link href={href} className="tool-card-cta">
+          {t('home.explore')}
+          <ArrowRightOutlined className="tool-card-cta-arrow" />
+        </Link>
+      </Card>
+    </Col>
+  );
+}
+
 export default function Home() {
   const t = useT();
   const { user, loading } = useAuth();
@@ -87,81 +121,27 @@ export default function Home() {
           </Paragraph>
         </div>
         <Row gutter={[24, 24]} style={{ display: 'flex' }}>
-          <Col xs={24} md={8} style={{ display: 'flex' }}>
-            <Card
-                hoverable
-                style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
-                styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                // Official full-color logo; it already reads "YouTube", so no extra label
-                title={<YoutubeLogo height={20} />}
-                actions={[
-                  <Link href="/youtube/dashboard" key="go">
-                    <Button type="primary" style={{ backgroundColor: 'transparent', color: '#ff0000', borderColor: '#ff0000' }} icon={<ArrowRightOutlined />}>{t('home.explore')}</Button>
-                  </Link>
-                ]}
-            >
-              <div style={{ flex: 1 }}>
-                <Paragraph>
-                  {t('home.ytDesc')}
-                </Paragraph>
-                <ul style={{ paddingLeft: 20 }}>
-                  <li>{t('home.ytF1')}</li>
-                  <li>{t('home.ytF2')}</li>
-                  <li>{t('home.ytF3')}</li>
-                </ul>
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} md={8} style={{ display: 'flex' }}>
-            <Card
-                hoverable
-                style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
-                styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                // Official Zoom wordmark; it already reads "zoom", so no extra label
-                title={<ZoomLogo height={16} />}
-                actions={[
-                  <Link href="/zoom-utilities" key="go">
-                    <Button type="primary" style={{ backgroundColor: 'transparent', color: '#2D8CFF', borderColor: '#2D8CFF' }} icon={<ArrowRightOutlined />}>{t('home.explore')}</Button>
-                  </Link>
-                ]}
-            >
-              <div style={{ flex: 1 }}>
-                <Paragraph>
-                  {t('home.zoomDesc')}
-                </Paragraph>
-                <ul style={{ paddingLeft: 20 }}>
-                  <li>{t('home.zoomF1')}</li>
-                  <li>{t('home.zoomF2')}</li>
-                  <li>{t('home.zoomF3')}</li>
-                </ul>
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} md={8} style={{ display: 'flex' }}>
-            <Card
-                hoverable
-                style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
-                styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                // The wordmark already reads "Wordcloud", so no extra label
-                title={<WordCloudLogo height={18} />}
-                actions={[
-                  <Link href="/word-cloud" key="go">
-                    <Button icon={<ArrowRightOutlined />}>{t('home.explore')}</Button>
-                  </Link>
-                ]}
-            >
-              <div style={{ flex: 1 }}>
-                <Paragraph>
-                  {t('home.wcDesc')}
-                </Paragraph>
-                <ul style={{ paddingLeft: 20 }}>
-                  <li>{t('home.wcF1')}</li>
-                  <li>{t('home.wcF2')}</li>
-                  <li>{t('home.wcF3')}</li>
-                </ul>
-              </div>
-            </Card>
-          </Col>
+          <ToolCard
+            href="/youtube/dashboard"
+            // Official full-color logo; it already reads "YouTube", so no extra label
+            logo={<YoutubeLogo height={20} />}
+            description={t('home.ytDesc')}
+            features={[t('home.ytF1'), t('home.ytF2'), t('home.ytF3')]}
+          />
+          <ToolCard
+            href="/zoom-utilities"
+            // Official Zoom wordmark; it already reads "zoom", so no extra label
+            logo={<ZoomLogo height={16} />}
+            description={t('home.zoomDesc')}
+            features={[t('home.zoomF1'), t('home.zoomF2'), t('home.zoomF3')]}
+          />
+          <ToolCard
+            href="/word-cloud"
+            // The wordmark already reads "Wordcloud", so no extra label
+            logo={<WordCloudLogo height={18} />}
+            description={t('home.wcDesc')}
+            features={[t('home.wcF1'), t('home.wcF2'), t('home.wcF3')]}
+          />
         </Row>
       </div>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>

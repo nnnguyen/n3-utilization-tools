@@ -169,7 +169,7 @@
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
 }
-:root[data-theme-style="organic"][lang="vi"] :is(h1, h2, h3, h4, h5, h6, .ant-btn, .ant-card-head-title, .ant-modal-title) {
+:root[data-theme-style="organic"][lang="vi"] :is(h1, h2, h3, h4, h5, h6, .ant-btn, .ant-card-head-title, .ant-modal-title, .tool-card-cta) {
   font-variation-settings: "SOFT" 100, "WONK" 0;
 }
 /* Pill fields, but a multi-line text area keeps the container radius */
@@ -231,4 +231,35 @@ h1, h2, h3, h4, h5, h6,
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--color-divider);
+}
+
+/* Home tool cards: the "Explore" link in the theme's link color, left-aligned
+   under the content (no action bar or divider). Its ::after covers the card,
+   so the whole card opens the tool while staying a single link. */
+.tool-card { position: relative; }
+.tool-card-cta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ant-color-link);
+  text-decoration: none;
+}
+.tool-card-cta::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.tool-card:hover .tool-card-cta { color: var(--ant-color-link-hover); }
+.tool-card-cta:active { color: var(--ant-color-link-active); }
+.tool-card-cta:focus-visible { outline: none; }
+.tool-card:has(.tool-card-cta:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.tool-card-cta-arrow { transition: transform 0.2s ease; }
+.tool-card:hover .tool-card-cta-arrow { transform: translateX(4px); }
+@media (prefers-reduced-motion: reduce) {
+  .tool-card-cta-arrow { transition: none; }
+}
+/* Organic sets its actions in the display face */
+:root[data-theme-style="organic"] .tool-card-cta {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
 }
