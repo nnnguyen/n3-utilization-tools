@@ -23,10 +23,8 @@ export default function ZoomRecordingsPanel() {
   
   // Pagination & Filters
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalRecordings, setTotalRecordings] = useState(0);
   const [dateFilter, setDateFilter] = useState<string>('30');
   const [customDateRange, setCustomDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
-  const [nextPageToken, setNextPageToken] = useState<string>('');
 
   // Details Modal
   const [detailsVisible, setDetailsVisible] = useState(false);
@@ -101,31 +99,30 @@ export default function ZoomRecordingsPanel() {
     }
   };
 
-  const fetchRecordings = async (token?: string) => {
+  // The backend returns every recording in the range (it splits ranges over a
+  // month into several Zoom queries), so the table paginates on the client
+  const fetchRecordings = async () => {
+    let from: string;
+    let to: string;
+    if (dateFilter !== 'custom') {
+      const days = parseInt(dateFilter);
+      from = dayjs().subtract(days, 'day').format('YYYY-MM-DD');
+      to = dayjs().format('YYYY-MM-DD');
+    } else if (customDateRange) {
+      from = customDateRange[0].format('YYYY-MM-DD');
+      to = customDateRange[1].format('YYYY-MM-DD');
+    } else {
+      // "Custom Range" picked but no dates yet: keep the current list (an
+      // empty range would make Zoom return only today's recordings)
+      return;
+    }
+
     setLoading(true);
     try {
-      let from: string | undefined;
-      let to: string | undefined;
-
-      if (dateFilter !== 'custom') {
-        const days = parseInt(dateFilter);
-        from = dayjs().subtract(days, 'day').format('YYYY-MM-DD');
-        to = dayjs().format('YYYY-MM-DD');
-      } else if (customDateRange) {
-        from = customDateRange[0].format('YYYY-MM-DD');
-        to = customDateRange[1].format('YYYY-MM-DD');
-      }
-
-      const queryParams = new URLSearchParams();
-      queryParams.append('page_size', '10');
-      if (token) queryParams.append('next_page_token', token);
-      if (from) queryParams.append('from', from);
-      if (to) queryParams.append('to', to);
-
+      const queryParams = new URLSearchParams({ from, to });
       const response = await apiFetch(`/zoom/recordings?${queryParams.toString()}`);
       setRecordings(response.meetings || []);
-      setNextPageToken(response.next_page_token || '');
-      setTotalRecordings(response.total_records || 0);
+      setCurrentPage(1);
     } catch (error: any) {
       console.error('Error fetching recordings:', error);
       message.error(error.message || 'Failed to fetch Zoom recordings. Please check your credentials.');
@@ -179,9 +176,9 @@ export default function ZoomRecordingsPanel() {
     }
   };
 
-  const fetchAllData = async (token?: string) => {
+  const fetchAllData = async () => {
     await Promise.all([
-      fetchRecordings(token),
+      fetchRecordings(),
       fetchLogs(),
       fetchQuota(),
       fetchYoutubeStatus()
@@ -445,11 +442,8 @@ export default function ZoomRecordingsPanel() {
           pagination={{
             current: currentPage,
             pageSize: 10,
-            total: totalRecordings,
-            onChange: (page) => {
-              setCurrentPage(page);
-              fetchRecordings(nextPageToken);
-            }
+            onChange: setCurrentPage,
+            showTotal: (total) => `${total} recordings`,
           }}
         />
       ) : (

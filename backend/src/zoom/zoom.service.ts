@@ -14,6 +14,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { firstValueFrom } from "rxjs";
 
+// Zoom caps each recordings query at one month; a wider range is split into
+// this many monthly queries at most (two years)
+const MAX_RECORDING_WINDOWS = 24;
+const RECORDING_WINDOW_CONCURRENCY = 4;
+
 @Injectable()
 export class ZoomService {
   private readonly logger = new Logger(ZoomService.name);
@@ -135,28 +140,54 @@ export class ZoomService {
 
     const token = await this.getAccessToken(userId);
     try {
-      const queryParams = new URLSearchParams();
-      if (params.page_size)
-        queryParams.append("page_size", params.page_size.toString());
-      if (params.next_page_token)
-        queryParams.append("next_page_token", params.next_page_token);
-      if (params.from) queryParams.append("from", params.from);
-      if (params.to) queryParams.append("to", params.to);
+      // Without a date range: a single page, as before (Zoom defaults to today)
+      if (!params.from || !params.to) {
+        return await this.fetchRecordingsPage(token, params);
+      }
 
-      const response = await firstValueFrom(
-        this.httpService.get(
-          `https://api.zoom.us/v2/users/me/recordings?${queryParams.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        ),
+      // Zoom silently cuts any range longer than a month down to the last
+      // month before "to", so a long range is queried month by month
+      const windows = this.splitIntoMonthWindows(params.from, params.to);
+      const fetchWindow = async (window: { from: string; to: string }) => {
+        const meetings: any[] = [];
+        let nextPageToken: string | undefined;
+        do {
+          const page = await this.fetchRecordingsPage(token, {
+            from: window.from,
+            to: window.to,
+            page_size: 300,
+            next_page_token: nextPageToken,
+          });
+          meetings.push(...(page.meetings || []));
+          nextPageToken = page.next_page_token || undefined;
+        } while (nextPageToken);
+        return meetings;
+      };
+
+      // A few months at a time: a two-year range takes ~2s instead of ~10s,
+      // well within Zoom's rate limit for this endpoint
+      const byId = new Map<string, any>();
+      for (let i = 0; i < windows.length; i += RECORDING_WINDOW_CONCURRENCY) {
+        const batch = windows.slice(i, i + RECORDING_WINDOW_CONCURRENCY);
+        for (const meetings of await Promise.all(batch.map(fetchWindow))) {
+          for (const meeting of meetings) {
+            byId.set(meeting.uuid || String(meeting.id), meeting);
+          }
+        }
+      }
+
+      const meetings = [...byId.values()].sort(
+        (a, b) =>
+          new Date(b.start_time).getTime() - new Date(a.start_time).getTime(),
       );
-
-      const data = response.data;
-
-      return data;
+      return {
+        // The range actually covered (earlier than MAX_RECORDING_WINDOWS months is cut)
+        from: windows[windows.length - 1].from,
+        to: params.to,
+        total_records: meetings.length,
+        next_page_token: "",
+        meetings,
+      };
     } catch (error) {
       this.logger.error(
         "Error listing Zoom recordings",
@@ -166,6 +197,65 @@ export class ZoomService {
         `Failed to list Zoom recordings: ${error.response?.data?.message || error.message}`,
       );
     }
+  }
+
+  private async fetchRecordingsPage(
+    token: string,
+    params: {
+      page_size?: number;
+      next_page_token?: string;
+      from?: string;
+      to?: string;
+    },
+  ) {
+    const queryParams = new URLSearchParams();
+    if (params.page_size)
+      queryParams.append("page_size", params.page_size.toString());
+    if (params.next_page_token)
+      queryParams.append("next_page_token", params.next_page_token);
+    if (params.from) queryParams.append("from", params.from);
+    if (params.to) queryParams.append("to", params.to);
+
+    const response = await firstValueFrom(
+      this.httpService.get(
+        `https://api.zoom.us/v2/users/me/recordings?${queryParams.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      ),
+    );
+    return response.data;
+  }
+
+  // "2026-01-01".."2026-09-24" -> [08-24..09-24], [07-23..08-23], ... newest
+  // first, each at most one month (Zoom's limit), stopping at "from" or after
+  // MAX_RECORDING_WINDOWS months
+  private splitIntoMonthWindows(from: string, to: string) {
+    const parse = (value: string) => {
+      const [y, m, d] = value.split("-").map(Number);
+      return new Date(Date.UTC(y, m - 1, d));
+    };
+    const format = (date: Date) => date.toISOString().slice(0, 10);
+
+    const start = parse(from);
+    let end = parse(to);
+    const windows: { from: string; to: string }[] = [];
+    while (end >= start && windows.length < MAX_RECORDING_WINDOWS) {
+      const monthBefore = new Date(end);
+      monthBefore.setUTCMonth(monthBefore.getUTCMonth() - 1);
+      const windowStart = monthBefore > start ? monthBefore : start;
+      windows.push({ from: format(windowStart), to: format(end) });
+      end = new Date(windowStart);
+      end.setUTCDate(end.getUTCDate() - 1);
+    }
+    if (end >= start) {
+      this.logger.warn(
+        `Zoom recordings range ${from}..${to} cut to the last ${MAX_RECORDING_WINDOWS} months`,
+      );
+    }
+    return windows;
   }
 
   async getSyncLogs(userId: string, recordingId?: string) {
