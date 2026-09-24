@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Button, Typography, message } from 'antd';
 import { apiFetch } from '@/lib/api';
+import { useT, useTNode } from '@/lib/i18n';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -12,6 +13,8 @@ interface ForgotPasswordModalProps {
 }
 
 export default function ForgotPasswordModal({ open, onCancel }: ForgotPasswordModalProps) {
+  const t = useT();
+  const tNode = useTNode();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -52,15 +55,15 @@ export default function ForgotPasswordModal({ open, onCancel }: ForgotPasswordMo
     >
       <div style={{ textAlign: 'center', padding: '20px 10px' }}>
         <Title level={2} style={{ fontSize: 28, fontWeight: 800, textTransform: 'uppercase', marginBottom: 20 }}>
-          QUÊN MẬT KHẨU
+          {t('auth.forgotTitle')}
         </Title>
         
-        <Paragraph style={{ color: '#666', fontSize: 16, fontWeight: 600, marginBottom: 10 }}>
-          Khôi phục mật mã đăng nhập
+        <Paragraph style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}>
+          {t('auth.forgotSubtitle')}
         </Paragraph>
         
-        <Paragraph style={{ color: '#999', fontSize: 14, lineHeight: 1.6, marginBottom: 25 }}>
-          Bạn muốn khôi phục mật khẩu đăng nhập, bạn cần nhập thư điện tử của bạn đang sử dụng để chúng tôi có thể liên kết khôi phục mật khẩu của bạn. Điều này sẽ được chúng tôi bảo mật hoàn toàn.
+        <Paragraph type="secondary" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 25 }}>
+          {t('auth.forgotDesc')}
         </Paragraph>
 
         <Form
@@ -71,24 +74,22 @@ export default function ForgotPasswordModal({ open, onCancel }: ForgotPasswordMo
         >
           <Form.Item
             name="email"
-            label={<Text strong>Nhập vào thư điện tử <span style={{ color: 'red' }}>*</span></Text>}
+            label={<Text strong>{t('auth.forgotEmailLabel')} <Text type="danger">*</Text></Text>}
             rules={[
-              { required: true, message: 'Vui lòng nhập email!' },
-              { type: 'email', message: 'Email không hợp lệ!' }
+              { required: true, message: t('auth.emailRequired') },
+              { type: 'email', message: t('auth.emailInvalid') }
             ]}
           >
             <Input 
-              placeholder="Nhập địa chỉ email của bạn" 
-              size="large" 
-              style={{ borderRadius: 8 }}
+              placeholder={t('auth.emailPlaceholder')}
+              size="large"
             />
           </Form.Item>
 
           {submitted && (
             <div style={{ textAlign: 'left', marginBottom: 20 }}>
-                <Text style={{ color: '#999', fontStyle: 'italic', fontSize: 13 }}>
-                    * Email khôi phục đã được gửi đến <br/>
-                    <Text strong style={{ color: '#1890ff' }}>{emailSent}</Text>. Vui lòng kiểm tra email và nhấp vào liên kết
+                <Text type="secondary" style={{ fontStyle: 'italic', fontSize: 13 }}>
+                    * {tNode('auth.forgotSent', { email: <Text strong style={{ color: 'var(--color-accent)' }}>{emailSent}</Text> })}
                 </Text>
             </div>
           )}
@@ -100,23 +101,14 @@ export default function ForgotPasswordModal({ open, onCancel }: ForgotPasswordMo
               size="large" 
               block 
               loading={loading}
-              style={{ 
-                height: 50, 
-                borderRadius: 8, 
-                background: '#fee2e2', 
-                borderColor: submitted ? '#1890ff' : 'transparent',
-                color: '#d73224',
-                fontWeight: 'bold',
-                fontSize: 16,
-                borderWidth: submitted ? 1 : 0
-              }}
+              style={{ height: 50, fontWeight: 'bold', fontSize: 16 }}
             >
-              {submitted ? 'Gửi lại' : 'Gửi yêu cầu'}
+              {submitted ? t('auth.resend') : t('auth.sendRequest')}
             </Button>
           </Form.Item>
           
-          <Button type="link" onClick={handleClose} style={{ color: '#999' }}>
-            Đóng
+          <Button type="link" onClick={handleClose} style={{ color: 'var(--color-text-muted)' }}>
+            {t('common.close')}
           </Button>
         </Form>
       </div>

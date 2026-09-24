@@ -6,6 +6,7 @@ import type { UploadFile } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { apiFetch, API_URL } from '@/lib/api';
 import { authHeaders } from '@/lib/auth-token';
+import { translateNow, useT } from '@/lib/i18n';
 
 const { Text } = Typography;
 const { Dragger } = Upload;
@@ -52,15 +53,16 @@ function uploadWithProgress(
         resolve(data);
       } else {
         const msg = data?.message;
-        reject(new Error((Array.isArray(msg) ? msg[0] : msg) || `Upload failed (${xhr.status})`));
+        reject(new Error((Array.isArray(msg) ? msg[0] : msg) || translateNow('upload.failedStatus', { status: xhr.status })));
       }
     };
-    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onerror = () => reject(new Error(translateNow('upload.networkError')));
     xhr.send(formData);
   });
 }
 
 export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQuota }: UploadVideoModalProps) {
+  const t = useT();
   const [form] = Form.useForm();
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -103,16 +105,16 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
 
   const onFinish = async (values: any) => {
     if (!hasEnoughQuota) {
-      message.error('Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai');
+      message.error(t('quota.exhausted'));
       return;
     }
     const file = fileList[0]?.originFileObj;
     if (!file) {
-      message.error('Please select a video file');
+      message.error(t('upload.selectFile'));
       return;
     }
     if (values.playlist === 'create_new' && !newPlaylistTitle.trim()) {
-      message.error('Please enter a title for the new playlist');
+      message.error(t('playlistPicker.newTitleRequired'));
       return;
     }
 
@@ -131,7 +133,7 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
           })
         });
         playlistId = newPlaylist.id;
-        message.success(`Playlist "${newPlaylistTitle}" created`);
+        message.success(t('playlistPicker.created', { title: newPlaylistTitle }));
         fetchPlaylists(); // Refresh playlist list
       }
 
@@ -146,16 +148,16 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
       const result = await uploadWithProgress(formData, setProgress, () => setUploadPhase('youtube'));
 
       if (result?.playlistError) {
-        message.warning(`Video đã upload nhưng không gán được vào playlist: ${result.playlistError}`);
+        message.warning(t('upload.playlistFailed', { error: result.playlistError }));
       } else {
-        message.success('Video uploaded successfully!');
+        message.success(t('upload.success'));
       }
       resetForm();
       onClose();
       onUploaded?.();
     } catch (error: any) {
       console.error('Upload failed:', error);
-      message.error(error.message || 'Upload failed');
+      message.error(error.message || t('upload.failed'));
     } finally {
       setUploading(false);
       setUploadPhase(null);
@@ -164,11 +166,11 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
 
   return (
     <Modal
-      title="Upload Video"
+      title={t('upload.title')}
       open={open}
       onCancel={handleCancel}
       onOk={() => form.submit()}
-      okText="Start Upload"
+      okText={t('upload.start')}
       okButtonProps={{ icon: <UploadOutlined />, loading: uploading, disabled: !hasEnoughQuota }}
       cancelButtonProps={{ disabled: uploading }}
       closable={!uploading}
@@ -179,32 +181,32 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
       <Form form={form} layout="vertical" onFinish={onFinish} disabled={uploading}>
         <Row gutter={16}>
           <Col xs={24} md={8}>
-            <Form.Item label="Video Title" name="title" rules={[{ required: true, whitespace: true }, { max: 100, message: 'Title must be at most 100 characters' }]}>
-              <Input placeholder="Enter video title" />
+            <Form.Item label={t('upload.videoTitle')} name="title" rules={[{ required: true, whitespace: true, message: t('validation.titleRequired') }, { max: 100, message: t('validation.maxChars', { field: t('field.title'), max: 100 }) }]}>
+              <Input placeholder={t('upload.videoTitlePlaceholder')} />
             </Form.Item>
           </Col>
           <Col xs={24} md={8}>
-            <Form.Item label="Privacy Status" name="privacy" initialValue="private">
+            <Form.Item label={t('field.privacyStatus')} name="privacy" initialValue="private">
               <Select>
-                <Select.Option value="public">Public</Select.Option>
-                <Select.Option value="unlisted">Unlisted</Select.Option>
-                <Select.Option value="private">Private</Select.Option>
+                <Select.Option value="public">{t('privacy.public')}</Select.Option>
+                <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
+                <Select.Option value="private">{t('privacy.private')}</Select.Option>
               </Select>
             </Form.Item>
           </Col>
           <Col xs={24} md={8}>
-            <Form.Item label="Playlist" name="playlist" initialValue="none">
+            <Form.Item label={t('field.playlist')} name="playlist" initialValue="none">
               <Select
                 loading={loadingPlaylists}
                 onChange={(val) => {
                   if (val !== 'create_new') setNewPlaylistTitle('');
                 }}
               >
-                <Select.Option value="none">None</Select.Option>
+                <Select.Option value="none">{t('playlistPicker.none')}</Select.Option>
                 {playlists.map(p => (
                   <Select.Option key={p.id} value={p.id}>{p.title}</Select.Option>
                 ))}
-                <Select.Option value="create_new">+ Create new playlist...</Select.Option>
+                <Select.Option value="create_new">{t('playlistPicker.createNew')}</Select.Option>
               </Select>
             </Form.Item>
           </Col>
@@ -217,12 +219,12 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
           {({ getFieldValue }) =>
             getFieldValue('playlist') === 'create_new' ? (
               <Form.Item
-                label="New Playlist Title"
+                label={t('playlistPicker.newTitle')}
                 required
                 style={{ marginBottom: 16 }}
               >
                 <Input
-                  placeholder="Enter new playlist title"
+                  placeholder={t('playlistPicker.newTitlePlaceholder')}
                   value={newPlaylistTitle}
                   onChange={(e) => setNewPlaylistTitle(e.target.value)}
                 />
@@ -231,10 +233,10 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
           }
         </Form.Item>
 
-        <Form.Item label="Description" name="description" rules={[{ max: 5000, message: 'Description must be at most 5000 characters' }]}>
-          <Input.TextArea rows={3} placeholder="Video description..." />
+        <Form.Item label={t('field.description')} name="description" rules={[{ max: 5000, message: t('validation.maxChars', { field: t('field.description'), max: 5000 }) }]}>
+          <Input.TextArea rows={3} placeholder={t('upload.descriptionPlaceholder')} />
         </Form.Item>
-        <Form.Item label="Video File" required>
+        <Form.Item label={t('upload.videoFile')} required>
           <Dragger
             maxCount={1}
             accept="video/*"
@@ -245,20 +247,20 @@ export default function UploadVideoModal({ open, onClose, onUploaded, hasEnoughQ
             <p className="ant-upload-drag-icon">
               <UploadOutlined />
             </p>
-            <p className="ant-upload-text">Click or drag file to this area to upload</p>
-            <p className="ant-upload-hint">Support for a single MP4, MOV upload.</p>
+            <p className="ant-upload-text">{t('upload.dropText')}</p>
+            <p className="ant-upload-hint">{t('upload.dropHint')}</p>
           </Dragger>
         </Form.Item>
         {uploading && (
           <div>
             <Text type="secondary">
-              {uploadPhase === 'youtube' ? 'Đang đẩy video lên YouTube...' : 'Đang tải file lên server...'}
+              {uploadPhase === 'youtube' ? t('upload.phaseYoutube') : t('upload.phaseServer')}
             </Text>
             <Progress percent={uploadPhase === 'youtube' ? 100 : progress} status="active" />
           </div>
         )}
         {!hasEnoughQuota && (
-          <Text type="danger">Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai</Text>
+          <Text type="danger">{t('quota.exhausted')}</Text>
         )}
       </Form>
     </Modal>

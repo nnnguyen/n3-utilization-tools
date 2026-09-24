@@ -2,8 +2,9 @@
 
 /* Broadsheet design system tokens (claude.ai/design project "Broadsheet",
    styles.css). Ant Design components get the same values from lib/theme.ts —
-   change them in both places. Broadsheet has no dark surfaces, so there is no
-   dark-mode override. */
+   change them in both places. The user's Personalization settings switch
+   <html data-theme-style="broadsheet|organic|classic" data-theme-mode="light|dark">
+   (lib/preferences.tsx); the overrides for each combination follow :root. */
 :root {
   --color-bg: #f3f2f2;
   --color-surface: #eae9e9;
@@ -63,6 +64,136 @@
   --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
   --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
   --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+
+  /* Muted ink for secondary text, and the page-name color next to brand logos */
+  --color-text-muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --color-title: #424242;
+}
+
+/* Broadsheet dark — derived from the same palette (Broadsheet itself ships no
+   dark surfaces): warm ink ground, paper text, the lighter accent step */
+:root[data-theme-mode="dark"] {
+  --color-bg: #191817;
+  --color-surface: #242221;
+  --color-text: #ece8e6;
+  --color-accent: #38a6cf;
+  --color-divider: rgba(236, 232, 230, 0.18);
+  --color-title: #cfcac8;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* Organic (claude.ai/design project "Organic", styles.css) — cream and sand,
+   terracotta and sage, Caprasimo over Figtree, over-rounded. Values mirror
+   the organic palette in lib/theme.ts */
+:root[data-theme-style="organic"] {
+  --font-heading: var(--font-caprasimo), "Caprasimo", system-ui, sans-serif;
+  --font-heading-weight: 400;
+  --font-body: var(--font-figtree), "Figtree", system-ui, sans-serif;
+  --color-bg: #f5ead8;
+  --color-surface: #ebddc5;
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+  --color-accent-2: #7a8a5e;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+  --color-title: #474238;
+
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50;
+  --color-neutral-800: #474238;
+  --color-neutral-900: #2e2b25;
+
+  --color-accent-100: #fff2eb;
+  --color-accent-200: #ffe1d0;
+  --color-accent-300: #ffc6a5;
+  --color-accent-400: #f6a06b;
+  --color-accent-500: #d67f48;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-800: #643312;
+  --color-accent-900: #402310;
+
+  --color-accent-2-100: #f0fae1;
+  --color-accent-2-200: #e1eecc;
+  --color-accent-2-300: #ccdbb2;
+  --color-accent-2-400: #aebf92;
+  --color-accent-2-500: #8fa073;
+  --color-accent-2-600: #728157;
+  --color-accent-2-700: #56633f;
+  --color-accent-2-800: #3d472b;
+  --color-accent-2-900: #272e1b;
+
+  /* Density 1.10x, radius 16px */
+  --space-1: 4.4px;
+  --space-2: 8.8px;
+  --space-3: 13.2px;
+  --space-4: 17.6px;
+  --space-6: 26.4px;
+  --space-8: 35.2px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 28px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+}
+/* Vietnamese: the closest faces with the tone-marked letters */
+:root[data-theme-style="organic"][lang="vi"] {
+  --font-heading: var(--font-fraunces), "Fraunces", Georgia, serif;
+  --font-heading-weight: 800;
+  --font-body: var(--font-be-vietnam-pro), "Be Vietnam Pro", system-ui, sans-serif;
+}
+/* Organic dark — derived (the system ships no dark surfaces): deep warm brown,
+   cream text, the lighter terracotta step */
+:root[data-theme-style="organic"][data-theme-mode="dark"] {
+  --color-bg: #1c1915;
+  --color-surface: #28231d;
+  --color-text: #f1e6d4;
+  --color-accent: #d67f48;
+  --color-divider: rgba(241, 230, 212, 0.18);
+  --color-title: #dcd3c4;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+/* The display face also sets buttons and card/dialog titles; Fraunces gets
+   its softest, least quirky cut to stay close to Caprasimo */
+:root[data-theme-style="organic"] :is(.ant-btn, .ant-card-head-title, .ant-modal-title) {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+}
+:root[data-theme-style="organic"][lang="vi"] :is(h1, h2, h3, h4, h5, h6, .ant-btn, .ant-card-head-title, .ant-modal-title) {
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+}
+/* Pill fields, but a multi-line text area keeps the container radius */
+:root[data-theme-style="organic"] textarea.ant-input {
+  border-radius: var(--radius-md);
+}
+
+/* Classic — Ant Design's own default look */
+:root[data-theme-style="classic"] {
+  --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-text: rgba(0, 0, 0, 0.88);
+  --color-accent: #1677ff;
+  --color-divider: rgba(5, 5, 5, 0.06);
+}
+:root[data-theme-style="classic"][data-theme-mode="dark"] {
+  --color-bg: #000000;
+  --color-surface: #141414;
+  --color-text: rgba(255, 255, 255, 0.85);
+  --color-accent: #1668dc;
+  --color-divider: rgba(253, 253, 253, 0.12);
+  --color-title: #cfcac8;
 }
 
 @theme inline {
@@ -80,9 +211,12 @@ body {
   line-height: 1.55;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6,
+:is(h1, h2, h3, h4, h5, h6).ant-typography /* antd Typography sets the body font on titles */ {
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
+}
+:root:not([data-theme-style="classic"]) :is(h1, h2, h3, h4, h5, h6) {
   letter-spacing: -0.015em;
 }
 
@@ -90,9 +224,9 @@ h1, h2, h3, h4, h5, h6 {
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
 
-/* Table header per Broadsheet's .table: small caps-style labels over a hairline
-   (colors come from the Table tokens in lib/theme.ts) */
-.ant-table-wrapper .ant-table-thead > tr > th {
+/* Table header per Broadsheet's .table (Broadsheet style only): small
+   caps-style labels over a hairline (colors come from lib/theme.ts) */
+:root:not([data-theme-style="classic"]) .ant-table-wrapper .ant-table-thead > tr > th {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;

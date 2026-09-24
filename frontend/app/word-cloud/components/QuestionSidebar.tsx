@@ -17,6 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useT } from '@/lib/i18n';
 
 export interface SidebarQuestion {
   id: string;
@@ -50,14 +51,15 @@ function SortableItem({
   onDelete: () => void;
   onShowStats?: () => void;
 }) {
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: question.id,
   });
 
   const menuItems: MenuProps['items'] = [
-    { key: 'stats', icon: <BarChartOutlined />, label: 'Xem thống kê' },
-    { key: 'duplicate', icon: <CopyOutlined />, label: 'Nhân bản' },
-    { key: 'delete', icon: <DeleteOutlined />, label: 'Xoá', danger: true },
+    { key: 'stats', icon: <BarChartOutlined />, label: t('wcq.viewStats') },
+    { key: 'duplicate', icon: <CopyOutlined />, label: t('wcq.duplicate') },
+    { key: 'delete', icon: <DeleteOutlined />, label: t('common.delete'), danger: true },
   ];
 
   const handleMenuClick: MenuProps['onClick'] = ({ key, domEvent }) => {
@@ -66,11 +68,11 @@ function SortableItem({
     if (key === 'duplicate') onDuplicate();
     if (key === 'delete') {
       Modal.confirm({
-        title: 'Xoá câu hỏi này?',
-        content: 'Toàn bộ câu trả lời của câu hỏi sẽ bị xoá vĩnh viễn.',
-        okText: 'Xoá',
+        title: t('wcq.deleteConfirm'),
+        content: t('wcq.deleteWarning'),
+        okText: t('common.delete'),
         okButtonProps: { danger: true },
-        cancelText: 'Huỷ',
+        cancelText: t('common.cancel'),
         onOk: onDelete,
       });
     }
@@ -90,14 +92,16 @@ function SortableItem({
         marginBottom: 6,
         borderRadius: 6,
         cursor: 'pointer',
-        background: selected ? '#e6f4ff' : '#fff',
-        border: selected ? '1px solid #91caff' : '1px solid #f0f0f0',
+        background: selected
+          ? 'color-mix(in srgb, var(--color-accent) 12%, var(--color-surface))'
+          : 'var(--color-surface)',
+        border: selected ? '1px solid var(--color-accent)' : '1px solid var(--color-divider)',
       }}
       onClick={onSelect}
       {...attributes}
       {...listeners}
     >
-      <span style={{ fontSize: 12, color: '#8c8c8c', minWidth: 16 }}>{question.order}</span>
+      <span style={{ fontSize: 12, color: 'var(--color-text-muted)', minWidth: 16 }}>{question.order}</span>
       <span
         style={{
           flex: 1,
@@ -107,7 +111,7 @@ function SortableItem({
           fontSize: 13,
         }}
       >
-        {question.prompt || 'Câu hỏi chưa đặt tên'}
+        {question.prompt || t('wc.untitledQuestion')}
       </span>
       <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }} trigger={['click']}>
         <Button
@@ -131,6 +135,7 @@ export function QuestionSidebar({
   onReorder,
   onShowStats,
 }: QuestionSidebarProps) {
+  const t = useT();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -165,7 +170,7 @@ export function QuestionSidebar({
         </SortableContext>
       </DndContext>
       <Button type="dashed" icon={<PlusOutlined />} onClick={onAdd} style={{ marginTop: 4 }}>
-        Thêm câu hỏi
+        {t('wcq.addQuestion')}
       </Button>
     </div>
   );

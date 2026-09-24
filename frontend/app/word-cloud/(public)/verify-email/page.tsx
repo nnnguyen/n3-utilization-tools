@@ -4,8 +4,10 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, Typography, Button, Result, Spin, message } from 'antd';
 import { apiFetch } from '@/lib/api';
+import { useT, translateNow } from '@/lib/i18n';
 
 function VerifyEmailContent() {
+  const t = useT();
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -24,7 +26,7 @@ function VerifyEmailContent() {
           setEmail(data.email);
         })
         .catch((err) => {
-          message.error(err.message || 'Xác thực thất bại');
+          message.error(err.message || translateNow('verify.failed'));
         })
         .finally(() => {
           setLoading(false);
@@ -38,31 +40,31 @@ function VerifyEmailContent() {
     return (
       <div style={{ textAlign: 'center', padding: 50 }}>
         <Spin size="large" />
-        <div style={{ marginTop: 20 }}>Đang xác thực email...</div>
+        <div style={{ marginTop: 20 }}>{t('verify.verifying')}</div>
       </div>
     );
   }
 
   return (
-    <Card style={{ width: 500, borderRadius: 12 }}>
+    <Card style={{ width: 500 }}>
       {success ? (
         <Result
           status="success"
-          title={`Xác thực email ${email} thành công.`}
+          title={t('verify.success', { email })}
           extra={[
             <Button type="primary" key="login" onClick={() => router.push('/login')} size="large">
-              Đăng nhập
+              {t('auth.login')}
             </Button>,
           ]}
         />
       ) : (
         <Result
           status="error"
-          title="Xác thực email thất bại"
-          subTitle="Liên kết xác thực không hợp lệ hoặc đã hết hạn."
+          title={t('verify.errorTitle')}
+          subTitle={t('verify.errorDesc')}
           extra={[
             <Button type="primary" key="home" onClick={() => router.push('/login')}>
-              Quay lại Đăng nhập
+              {t('verify.backToLogin')}
             </Button>,
           ]}
         />
@@ -79,7 +81,7 @@ export default function VerifyEmailPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'var(--color-bg)',
         padding: 24,
       }}
     >

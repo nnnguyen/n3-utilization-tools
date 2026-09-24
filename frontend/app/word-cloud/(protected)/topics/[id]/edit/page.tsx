@@ -22,6 +22,8 @@ import {
   type SaveStatus,
 } from '@/app/word-cloud/components/QuestionEditPanel';
 import { DEFAULT_TEXT_COLOR_SCHEME, type Question, type QuestionPatch } from '@/app/word-cloud/types/question';
+import { useT, translateNow } from '@/lib/i18n';
+import { usePreferences, type Language } from '@/lib/preferences';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -38,16 +40,29 @@ interface TopicPatch {
   description?: string;
 }
 
-const SAMPLE_WORDS = [
-  { displayText: 'sáng tạo', count: 9 },
-  { displayText: 'dẫn dắt', count: 7 },
-  { displayText: 'tập trung', count: 6 },
-  { displayText: 'nhiệt huyết', count: 6 },
-  { displayText: 'đổi mới', count: 5 },
-  { displayText: 'hợp tác', count: 4 },
-  { displayText: 'linh hoạt', count: 3 },
-  { displayText: 'quyết tâm', count: 3 },
-];
+// Placeholder cloud until the question has real responses
+const SAMPLE_WORDS: Record<Language, { displayText: string; count: number }[]> = {
+  vi: [
+    { displayText: 'sáng tạo', count: 9 },
+    { displayText: 'dẫn dắt', count: 7 },
+    { displayText: 'tập trung', count: 6 },
+    { displayText: 'nhiệt huyết', count: 6 },
+    { displayText: 'đổi mới', count: 5 },
+    { displayText: 'hợp tác', count: 4 },
+    { displayText: 'linh hoạt', count: 3 },
+    { displayText: 'quyết tâm', count: 3 },
+  ],
+  en: [
+    { displayText: 'creative', count: 9 },
+    { displayText: 'leadership', count: 7 },
+    { displayText: 'focus', count: 6 },
+    { displayText: 'passion', count: 6 },
+    { displayText: 'innovation', count: 5 },
+    { displayText: 'teamwork', count: 4 },
+    { displayText: 'flexible', count: 3 },
+    { displayText: 'determined', count: 3 },
+  ],
+};
 
 const COMPACT_BREAKPOINT = 1200;
 
@@ -63,6 +78,8 @@ function useIsCompact(breakpoint: number): boolean {
 }
 
 export default function TopicEditPage() {
+  const t = useT();
+  const { language } = usePreferences();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -89,7 +106,7 @@ export default function TopicEditPage() {
       },
       onSaving: () => setSaveStatus({ status: 'saving', lastSavedAt: null }),
       onSaved: () => setSaveStatus({ status: 'saved', lastSavedAt: new Date() }),
-      onError: () => message.error('Lưu câu hỏi thất bại, thử lại sau'),
+      onError: () => message.error(translateNow('wc.saveQuestionFailed')),
     }),
   );
   const questionsAutosave = questionsAutosaveRef.current;
@@ -102,7 +119,7 @@ export default function TopicEditPage() {
           body: JSON.stringify(patch),
         });
       },
-      onError: () => message.error('Lưu topic thất bại, thử lại sau'),
+      onError: () => message.error(translateNow('wc.saveTopicFailed')),
     }),
   );
   const topicAutosave = topicAutosaveRef.current;
@@ -146,7 +163,7 @@ export default function TopicEditPage() {
           return;
         }
         if (error.message.includes('403') || error.message.includes('404')) {
-          message.error('Bạn không có quyền truy cập topic này');
+          message.error(translateNow('wc.noAccess'));
           router.push('/word-cloud/dashboard');
           return;
         }
@@ -215,7 +232,7 @@ export default function TopicEditPage() {
       setSelectedQuestionId(created.id);
       setPanelOpen(true);
     } catch (error) {
-      message.error('Tạo câu hỏi thất bại');
+      message.error(t('wc.addQuestionFailed'));
     }
   };
 
@@ -225,7 +242,7 @@ export default function TopicEditPage() {
       setQuestions((prev) => [...prev, created]);
       setSelectedQuestionId(created.id);
     } catch (error) {
-      message.error('Nhân bản câu hỏi thất bại');
+      message.error(t('wc.duplicateFailed'));
     }
   };
 
@@ -234,7 +251,7 @@ export default function TopicEditPage() {
     const deletedOrder = questions.find((q) => q.id === questionId)?.order ?? 0;
     try {
       await apiFetch(`/questions/${questionId}`, { method: 'DELETE' });
-      message.success('Đã xoá câu hỏi');
+      message.success(t('wc.questionDeleted'));
       const remaining = await loadQuestions(topic.id);
       if (selectedQuestionId === questionId) {
         if (remaining.length === 0) {
@@ -247,7 +264,7 @@ export default function TopicEditPage() {
         }
       }
     } catch (error) {
-      message.error('Xoá câu hỏi thất bại');
+      message.error(t('wc.deleteQuestionFailed'));
     }
   };
 
@@ -267,7 +284,7 @@ export default function TopicEditPage() {
       setQuestions(updated);
     } catch (error) {
       setQuestions(snapshot);
-      message.error('Sắp xếp lại thất bại');
+      message.error(t('wc.reorderFailed'));
     }
   };
 
@@ -280,9 +297,9 @@ export default function TopicEditPage() {
         body: JSON.stringify({ groups: [group] }),
       });
       await loadQuestions(topic.id);
-      message.success(`Đã áp dụng cho ${updatedCount} câu hỏi`);
+      message.success(t('wc.appliedToAll', { count: updatedCount }));
     } catch (error) {
-      message.error('Áp dụng thất bại');
+      message.error(t('wc.applyFailed'));
     }
   };
 
@@ -314,7 +331,7 @@ export default function TopicEditPage() {
     selectedQuestion && realtimeStats[selectedQuestion.id]?.words?.length > 0
       ? realtimeStats[selectedQuestion.id].words.slice(0, selectedQuestion.maxWordsDisplayed)
       : selectedQuestion
-        ? SAMPLE_WORDS.slice(0, selectedQuestion.maxWordsDisplayed)
+        ? SAMPLE_WORDS[language].slice(0, selectedQuestion.maxWordsDisplayed)
         : [];
   const previewColors = getContrastingPalette(
     selectedQuestion?.textColorScheme ?? DEFAULT_TEXT_COLOR_SCHEME,
@@ -353,12 +370,12 @@ export default function TopicEditPage() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 24px',
-          borderBottom: '1px solid #f0f0f0',
+          borderBottom: '1px solid var(--color-divider)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
           <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/word-cloud/dashboard')}>
-            Quay lại
+            {t('wc.back')}
           </Button>
           <div style={{ minWidth: 0 }}>
             <Title
@@ -373,14 +390,14 @@ export default function TopicEditPage() {
               style={{ margin: 0, fontSize: 12 }}
               editable={{ onChange: handleTopicDescriptionChange, triggerType: ['text'] }}
             >
-              {topic.description || 'Thêm mô tả'}
+              {topic.description || t('wc.addDescription')}
             </Paragraph>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {isCompact && (
             <Button icon={<SettingOutlined />} onClick={() => setPanelOpen(true)}>
-              Cấu hình
+              {t('wc.configure')}
             </Button>
           )}
           <Button
@@ -388,14 +405,14 @@ export default function TopicEditPage() {
             icon={<PlayCircleOutlined />}
             onClick={() => router.push(`/word-cloud/topics/${topic.id}/present`)}
           >
-            Trình chiếu
+            {t('wc.present')}
           </Button>
         </div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {!isCompact && (
-          <div style={{ padding: 16, borderRight: '1px solid #f0f0f0', overflowY: 'auto' }}>
+          <div style={{ padding: 16, borderRight: '1px solid var(--color-divider)', overflowY: 'auto' }}>
             <QuestionSidebar
               questions={questions}
               selectedId={selectedQuestionId}
@@ -426,19 +443,19 @@ export default function TopicEditPage() {
             <Select
               style={{ width: '100%', maxWidth: 640, marginBottom: 16 }}
               value={selectedQuestionId ?? undefined}
-              placeholder="Chọn câu hỏi"
+              placeholder={t('wc.selectQuestion')}
               onChange={handleSelectQuestion}
               options={questions.map((q) => ({
                 value: q.id,
-                label: `${q.order}. ${q.prompt || 'Câu hỏi chưa đặt tên'}`,
+                label: `${q.order}. ${q.prompt || t('wc.untitledQuestion')}`,
               }))}
             />
           )}
 
           {!selectedQuestion ? (
-            <Empty description="Chưa có câu hỏi nào">
+            <Empty description={t('wc.noQuestions')}>
               <Button type="primary" onClick={handleAddQuestion}>
-                + Thêm câu hỏi đầu tiên
+                {t('wc.addFirstQuestion')}
               </Button>
             </Empty>
           ) : (
@@ -455,7 +472,7 @@ export default function TopicEditPage() {
                 padding: 24,
                 position: 'relative',
                 minHeight: 480,
-                border: '1px solid #f0f0f0',
+                border: '1px solid var(--color-divider)',
               }}
             >
               {selectedQuestion.showLogo && (
@@ -504,7 +521,7 @@ export default function TopicEditPage() {
                 }}
                 style={{ marginTop: 8, color: 'inherit', textAlign: 'center' }}
               >
-                {selectedQuestion.prompt || 'Nhập câu hỏi Word Cloud của bạn'}
+                {selectedQuestion.prompt || t('wc.promptPlaceholder')}
               </Title>
 
               <div style={{ marginTop: 24, width: '100%' }}>
@@ -518,7 +535,7 @@ export default function TopicEditPage() {
                     <div style={{ textAlign: 'center' }}>
                       {qrUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={qrUrl} alt="QR code tham gia" width={160} height={160} />
+                        <img src={qrUrl} alt={t('wc.joinQrAlt')} width={160} height={160} />
                       ) : (
                         <Spin />
                       )}
@@ -536,7 +553,7 @@ export default function TopicEditPage() {
         </div>
 
         {!isCompact && panelOpen && panelContent && (
-          <div style={{ width: 340, flexShrink: 0, borderLeft: '1px solid #f0f0f0', padding: 16, overflowY: 'auto' }}>
+          <div style={{ width: 340, flexShrink: 0, borderLeft: '1px solid var(--color-divider)', padding: 16, overflowY: 'auto' }}>
             {panelContent}
           </div>
         )}
@@ -547,13 +564,13 @@ export default function TopicEditPage() {
             onClick={() => setPanelOpen(true)}
             style={{ position: 'fixed', right: 16, top: 80 }}
           >
-            Cấu hình
+            {t('wc.configure')}
           </Button>
         )}
 
         {isCompact && (
           <Drawer
-            title="Edit"
+            title={t('wc.editPanel')}
             open={panelOpen}
             onClose={() => setPanelOpen(false)}
             width={340}
@@ -566,7 +583,7 @@ export default function TopicEditPage() {
 
       {/* Stats Modal */}
       <Modal
-        title={statsQuestion ? `Thống kê: ${statsQuestion.prompt || 'Câu hỏi'}` : 'Thống kê kết quả'}
+        title={statsQuestion ? t('wc.statsFor', { question: statsQuestion.prompt || t('wc.question') }) : t('wc.statsTitle')}
         open={statsModalVisible}
         onCancel={() => setStatsModalVisible(false)}
         footer={null}
@@ -575,9 +592,9 @@ export default function TopicEditPage() {
         {statsData ? (
           <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Space size="large">
-              <Statistic title="Tổng câu trả lời" value={statsData.totalResponses || 0} />
-              <Statistic title="Người tham gia" value={statsData.uniqueParticipants || 0} />
-              <Statistic title="Số từ khác nhau" value={statsData.uniqueWords || 0} />
+              <Statistic title={t('wc.totalResponses')} value={statsData.totalResponses || 0} />
+              <Statistic title={t('wc.participants')} value={statsData.uniqueParticipants || 0} />
+              <Statistic title={t('wc.uniqueWords')} value={statsData.uniqueWords || 0} />
             </Space>
 
             {statsData.words && statsData.words.length > 0 ? (
@@ -586,7 +603,7 @@ export default function TopicEditPage() {
                 items={[
                   {
                     key: 'table',
-                    label: 'Dạng bảng',
+                    label: t('wc.tabTable'),
                     children: (
                       <WordStatsTable
                         words={statsData.words}
@@ -597,23 +614,23 @@ export default function TopicEditPage() {
                   },
                   {
                     key: 'bar',
-                    label: 'Biểu đồ cột',
+                    label: t('wc.tabBar'),
                     children: <StatsVisualizer words={statsData.words} type="bar" />,
                   },
                   {
                     key: 'pie',
-                    label: 'Biểu đồ tròn',
+                    label: t('wc.tabPie'),
                     children: <StatsVisualizer words={statsData.words} type="pie" />,
                   },
                 ]}
               />
             ) : (
-              <Empty description="Chưa có câu trả lời nào" />
+              <Empty description={t('wc.noResponses')} />
             )}
           </Space>
         ) : (
           <div style={{ padding: 40, textAlign: 'center' }}>
-            <Spin tip="Đang tải dữ liệu..." />
+            <Spin description={t('wc.loadingData')} />
           </div>
         )}
       </Modal>

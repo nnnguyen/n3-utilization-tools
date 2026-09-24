@@ -195,4 +195,27 @@ export class AuthService {
   findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
+
+  // What the frontend gets for the signed-in user: profile + personalization
+  toSessionUser(user: User) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      preferences: {
+        themeStyle: user.themeStyle,
+        themeMode: user.themeMode,
+        language: user.language,
+      },
+    };
+  }
+
+  async updatePreferences(
+    id: string,
+    prefs: { themeStyle?: string; themeMode?: string; language?: string },
+  ) {
+    const user = await this.prisma.user.update({ where: { id }, data: prefs });
+    return this.toSessionUser(user).preferences;
+  }
 }

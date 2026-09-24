@@ -12,10 +12,12 @@ import YoutubeVideosPanel from '../../../components/YoutubeVideosPanel';
 import ZoomRecordingsPanel from '../../../components/ZoomRecordingsPanel';
 import YoutubePlaylistsPanel from '../../../components/YoutubePlaylistsPanel';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 const TABS = ['videos', 'zoom-sync', 'playlists'] as const;
 
 function ChannelContent() {
+  const t = useT();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
@@ -43,17 +45,17 @@ function ChannelContent() {
   const items = [
     {
       key: 'videos',
-      label: <Space><PlaySquareOutlined />Videos</Space>,
+      label: <Space><PlaySquareOutlined />{t('channel.tabVideos')}</Space>,
       children: <YoutubeVideosPanel connected={connected} checking={checkingStatus} />,
     },
     {
       key: 'zoom-sync',
-      label: <Space><VideoCameraOutlined />Zoom Sync</Space>,
+      label: <Space><VideoCameraOutlined />{t('channel.tabZoomSync')}</Space>,
       children: <ZoomRecordingsPanel />,
     },
     {
       key: 'playlists',
-      label: <Space><UnorderedListOutlined />Playlists</Space>,
+      label: <Space><UnorderedListOutlined />{t('channel.tabPlaylists')}</Space>,
       children: <YoutubePlaylistsPanel connected={connected} checking={checkingStatus} />,
     },
   ];
@@ -61,7 +63,7 @@ function ChannelContent() {
   return (
     <>
       <Space size="middle" align="center" wrap style={{ marginBottom: 16 }}>
-        <YoutubePageTitle title="Channel Content" />
+        <YoutubePageTitle title={t('nav.channelContent')} />
         <YoutubeConnectionBadge status={status} checking={checkingStatus} />
       </Space>
 

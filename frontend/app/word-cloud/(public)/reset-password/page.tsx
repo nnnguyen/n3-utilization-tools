@@ -2,12 +2,14 @@
 
 import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Card, Typography, Form, Input, Button, message, Result } from 'antd';
+import { Card, Typography, Form, Input, Button, message, Result, Spin } from 'antd';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 const { Title, Paragraph } = Typography;
 
 function ResetPasswordContent() {
+  const t = useT();
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -16,7 +18,7 @@ function ResetPasswordContent() {
 
   const onFinish = async (values: any) => {
     if (!token) {
-      message.error('Token không hợp lệ');
+      message.error(t('reset.invalidToken'));
       return;
     }
 
@@ -43,9 +45,9 @@ function ResetPasswordContent() {
       <Card style={{ width: 400 }}>
         <Result
           status="error"
-          title="Thiếu Token"
-          subTitle="Liên kết này không hợp lệ."
-          extra={<Button type="primary" onClick={() => router.push('/login')}>Quay lại Đăng nhập</Button>}
+          title={t('reset.missingToken')}
+          subTitle={t('reset.invalidLink')}
+          extra={<Button type="primary" onClick={() => router.push('/login')}>{t('verify.backToLogin')}</Button>}
         />
       </Card>
     );
@@ -56,10 +58,10 @@ function ResetPasswordContent() {
       <Card style={{ width: 400 }}>
         <Result
           status="success"
-          title="Đặt lại mật khẩu thành công!"
+          title={t('reset.success')}
           extra={[
             <Button type="primary" key="login" onClick={() => router.push('/login')}>
-              Đăng nhập ngay
+              {t('reset.loginNow')}
             </Button>,
           ]}
         />
@@ -68,46 +70,46 @@ function ResetPasswordContent() {
   }
 
   return (
-    <Card style={{ width: 400, borderRadius: 12 }}>
-      <Title level={2} style={{ textAlign: 'center' }}>Thiết lập lại mật khẩu</Title>
+    <Card style={{ width: 400 }}>
+      <Title level={2} style={{ textAlign: 'center' }}>{t('reset.title')}</Title>
       <Paragraph type="secondary" style={{ textAlign: 'center' }}>
-        Nhập mật khẩu mới cho tài khoản của bạn.
+        {t('reset.desc')}
       </Paragraph>
 
       <Form layout="vertical" onFinish={onFinish} size="large">
         <Form.Item
           name="password"
-          label="Mật khẩu mới"
+          label={t('reset.newPassword')}
           rules={[
-            { required: true, message: 'Vui lòng nhập mật khẩu mới!' },
-            { min: 6, message: 'Mật khẩu phải ít nhất 6 ký tự!' }
+            { required: true, message: t('reset.newPasswordRequired') },
+            { min: 6, message: t('auth.passwordMin') }
           ]}
         >
-          <Input.Password placeholder="Nhập mật khẩu mới" />
+          <Input.Password placeholder={t('reset.newPasswordPlaceholder')} />
         </Form.Item>
 
         <Form.Item
           name="confirmPassword"
-          label="Nhập lại mật khẩu"
+          label={t('auth.confirmPassword')}
           dependencies={['password']}
           rules={[
-            { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
+            { required: true, message: t('auth.confirmRequired') },
             ({ getFieldValue }) => ({
               validator(_, value) {
                 if (!value || getFieldValue('password') === value) {
                   return Promise.resolve();
                 }
-                return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                return Promise.reject(new Error(t('auth.confirmMismatch')));
               },
             }),
           ]}
         >
-          <Input.Password placeholder="Nhập lại mật khẩu" />
+          <Input.Password placeholder={t('auth.confirmPassword')} />
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" block loading={loading} style={{ height: 48, borderRadius: 8 }}>
-            Đặt lại mật khẩu
+          <Button type="primary" htmlType="submit" block loading={loading} style={{ height: 48 }}>
+            {t('reset.submit')}
           </Button>
         </Form.Item>
       </Form>
@@ -123,11 +125,11 @@ export default function ResetPasswordPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'var(--color-bg)',
         padding: 24,
       }}
     >
-      <Suspense fallback={<div>Đang tải...</div>}>
+      <Suspense fallback={<Spin size="large" />}>
         <ResetPasswordContent />
       </Suspense>
     </main>

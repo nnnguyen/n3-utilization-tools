@@ -7,11 +7,15 @@ import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { ZoomPageTitle } from '../../components/BrandLogos';
 import ZoomRecordingsPanel from '../../components/ZoomRecordingsPanel';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { useT, useFormat } from '@/lib/i18n';
 
 const { Text } = Typography;
 
 export default function ZoomUtilities() {
+  const t = useT();
+  const fmt = useFormat();
   const [autoUpload, setAutoUpload] = useState(true);
   const [configsLoading, setConfigsLoading] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
@@ -25,7 +29,7 @@ export default function ZoomUtilities() {
       const response = await apiFetch('/integrations/config');
       setConfigs(response);
     } catch (error: any) {
-      message.error('Failed to load integration settings');
+      message.error(t('zoomDash.loadConfigFailed'));
     } finally {
       setConfigsLoading(false);
     }
@@ -36,24 +40,24 @@ export default function ZoomUtilities() {
   }, []);
 
   const onUpdateSettings = (values: any) => {
-    message.success('Automation settings updated!');
+    message.success(t('zoomDash.settingsSaved'));
   };
 
   return (
     <DashboardLayout>
       <div style={{ marginBottom: 16 }}>
-        <ZoomPageTitle title="Dashboard" />
+        <ZoomPageTitle title={t('nav.dashboard')} />
       </div>
       <YoutubeTokenBanner />
 
       {!configs.zoom?.isActive && !configsLoading && (
         <Alert
-          title="Zoom Integration Inactive"
+          title={t('zoomDash.inactiveTitle')}
           description={
             <Space orientation="vertical" style={{ width: '100%' }}>
-              <Text>Please configure and activate your Zoom API credentials to view and sync recordings.</Text>
-              <Link href="/integrations">
-                <Button type="primary" size="small">Activate now</Button>
+              <Text>{t('zoomDash.inactiveDesc')}</Text>
+              <Link href="/settings/integrations">
+                <Button type="primary" size="small">{t('zoomDash.activateNow')}</Button>
               </Link>
             </Space>
           }
@@ -67,8 +71,8 @@ export default function ZoomUtilities() {
         <Col span={24}>
           {configs.zoom?.isActive && (
             <Alert
-                title="Zoom Webhook Active"
-                description="The system is successfully receiving events from Zoom App Marketplace."
+                title={t('zoomDash.webhookActiveTitle')}
+                description={t('zoomDash.webhookActiveDesc')}
                 type="success"
                 showIcon
                 closable
@@ -79,48 +83,48 @@ export default function ZoomUtilities() {
 
         {mostRecentRecording && (
           <Col span={24}>
-            <Card title={<Space><ThunderboltOutlined /><span>Most Recent Recording</span></Space>}>
+            <Card title={<Space><ThunderboltOutlined /><span>{t('zoomDash.mostRecent')}</span></Space>}>
               <Descriptions column={3}>
-                <Descriptions.Item label="Topic">{mostRecentRecording.topic}</Descriptions.Item>
-                <Descriptions.Item label="Start Time">{new Date(mostRecentRecording.start_time).toLocaleString()}</Descriptions.Item>
-                <Descriptions.Item label="Duration">{mostRecentRecording.duration} min</Descriptions.Item>
+                <Descriptions.Item label={t('zoomDash.topic')}>{mostRecentRecording.topic}</Descriptions.Item>
+                <Descriptions.Item label={t('zoomDash.startTime')}>{fmt.dateTime(mostRecentRecording.start_time)}</Descriptions.Item>
+                <Descriptions.Item label={t('zoomDash.duration')}>{t('zoomDash.minutes', { count: mostRecentRecording.duration })}</Descriptions.Item>
               </Descriptions>
               <div style={{ marginTop: 16 }}>
-                <Badge status="processing" text="New recording detected via webhook" />
+                <Badge status="processing" text={t('zoomDash.newRecordingDetected')} />
               </div>
             </Card>
           </Col>
         )}
 
         <Col xs={24} lg={24}>
-          <Card title={<Space><ThunderboltOutlined /><span>Automation Workflow Manager</span></Space>}>
+          <Card title={<Space><ThunderboltOutlined /><span>{t('zoomDash.workflowTitle')}</span></Space>}>
             <Form layout="vertical" initialValues={{ autoUpload: true, privacy: 'private', titleTemplate: '[Zoom] {topic} - {date}' }} onFinish={onUpdateSettings}>
               <Row gutter={16}>
                 <Col xs={24} md={8}>
-                  <Form.Item label="Auto-upload to YouTube" name="autoUpload" valuePropName="checked">
+                  <Form.Item label={t('zoomDash.autoUpload')} name="autoUpload" valuePropName="checked">
                     <Switch checked={autoUpload} onChange={setAutoUpload} />
                   </Form.Item>
                 </Col>
                 
                 <Col xs={24} md={8}>
-                  <Form.Item label="Default YouTube Title Template" name="titleTemplate">
+                  <Form.Item label={t('zoomDash.titleTemplate')} name="titleTemplate">
                     <Input placeholder="[Zoom] {topic} - {date}" disabled={!autoUpload} />
                   </Form.Item>
                 </Col>
 
                 <Col xs={24} md={8}>
-                  <Form.Item label="Default Privacy Status" name="privacy">
+                  <Form.Item label={t('zoomDash.defaultPrivacy')} name="privacy">
                     <Select disabled={!autoUpload}>
-                      <Select.Option value="public">Public</Select.Option>
-                      <Select.Option value="unlisted">Unlisted</Select.Option>
-                      <Select.Option value="private">Private</Select.Option>
+                      <Select.Option value="public">{t('privacy.public')}</Select.Option>
+                      <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
+                      <Select.Option value="private">{t('privacy.private')}</Select.Option>
                     </Select>
                   </Form.Item>
                 </Col>
               </Row>
 
               <Form.Item>
-                <Button type="primary" htmlType="submit">Save Workflow Settings</Button>
+                <Button type="primary" htmlType="submit">{t('zoomDash.saveWorkflow')}</Button>
               </Form.Item>
             </Form>
           </Card>
@@ -133,9 +137,4 @@ export default function ZoomUtilities() {
       </Row>
     </DashboardLayout>
   );
-}
-
-// Dummy Link component since we are in one file
-function Link({ children, ...props }: any) {
-  return <a {...props}>{children}</a>;
 }

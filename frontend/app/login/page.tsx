@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useRef, useState } from 'react';
-import { Button, Card, Typography, Form, Input, Checkbox, message, Divider } from 'antd';
+import { Button, Card, Typography, Form, Input, Checkbox, message, Divider, Segmented } from 'antd';
 import { GoogleOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { API_URL, apiFetch } from '@/lib/api';
 import RegisterModal from '@/components/auth/RegisterModal';
@@ -10,6 +10,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { setAuthToken } from '@/lib/auth-token';
+import { useT, translateNow } from '@/lib/i18n';
+import { usePreferences, type Language } from '@/lib/preferences';
 
 const { Title, Text } = Typography;
 
@@ -40,7 +42,7 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
         completeLogin(data, login);
         router.replace('/');
       } catch (error: any) {
-        message.error(error.message || 'Đăng nhập Google thất bại. Vui lòng thử lại.');
+        message.error(error.message || translateNow('auth.googleFailed'));
         router.replace('/login');
       }
     })();
@@ -50,9 +52,9 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
     const error = searchParams.get('error');
     if (error) {
       if (error === 'google_auth_failed') {
-        message.error('Đăng nhập Google thất bại. Vui lòng thử lại.');
+        message.error(translateNow('auth.googleFailed'));
       } else if (error === 'google_auth_error') {
-        message.error('Có lỗi xảy ra trong quá trình xác thực với Google.');
+        message.error(translateNow('auth.googleError'));
       }
       // Clear URL params
       router.replace('/login');
@@ -63,6 +65,8 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
 }
 
 export default function LoginPage() {
+  const t = useT();
+  const { language, updatePreferences } = usePreferences();
   const router = useRouter();
   const { login, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -91,7 +95,7 @@ export default function LoginPage() {
       });
 
       completeLogin(userData, login);
-      message.success('Đăng nhập thành công!');
+      message.success(t('auth.loginSuccess'));
       router.push('/');
     } catch (error: any) {
       message.error(error.message);
@@ -110,16 +114,26 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 24,
-        backgroundColor: '#f5f5f5'
+        backgroundColor: 'var(--color-bg)'
       }}
     >
       <Suspense fallback={null}>
         <LoginErrorHandler router={router} />
       </Suspense>
-      <Card style={{ width: 400, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      <Card style={{ width: 400, boxShadow: 'var(--shadow-md)' }}>
+        {/* No account yet on this page: the choice is kept in this browser until sign-in */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <Segmented
+            size="small"
+            aria-label={t('auth.language')}
+            value={language}
+            onChange={(value) => updatePreferences({ language: value as Language })}
+            options={[{ label: 'VI', value: 'vi' }, { label: 'EN', value: 'en' }]}
+          />
+        </div>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Title level={2} style={{ margin: 0 }}>N3 Utilization Tools</Title>
-          <Title level={4} style={{ marginTop: 8, color: '#595959' }}>Đăng nhập</Title>
+          <Title level={4} style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>{t('auth.login')}</Title>
         </div>
 
         <Form
@@ -132,63 +146,61 @@ export default function LoginPage() {
           <Form.Item
             name="email"
             rules={[
-              { required: true, message: 'Vui lòng nhập email!' },
-              { type: 'email', message: 'Email không hợp lệ!' }
+              { required: true, message: t('auth.emailRequired') },
+              { type: 'email', message: t('auth.emailInvalid') }
             ]}
           >
-            <Input prefix={<UserOutlined style={{ color: '#bfbfbf' }} />} placeholder="Email" />
+            <Input prefix={<UserOutlined style={{ color: 'var(--color-text-muted)' }} />} placeholder={t('auth.email')} />
           </Form.Item>
 
           <Form.Item
             name="password"
-            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
+            rules={[{ required: true, message: t('auth.passwordRequired') }]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="Mật khẩu"
+              prefix={<LockOutlined style={{ color: 'var(--color-text-muted)' }} />}
+              placeholder={t('auth.password')}
             />
           </Form.Item>
 
           <Form.Item>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Form.Item name="remember" valuePropName="checked" noStyle>
-                <Checkbox>Ghi nhớ cho lần sau</Checkbox>
+                <Checkbox>{t('auth.remember')}</Checkbox>
               </Form.Item>
-              <a onClick={() => setIsForgotOpen(true)} style={{ color: '#1890ff' }}>
-                Quên mật khẩu?
+              <a onClick={() => setIsForgotOpen(true)}>
+                {t('auth.forgot')}
               </a>
             </div>
           </Form.Item>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" block loading={loading} style={{ height: 48, borderRadius: 8 }}>
-              Đăng nhập
+            <Button type="primary" htmlType="submit" block loading={loading} style={{ height: 48 }}>
+              {t('auth.login')}
             </Button>
           </Form.Item>
         </Form>
 
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <Text type="secondary">Chưa có tài khoản? </Text>
-          <a onClick={() => setIsRegisterOpen(true)} style={{ fontWeight: 'bold', color: '#1890ff' }}>Đăng ký</a>
+          <Text type="secondary">{t('auth.noAccount')}</Text>
+          <a onClick={() => setIsRegisterOpen(true)} style={{ fontWeight: 'bold' }}>{t('auth.register')}</a>
         </div>
 
-        <Divider plain>Hoặc</Divider>
+        <Divider plain>{t('auth.or')}</Divider>
 
         <Button
           icon={<GoogleOutlined />}
           block
           onClick={handleGoogleLogin}
           style={{ 
-            height: 48, 
-            borderRadius: 8,
+            height: 48,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '1px solid #d9d9d9',
             boxShadow: 'none'
           }}
         >
-          Đăng nhập với Google
+          {t('auth.withGoogle')}
         </Button>
       </Card>
 

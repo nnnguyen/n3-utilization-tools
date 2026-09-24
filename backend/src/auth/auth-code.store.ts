@@ -5,7 +5,8 @@ const CODE_TTL_MS = 60_000;
 
 interface PendingLogin {
   token: string;
-  user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  // The session user returned to the frontend (profile + preferences)
+  user: Record<string, unknown>;
   expiresAt: number;
 }
 

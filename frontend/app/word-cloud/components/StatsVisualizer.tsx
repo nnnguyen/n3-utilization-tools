@@ -8,6 +8,9 @@ interface StatsVisualizerProps {
   type: 'bar' | 'pie';
 }
 
+// Follows the light/dark surface (Recharts' default tooltip is always white)
+const TOOLTIP_STYLE = { background: 'var(--color-surface)', borderColor: 'var(--color-divider)', color: 'var(--color-text)' };
+
 const COLORS = ['#1677ff', '#722ed1', '#13a8a8', '#eb2f96', '#fa8c16', '#52c41a', '#1890ff', '#2f54eb', '#722ed1', '#eb2f96'];
 
 export function StatsVisualizer({ words, type }: StatsVisualizerProps) {
@@ -31,7 +34,7 @@ export function StatsVisualizer({ words, type }: StatsVisualizerProps) {
               width={100} 
               tick={{ fontSize: 12 }}
             />
-            <Tooltip />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Bar dataKey="value" fill="#1677ff" radius={[0, 4, 4, 0]} label={{ position: 'right' }} />
           </BarChart>
         </ResponsiveContainer>
@@ -57,7 +60,7 @@ export function StatsVisualizer({ words, type }: StatsVisualizerProps) {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
         </PieChart>
       </ResponsiveContainer>
     </div>

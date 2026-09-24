@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Button, message, Typography } from 'antd';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 const { Title } = Typography;
 
@@ -13,6 +14,7 @@ interface RegisterModalProps {
 }
 
 export default function RegisterModal({ open, onCancel, onSuccess }: RegisterModalProps) {
+  const t = useT();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +29,7 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
         }),
       });
 
-      message.success(res.message || 'Đăng ký thành công! Vui lòng kiểm tra email.');
+      message.success(res.message || t('auth.registerSuccess'));
       form.resetFields();
       onSuccess();
     } catch (error: any) {
@@ -48,7 +50,7 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <img src="/logo.jpg" alt="Logo" style={{ width: 80, height: 80, marginBottom: 16, borderRadius: 8 }} />
         <Title level={2} style={{ margin: 0 }}>SOH Word Cloud</Title>
-        <Title level={4} style={{ marginTop: 8, color: '#595959' }}>Đăng ký</Title>
+        <Title level={4} style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>{t('auth.register')}</Title>
       </div>
       <Form
         form={form}
@@ -58,48 +60,48 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
       >
         <Form.Item
           name="email"
-          label="Email"
+          label={t('auth.email')}
           rules={[
-            { required: true, message: 'Vui lòng nhập email!' },
-            { type: 'email', message: 'Email không hợp lệ!' }
+            { required: true, message: t('auth.emailRequired') },
+            { type: 'email', message: t('auth.emailInvalid') }
           ]}
         >
-          <Input placeholder="Nhập địa chỉ email của bạn" size="large" />
+          <Input placeholder={t('auth.emailPlaceholder')} size="large" />
         </Form.Item>
 
         <Form.Item
           name="password"
-          label="Mật khẩu"
+          label={t('auth.password')}
           rules={[
-            { required: true, message: 'Vui lòng nhập mật khẩu!' },
-            { min: 6, message: 'Mật khẩu phải ít nhất 6 ký tự!' }
+            { required: true, message: t('auth.passwordRequired') },
+            { min: 6, message: t('auth.passwordMin') }
           ]}
         >
-          <Input.Password placeholder="Nhập mật khẩu" size="large" />
+          <Input.Password placeholder={t('auth.passwordPlaceholder')} size="large" />
         </Form.Item>
 
         <Form.Item
           name="confirmPassword"
-          label="Nhập lại mật khẩu"
+          label={t('auth.confirmPassword')}
           dependencies={['password']}
           rules={[
-            { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
+            { required: true, message: t('auth.confirmRequired') },
             ({ getFieldValue }) => ({
               validator(_, value) {
                 if (!value || getFieldValue('password') === value) {
                   return Promise.resolve();
                 }
-                return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                return Promise.reject(new Error(t('auth.confirmMismatch')));
               },
             }),
           ]}
         >
-          <Input.Password placeholder="Nhập lại mật khẩu" size="large" />
+          <Input.Password placeholder={t('auth.confirmPassword')} size="large" />
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" size="large" block loading={loading} style={{ height: 48, borderRadius: 24, background: '#d73224', borderColor: '#d73224' }}>
-            Đăng ký
+          <Button type="primary" htmlType="submit" size="large" block loading={loading} style={{ height: 48 }}>
+            {t('auth.register')}
           </Button>
         </Form.Item>
       </Form>

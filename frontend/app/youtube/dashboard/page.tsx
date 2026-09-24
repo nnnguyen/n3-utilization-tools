@@ -12,6 +12,7 @@ import { YoutubePageTitle } from '../../../components/BrandLogos';
 import Link from 'next/link';
 import MonthlyBarChart from '../../../components/MonthlyBarChart';
 import { apiFetch } from '@/lib/api';
+import { useFormat, useT, type MessageKey } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -78,15 +79,17 @@ const getQuotaColor = (percent: number) => {
   return '#ff4d4f'; // đỏ
 };
 
-const STATUS_TAG: Record<string, { color: string; label: string }> = {
-  COMPLETED: { color: 'success', label: 'Ready' },
-  FAILED: { color: 'error', label: 'Failed' },
-  UPLOADING: { color: 'blue', label: 'Uploading' },
-  PROCESSING: { color: 'warning', label: 'Processing' },
-  PENDING: { color: 'default', label: 'Pending' },
+const STATUS_TAG: Record<string, { color: string; label: MessageKey }> = {
+  COMPLETED: { color: 'success', label: 'zoomRec.ready' },
+  FAILED: { color: 'error', label: 'sync.status.failed' },
+  UPLOADING: { color: 'blue', label: 'zoomRec.uploading' },
+  PROCESSING: { color: 'warning', label: 'zoomRec.processing' },
+  PENDING: { color: 'default', label: 'status.pending' },
 };
 
 export default function YoutubeDashboardPage() {
+  const t = useT();
+  const fmt = useFormat();
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [quota, setQuota] = useState<YoutubeQuota | null>(null);
@@ -132,7 +135,7 @@ export default function YoutubeDashboardPage() {
       const data = await apiFetch(`/youtube/stats?months=${months}`);
       setStats(data);
     } catch (e: any) {
-      setStatsError(e.message || 'Failed to load stats');
+      setStatsError(e.message || t('ytDash.statsLoadFailed'));
     } finally {
       setStatsLoading(false);
     }
@@ -145,7 +148,7 @@ export default function YoutubeDashboardPage() {
       setRecentUploads(data);
     } catch (error) {
       console.error('Failed to fetch recent uploads', error);
-      message.error('Failed to fetch recent uploads');
+      message.error(t('ytDash.uploadsLoadFailed'));
     } finally {
       setLoadingUploads(false);
     }
@@ -177,22 +180,22 @@ export default function YoutubeDashboardPage() {
   const hasFailingRecordings = (stats?.topFailing.length ?? 0) > 0;
 
   const topFailingColumns = [
-    { title: 'Recording', dataIndex: 'meeting', key: 'meeting', render: (t: string) => <Text strong>{t}</Text> },
+    { title: t('ytDash.colRecording'), dataIndex: 'meeting', key: 'meeting', render: (meeting: string) => <Text strong>{meeting}</Text> },
     {
-      title: 'Số lần lỗi',
+      title: t('ytDash.colFailures'),
       dataIndex: 'failureCount',
       key: 'failureCount',
       align: 'right' as const,
-      render: (n: number, r: YoutubeStats['topFailing'][number]) => <Text>{n} / {r.attemptCount} lần sync</Text>,
+      render: (n: number, r: YoutubeStats['topFailing'][number]) => <Text>{t('ytDash.failuresValue', { failures: n, attempts: r.attemptCount })}</Text>,
     },
     {
-      title: 'Trạng thái hiện tại',
+      title: t('ytDash.colCurrentStatus'),
       dataIndex: 'syncStatus',
       key: 'syncStatus',
-      render: (s: string) => <Tag color={STATUS_TAG[s]?.color}>{STATUS_TAG[s]?.label || s}</Tag>,
+      render: (s: string) => <Tag color={STATUS_TAG[s]?.color}>{STATUS_TAG[s] ? t(STATUS_TAG[s].label) : s}</Tag>,
     },
     {
-      title: 'Lỗi gần nhất',
+      title: t('ytDash.colLastError'),
       dataIndex: 'syncError',
       key: 'syncError',
       ellipsis: true,
@@ -202,35 +205,35 @@ export default function YoutubeDashboardPage() {
 
   const uploadColumns = [
     {
-      title: 'Thumbnail',
+      title: t('col.thumbnail'),
       dataIndex: 'thumbnail',
       key: 'thumbnail',
-      render: (url: string) => url ? <img src={url} alt="thumbnail" style={{ width: 100, borderRadius: 4 }} /> : <div style={{ width: 100, height: 75, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Image</div>,
+      render: (url: string) => url ? <img src={url} alt="thumbnail" style={{ width: 100, borderRadius: 4 }} /> : <div style={{ width: 100, height: 75, background: 'var(--color-divider)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{t('common.noImage')}</div>,
     },
     {
-      title: 'Title',
+      title: t('col.title'),
       dataIndex: 'title',
       key: 'title',
       render: (text: string) => <Text strong>{text}</Text>,
     },
     {
-      title: 'Status',
+      title: t('ytDash.colStatus'),
       dataIndex: 'privacyStatus',
       key: 'privacyStatus',
       render: (s: string) => (
         <Tag color={s === 'public' ? 'green' : s === 'unlisted' ? 'blue' : 'orange'}>
-          {(s || 'unknown').toUpperCase()}
+          {s ? t(`privacy.${s}` as MessageKey) : t('common.unknown')}
         </Tag>
       ),
     },
     {
-      title: 'Upload Date',
+      title: t('ytDash.colUploadDate'),
       dataIndex: 'publishedAt',
       key: 'publishedAt',
-      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
+      render: (date: string) => date ? fmt.dateTime(date) : '-',
     },
     {
-      title: 'Actions',
+      title: t('col.actions'),
       key: 'action',
       render: (_: any, record: YoutubeVideo) => (
         <Space size="middle">
@@ -240,10 +243,10 @@ export default function YoutubeDashboardPage() {
             href={`https://www.youtube.com/watch?v=${record.id}`}
             target="_blank"
           >
-            View
+            {t('common.view')}
           </Button>
           <Button icon={<EditOutlined />} size="small" onClick={() => setEditingVideoId(record.id)}>
-            Edit
+            {t('common.edit')}
           </Button>
         </Space>
       ),
@@ -251,9 +254,9 @@ export default function YoutubeDashboardPage() {
   ];
 
   const uploadDisabledReason = !isConnected
-    ? 'Chưa kết nối YouTube'
+    ? t('ytDash.notConnected')
     : !hasEnoughQuota
-      ? 'Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai'
+      ? t('quota.exhausted')
       : '';
 
   return (
@@ -261,7 +264,7 @@ export default function YoutubeDashboardPage() {
       {/* a. Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <Space size="middle" align="center" wrap>
-          <YoutubePageTitle title="Dashboard" />
+          <YoutubePageTitle title={t('nav.dashboard')} />
           <YoutubeConnectionBadge status={status} checking={checkingStatus} />
         </Space>
         <Tooltip title={uploadDisabledReason}>
@@ -271,7 +274,7 @@ export default function YoutubeDashboardPage() {
             onClick={() => setUploadOpen(true)}
             disabled={!!uploadDisabledReason}
           >
-            Upload Video
+            {t('ytDash.uploadVideo')}
           </Button>
         </Tooltip>
       </div>
@@ -284,36 +287,36 @@ export default function YoutubeDashboardPage() {
         {/* b. Stat cards */}
         <Col xs={24} sm={12} lg={6}>
           <Card loading={statsLoading && !stats} style={{ height: '100%' }}>
-            <Statistic title="Video đã sync thành công" value={stats?.totals.completedVideos ?? 0} />
+            <Statistic title={t('ytDash.statSynced')} value={stats?.totals.completedVideos ?? 0} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card loading={statsLoading && !stats} style={{ height: '100%' }}>
             <Statistic
-              title="Tỷ lệ thành công"
+              title={t('ytDash.statSuccessRate')}
               value={successRate == null ? '-' : (successRate * 100).toFixed(1)}
               suffix={successRate == null ? undefined : '%'}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {stats ? `${stats.rates.completed} thành công · ${stats.rates.failed} thất bại` : ''}
-              {stats?.rates.totalFailures ? ` · ${stats.rates.totalFailures}/${stats.rates.totalAttempts} lần sync bị lỗi` : ''}
+              {stats ? t('ytDash.successFailed', { completed: stats.rates.completed, failed: stats.rates.failed }) : ''}
+              {stats?.rates.totalFailures ? t('ytDash.attemptsFailed', { failures: stats.rates.totalFailures, attempts: stats.rates.totalAttempts }) : ''}
             </Text>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card loading={statsLoading && !stats} style={{ height: '100%' }}>
-            <Statistic title="Tổng thời lượng đã upload" value={formatDuration(stats?.totals.totalDurationSeconds ?? 0)} />
+            <Statistic title={t('ytDash.statDuration')} value={formatDuration(stats?.totals.totalDurationSeconds ?? 0)} />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Dung lượng: {formatBytes(stats?.totals.totalBytes ?? 0)}
+              {t('ytDash.storage', { size: formatBytes(stats?.totals.totalBytes ?? 0) })}
             </Text>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card style={{ height: '100%' }}>
             <Statistic
-              title="Quota hôm nay"
+              title={t('ytDash.statQuota')}
               value={quota ? quota.unitsUsed : '-'}
-              suffix={quota ? `/ ${quota.quotaLimit.toLocaleString()} units` : undefined}
+              suffix={quota ? t('ytDash.quotaSuffix', { limit: fmt.number(quota.quotaLimit) }) : undefined}
             />
             {quota && (
               <Progress
@@ -327,13 +330,13 @@ export default function YoutubeDashboardPage() {
             <Text type={hasEnoughQuota ? 'secondary' : 'danger'} style={{ fontSize: 12, display: 'block' }}>
               {quota
                 ? hasEnoughQuota
-                  ? `Còn ~${quota.estimatedUploadsRemaining} lượt upload`
-                  : 'Hết quota — không đủ cho 1 lượt upload'
-                : isConnected ? 'Không lấy được thông tin quota' : 'Chưa kết nối YouTube'}
+                  ? t('ytDash.uploadsLeft', { n: quota.estimatedUploadsRemaining })
+                  : t('ytDash.quotaNoUpload')
+                : isConnected ? t('ytDash.quotaUnavailable') : t('ytDash.notConnected')}
             </Text>
             {!!stats?.quota.daysSampled && (
               <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-                Trung bình {stats.quota.averageUnitsPerDay.toLocaleString()} units/ngày ({stats.quota.daysSampled} ngày gần nhất)
+                {t('ytDash.quotaAverage', { units: fmt.number(stats.quota.averageUnitsPerDay), days: stats.quota.daysSampled })}
               </Text>
             )}
           </Card>
@@ -342,31 +345,31 @@ export default function YoutubeDashboardPage() {
         {/* c. Time filter: applies to the chart and Recent Uploads */}
         <Col span={24}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Text type="secondary">Khoảng thời gian:</Text>
+            <Text type="secondary">{t('range.label')}</Text>
             <Select
               value={months}
               onChange={setMonths}
               style={{ width: 200 }}
               options={[
-                { value: 3, label: '3 tháng gần nhất' },
-                { value: 6, label: '6 tháng gần nhất' },
-                { value: 12, label: '12 tháng gần nhất' },
+                { value: 3, label: t('range.months', { n: 3 }) },
+                { value: 6, label: t('range.months', { n: 6 }) },
+                { value: 12, label: t('range.months', { n: 12 }) },
               ]}
             />
-            <Button icon={<ReloadOutlined />} onClick={refreshAll} loading={statsLoading || loadingUploads}>Refresh</Button>
+            <Button icon={<ReloadOutlined />} onClick={refreshAll} loading={statsLoading || loadingUploads}>{t('common.refresh')}</Button>
           </div>
         </Col>
 
         {/* d. Monthly chart */}
         <Col span={24}>
           <MonthlyBarChart
-            title="Video sync thành công theo tháng"
-            valueLabel="Video sync thành công"
+            title={t('ytDash.chartTitle')}
+            valueLabel={t('ytDash.chartValue')}
             loading={statsLoading}
             data={(stats?.monthly || []).map(m => ({ month: m.month, value: m.completed }))}
             note={
               <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-                <InfoCircleOutlined /> Tính trên các lần sync Zoom → YouTube; video upload thủ công không được tính.
+                <InfoCircleOutlined /> {t('ytDash.chartNote')}
               </Text>
             }
           />
@@ -376,8 +379,8 @@ export default function YoutubeDashboardPage() {
         {hasFailingRecordings && (
           <Col span={24}>
             <Card
-              title="Recording hay lỗi nhất"
-              extra={<Link href="/youtube/channel-content?tab=zoom-sync">Xem tại Zoom Sync</Link>}
+              title={t('ytDash.failingTitle')}
+              extra={<Link href="/youtube/channel-content?tab=zoom-sync">{t('ytDash.viewInZoomSync')}</Link>}
             >
               <Table
                 size="small"
@@ -392,17 +395,16 @@ export default function YoutubeDashboardPage() {
 
         {/* f. Recent uploads */}
         <Col span={24}>
-          <Card title="Recent Uploads">
+          <Card title={t('ytDash.recentUploads')}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-              <InfoCircleOutlined /> Lấy trực tiếp từ kênh YouTube đang kết nối, nên gồm mọi video trên kênh trong khoảng thời gian đã chọn:
-              video upload thủ công tại đây, video sync từ Zoom và cả video đăng trực tiếp trên YouTube Studio.
+              <InfoCircleOutlined /> {t('ytDash.recentNote')}
             </Text>
             <Table
               columns={uploadColumns}
               dataSource={recentUploads}
               rowKey="id"
               loading={loadingUploads}
-              locale={{ emptyText: isConnected ? 'No videos found' : 'Connect to YouTube to see recent uploads' }}
+              locale={{ emptyText: isConnected ? t('ytDash.noVideos') : t('ytDash.connectToSee') }}
             />
           </Card>
         </Col>

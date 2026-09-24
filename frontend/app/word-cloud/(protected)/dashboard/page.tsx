@@ -24,6 +24,7 @@ import {
   UnlockOutlined,
 } from '@ant-design/icons';
 import { apiFetch } from '@/lib/api';
+import { useT, useFormat, type MessageKey } from '@/lib/i18n';
 
 interface Topic {
   id: string;
@@ -39,13 +40,15 @@ const STATUS_COLOR: Record<Topic['status'], string> = {
   ACTIVE: 'green',
   CLOSED: 'red',
 };
-const STATUS_LABEL: Record<Topic['status'], string> = {
-  DRAFT: 'Nháp',
-  ACTIVE: 'Đang kích hoạt',
-  CLOSED: 'Đã khóa',
+const STATUS_LABEL: Record<Topic['status'], MessageKey> = {
+  DRAFT: 'wc.statusDraft',
+  ACTIVE: 'wc.statusActive',
+  CLOSED: 'wc.statusClosed',
 };
 
 export default function DashboardPage() {
+  const t = useT();
+  const fmt = useFormat();
   const router = useRouter();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loadingTopics, setLoadingTopics] = useState(true);
@@ -77,12 +80,12 @@ export default function DashboardPage() {
     try {
       const data = await apiFetch('/topics', { method: 'POST', body: JSON.stringify(values) });
       const { id } = data;
-      message.success('Tạo topic thành công');
+      message.success(t('wc.createSuccess'));
       setModalOpen(false);
       form.resetFields();
       router.push(`/word-cloud/topics/${id}/edit`);
     } catch (error) {
-      message.error('Tạo topic thất bại');
+      message.error(t('wc.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -101,11 +104,11 @@ export default function DashboardPage() {
         method: 'PATCH',
         body: JSON.stringify(values),
       });
-      setTopics((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      message.success('Đã cập nhật topic');
+      setTopics((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      message.success(t('wc.updated'));
       setEditingTopic(null);
     } catch (error) {
-      message.error('Cập nhật thất bại');
+      message.error(t('wc.updateFailed'));
     } finally {
       setSavingEdit(false);
     }
@@ -119,10 +122,10 @@ export default function DashboardPage() {
         method: 'PATCH',
         body: JSON.stringify({ status: nextStatus }),
       });
-      setTopics((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      message.success(nextStatus === 'ACTIVE' ? 'Đã kích hoạt topic' : 'Đã khóa topic');
+      setTopics((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      message.success(nextStatus === 'ACTIVE' ? t('wc.activated') : t('wc.closed'));
     } catch (error) {
-      message.error('Cập nhật trạng thái thất bại');
+      message.error(t('wc.statusFailed'));
     } finally {
       setUpdatingStatusId(null);
     }
@@ -131,20 +134,20 @@ export default function DashboardPage() {
   const handleDelete = async (id: string) => {
     try {
       await apiFetch(`/topics/${id}`, { method: 'DELETE' });
-      message.success('Đã xoá topic');
+      message.success(t('wc.deleted'));
       await loadTopics();
     } catch (error) {
-      message.error('Xoá thất bại');
+      message.error(t('wc.deleteFailed'));
     }
   };
 
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: '0 auto', width: '100%' }}>
       <Card
-        title="Danh sách topic"
+        title={t('wc.topicList')}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-            Tạo topic
+            {t('wc.createTopic')}
           </Button>
         }
       >
@@ -152,37 +155,37 @@ export default function DashboardPage() {
             rowKey="id"
             loading={loadingTopics}
             dataSource={topics}
-            locale={{ emptyText: 'Chưa có topic nào' }}
+            locale={{ emptyText: t('wc.noTopics') }}
             columns={[
-              { title: 'Tiêu đề', dataIndex: 'title' },
-              { title: 'Mã', dataIndex: 'code' },
+              { title: t('field.title'), dataIndex: 'title' },
+              { title: t('wc.colCode'), dataIndex: 'code' },
               {
-                title: 'Trạng thái',
+                title: t('wc.colStatus'),
                 dataIndex: 'status',
                 render: (status: Topic['status']) => (
-                  <Tag color={STATUS_COLOR[status]}>{STATUS_LABEL[status]}</Tag>
+                  <Tag color={STATUS_COLOR[status]}>{t(STATUS_LABEL[status])}</Tag>
                 ),
               },
               {
-                title: 'Ngày tạo',
+                title: t('wc.colCreated'),
                 dataIndex: 'createdAt',
-                render: (value: string) => new Date(value).toLocaleString('vi-VN'),
+                render: (value: string) => fmt.dateTime(value),
               },
               {
-                title: 'Hành động',
+                title: t('wc.colActions'),
                 render: (_: unknown, record: Topic) => (
                   <Space>
                     <Button
                       size="small"
                       icon={<EyeOutlined />}
                       onClick={() => router.push(`/word-cloud/topics/${record.id}/edit`)}
-                      title="Xem câu hỏi"
+                      title={t('wc.viewQuestions')}
                     />
                     <Button
                       size="small"
                       icon={<EditOutlined />}
                       onClick={() => openEditModal(record)}
-                      title="Sửa"
+                      title={t('common.edit')}
                     />
                     <Button
                       size="small"
@@ -199,19 +202,19 @@ export default function DashboardPage() {
                       }
                       title={
                         record.status === 'ACTIVE'
-                          ? 'Khóa'
+                          ? t('wc.close')
                           : record.status === 'CLOSED'
-                            ? 'Kích hoạt lại'
-                            : 'Kích hoạt'
+                            ? t('wc.reactivate')
+                            : t('wc.activate')
                       }
                     />
                     <Popconfirm
-                      title="Xoá topic này?"
+                      title={t('wc.deleteConfirm')}
                       onConfirm={() => handleDelete(record.id)}
-                      okText="Xoá"
-                      cancelText="Huỷ"
+                      okText={t('common.delete')}
+                      cancelText={t('common.cancel')}
                     >
-                      <Button size="small" danger icon={<DeleteOutlined />} title="Xoá" />
+                      <Button size="small" danger icon={<DeleteOutlined />} title={t('common.delete')} />
                     </Popconfirm>
                   </Space>
                 ),
@@ -221,46 +224,46 @@ export default function DashboardPage() {
       </Card>
 
       <Modal
-        title="Tạo topic mới"
+        title={t('wc.newTopic')}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()}
         confirmLoading={creating}
-        okText="Tạo"
-        cancelText="Huỷ"
+        okText={t('common.create')}
+        cancelText={t('common.cancel')}
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="title"
-            label="Tiêu đề"
-            rules={[{ required: true, message: 'Nhập tiêu đề' }]}
+            label={t('field.title')}
+            rules={[{ required: true, message: t('wc.titleRequired') }]}
           >
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="description" label="Mô tả">
+          <Form.Item name="description" label={t('field.description')}>
             <Input.TextArea maxLength={1000} rows={3} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title="Sửa topic"
+        title={t('wc.editTopic')}
         open={editingTopic !== null}
         onCancel={() => setEditingTopic(null)}
         onOk={() => editForm.submit()}
         confirmLoading={savingEdit}
-        okText="Lưu"
-        cancelText="Huỷ"
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
       >
         <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
           <Form.Item
             name="title"
-            label="Tiêu đề"
-            rules={[{ required: true, message: 'Nhập tiêu đề' }]}
+            label={t('field.title')}
+            rules={[{ required: true, message: t('wc.titleRequired') }]}
           >
             <Input maxLength={200} />
           </Form.Item>
-          <Form.Item name="description" label="Mô tả">
+          <Form.Item name="description" label={t('field.description')}>
             <Input.TextArea maxLength={1000} rows={3} />
           </Form.Item>
         </Form>

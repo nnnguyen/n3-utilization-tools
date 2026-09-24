@@ -26,6 +26,7 @@ import {
   type Question,
   type QuestionPatch,
 } from '@/app/word-cloud/types/question';
+import { useT, useFormat } from '@/lib/i18n';
 
 const { Text, Link } = Typography;
 
@@ -46,12 +47,13 @@ interface QuestionEditPanelProps {
 }
 
 function GroupHeader({ title, onApplyToAll }: { title: string; onApplyToAll?: () => void }) {
+  const t = useT();
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Text strong>{title}</Text>
       {onApplyToAll && (
         <Link onClick={onApplyToAll} style={{ fontSize: 12 }}>
-          Áp dụng cho tất cả
+          {t('wcq.applyToAllLink')}
         </Link>
       )}
     </div>
@@ -67,10 +69,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function formatSavedAt(date: Date): string {
-  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-}
-
 export function QuestionEditPanel({
   question,
   questions,
@@ -79,6 +77,8 @@ export function QuestionEditPanel({
   onApplyToAll,
   onClose,
 }: QuestionEditPanelProps) {
+  const t = useT();
+  const fmt = useFormat();
   const [uploading, setUploading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [applyToAll, setApplyToAllLocal] = useState(false);
@@ -97,9 +97,9 @@ export function QuestionEditPanel({
 
   const saveStatusText =
     saveStatus.status === 'saving'
-      ? 'Đang lưu…'
+      ? t('wcq.saving')
       : saveStatus.lastSavedAt
-        ? `Đã lưu lúc ${formatSavedAt(saveStatus.lastSavedAt)}`
+        ? t('wcq.savedAt', { time: fmt.time(saveStatus.lastSavedAt) })
         : '';
 
   return (
@@ -107,7 +107,7 @@ export function QuestionEditPanel({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <Text strong style={{ fontSize: 16 }}>
-            Edit
+            {t('wcq.edit')}
           </Text>
           <div>
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -119,7 +119,7 @@ export function QuestionEditPanel({
       </div>
 
       <div>
-        <Text strong>Question</Text>
+        <Text strong>{t('wcq.question')}</Text>
         <div style={{ marginTop: 8 }}>
           <Select disabled value="WORD_CLOUD" style={{ width: '100%' }} options={[{ value: 'WORD_CLOUD', label: 'Word Cloud' }]} />
         </div>
@@ -128,15 +128,15 @@ export function QuestionEditPanel({
       <Divider style={{ margin: 0 }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Text strong>Response settings</Text>
-        <Row label="Giới hạn số lượt trả lời">
+        <Text strong>{t('wcq.responseSettings')}</Text>
+        <Row label={t('wcq.limitResponses')}>
           <Switch
             checked={question.responseLimit !== null}
             onChange={(checked) => change({ responseLimit: checked ? 3 : null })}
           />
         </Row>
         {question.responseLimit !== null && (
-          <Row label="Số lượt tối đa">
+          <Row label={t('wcq.maxResponses')}>
             <InputNumber
               min={1}
               value={question.responseLimit}
@@ -144,14 +144,14 @@ export function QuestionEditPanel({
             />
           </Row>
         )}
-        <Row label="Độ dài tối đa mỗi từ">
+        <Row label={t('wcq.maxWordLength')}>
           <InputNumber
             min={1}
             value={question.maxWordLength}
             onChange={(value) => change({ maxWordLength: value ?? 1 })}
           />
         </Row>
-        <Row label="Cho phép 1 người gửi trùng từ">
+        <Row label={t('wcq.allowDuplicate')}>
           <Switch
             checked={question.allowDuplicateFromSameUser}
             onChange={(checked) => change({ allowDuplicateFromSameUser: checked })}
@@ -162,24 +162,24 @@ export function QuestionEditPanel({
       <Divider style={{ margin: 0 }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Text strong>Design</Text>
-        <Tooltip title="Sắp có">
-          <Row label="Content image">
+        <Text strong>{t('wcq.design')}</Text>
+        <Tooltip title={t('wcq.comingSoon')}>
+          <Row label={t('wcq.contentImage')}>
             <Switch disabled />
           </Row>
         </Tooltip>
-        <Tooltip title="Sắp có">
-          <Row label="Background image">
+        <Tooltip title={t('wcq.comingSoon')}>
+          <Row label={t('wcq.backgroundImage')}>
             <Switch disabled />
           </Row>
         </Tooltip>
-        <Row label="Màu nền">
+        <Row label={t('wcq.backgroundColor')}>
           <ColorPicker
             value={question.backgroundColor}
             onChange={(color) => change({ backgroundColor: color.toHexString() })}
           />
         </Row>
-        <Row label="Màu chữ câu hỏi">
+        <Row label={t('wcq.questionColor')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ColorPicker
               value={question.questionColor || '#000000'}
@@ -191,22 +191,22 @@ export function QuestionEditPanel({
               checked={!!question.questionColor}
               onChange={(checked) => change({ questionColor: checked ? '#000000' : null })}
             />
-            <Text style={{ fontSize: 12 }}>{question.questionColor ? 'Tùy chỉnh' : 'Tự động'}</Text>
+            <Text style={{ fontSize: 12 }}>{question.questionColor ? t('wcq.custom') : t('wcq.auto')}</Text>
           </div>
         </Row>
-        <Row label="Bảng màu chữ">
+        <Row label={t('wcq.textPalette')}>
           <Select
             value={question.textColorScheme}
-            options={TEXT_COLOR_SCHEME_OPTIONS}
+            options={TEXT_COLOR_SCHEME_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
             style={{ width: 140 }}
             onChange={(value) => change({ textColorScheme: value })}
           />
         </Row>
-        <Row label="Hiện logo">
+        <Row label={t('wcq.showLogo')}>
           <Switch checked={question.showLogo} onChange={(checked) => change({ showLogo: checked })} />
         </Row>
         {question.showLogo && (
-          <Row label="Logo">
+          <Row label={t('wcq.logo')}>
             <Upload
               name="file"
               listType="picture-card"
@@ -218,7 +218,7 @@ export function QuestionEditPanel({
               beforeUpload={(file) => {
                 const isLt2M = file.size / 1024 / 1024 < 2;
                 if (!isLt2M) {
-                  message.error('Ảnh phải nhỏ hơn 2MB!');
+                  message.error(t('wcq.imageTooLarge'));
                 }
                 return isLt2M;
               }}
@@ -233,11 +233,11 @@ export function QuestionEditPanel({
                   if (url) {
                     change({ logoUrl: url });
                   } else {
-                    message.error('Không tìm thấy URL ảnh trong phản hồi');
+                    message.error(t('wcq.noImageUrl'));
                   }
                 } else if (info.file.status === 'error') {
                   setUploading(false);
-                  message.error('Tải lên logo thất bại');
+                  message.error(t('wcq.logoUploadFailed'));
                 }
               }}
             >
@@ -250,13 +250,13 @@ export function QuestionEditPanel({
               ) : (
                 <div>
                   {uploading ? <LoadingOutlined /> : <PlusOutlined />}
-                  <div style={{ marginTop: 8 }}>Tải lên</div>
+                  <div style={{ marginTop: 8 }}>{t('wcq.upload')}</div>
                 </div>
               )}
             </Upload>
           </Row>
         )}
-        <Row label="Số từ hiển thị tối đa">
+        <Row label={t('wcq.maxWordsDisplayed')}>
           <InputNumber
             min={1}
             value={question.maxWordsDisplayed}
@@ -272,28 +272,28 @@ export function QuestionEditPanel({
             })
           }
         >
-          Khôi phục màu mặc định
+          {t('wcq.resetColors')}
         </Link>
       </div>
 
       <Divider style={{ margin: 0 }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <GroupHeader title="Joining instructions" onApplyToAll={() => onApplyToAll('joining')} />
-        <Row label="Hiện thông tin tham gia">
+        <GroupHeader title={t('wcq.joiningInstructions')} onApplyToAll={() => onApplyToAll('joining')} />
+        <Row label={t('wcq.showJoiningInfo')}>
           <Switch
             checked={question.showJoiningInfo}
             onChange={(checked) => change({ showJoiningInfo: checked })}
           />
         </Row>
-        <Row label="Kiểu hiển thị">
+        <Row label={t('wcq.displayType')}>
           <Select
             value={question.joiningInfoType}
             style={{ width: 140 }}
             options={[
-              { value: 'QR_CODE', label: 'QR code' },
-              { value: 'LINK', label: 'Đường link' },
-              { value: 'CODE', label: 'Mã tham gia' },
+              { value: 'QR_CODE', label: t('wcq.typeQr') },
+              { value: 'LINK', label: t('wcq.typeLink') },
+              { value: 'CODE', label: t('wcq.typeCode') },
             ]}
             onChange={(value) => change({ joiningInfoType: value })}
           />
@@ -303,17 +303,17 @@ export function QuestionEditPanel({
       <Divider style={{ margin: 0 }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <GroupHeader title="Show responses" onApplyToAll={() => onApplyToAll('showResponses')} />
+        <GroupHeader title={t('wcq.showResponses')} onApplyToAll={() => onApplyToAll('showResponses')} />
         <Radio.Group
           value={question.resultVisibility}
           onChange={(e) => change({ resultVisibility: e.target.value })}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Radio value="INSTANT">Hiện ngay</Radio>
+            <Radio value="INSTANT">{t('wcq.showInstant')}</Radio>
             <Radio value="ON_CLICK">
-              Hiện khi bấm <Tag color="blue">Khuyến nghị</Tag>
+              {t('wcq.showOnClick')} <Tag color="blue">{t('wcq.recommended')}</Tag>
             </Radio>
-            <Radio value="PRIVATE">Không hiện</Radio>
+            <Radio value="PRIVATE">{t('wcq.showNever')}</Radio>
           </div>
         </Radio.Group>
       </div>
@@ -329,7 +329,7 @@ export function QuestionEditPanel({
           pointerEvents: hasChanges ? 'auto' : 'none',
         }}
       >
-        <Text strong>Áp dụng thiết lập trên cho</Text>
+        <Text strong>{t('wcq.applyAboveTo')}</Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Checkbox
             checked={applyToAll}
@@ -338,11 +338,11 @@ export function QuestionEditPanel({
               if (e.target.checked) setTargetIds([]);
             }}
           >
-            Tất cả câu hỏi
+            {t('wcq.allQuestions')}
           </Checkbox>
           <Select
             mode="multiple"
-            placeholder="Chọn câu hỏi"
+            placeholder={t('wc.selectQuestion')}
             style={{ width: '100%' }}
             disabled={applyToAll}
             value={targetIds}
@@ -350,7 +350,7 @@ export function QuestionEditPanel({
             options={questions
               .filter((q) => q.id !== questionId)
               .map((q) => ({
-                label: `Câu ${q.order}: ${q.prompt || '(Trống)'}`,
+                label: t('wcq.questionLabel', { n: q.order, prompt: q.prompt || t('wcq.empty') }),
                 value: q.id,
               }))}
           />
@@ -368,16 +368,16 @@ export function QuestionEditPanel({
                     targetQuestionIds: targetIds,
                   }),
                 });
-                message.success('Đã áp dụng config cho các câu hỏi khác');
+                message.success(t('wcq.appliedToOthers'));
                 setHasChanges(false);
               } catch (error) {
-                message.error('Áp dụng config thất bại');
+                message.error(t('wcq.applyConfigFailed'));
               } finally {
                 setApplying(false);
               }
             }}
           >
-            Áp dụng
+            {t('wcq.apply')}
           </Button>
         </div>
       </div>

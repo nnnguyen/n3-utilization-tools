@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, message } from 'antd';
 import { apiFetch } from '@/lib/api';
+import { translateNow, useT } from '@/lib/i18n';
 
 const POLL_INTERVAL_MS = 60_000;
-// Read by the integrations page after the OAuth callback to send the user back
+// Read by Settings → Integrations after the OAuth callback to send the user back
 export const AUTH_RETURN_TO_KEY = 'youtubeAuthReturnTo';
 
 export interface YoutubeTokenStatus {
@@ -17,7 +18,7 @@ export interface YoutubeTokenStatus {
   expiresAt?: string | null;
 }
 
-// Starts the existing OAuth flow; Google redirects to /integrations, which
+// Starts the existing OAuth flow; Google redirects to /settings/integrations, which
 // then returns to the page the user came from.
 export async function startYoutubeReauthorize() {
   try {
@@ -29,11 +30,12 @@ export async function startYoutubeReauthorize() {
     const { url } = await apiFetch('/youtube/auth-url');
     window.location.href = url;
   } catch (error: any) {
-    message.error(error.message || 'Failed to get authorization URL');
+    message.error(error.message || translateNow('ytToken.authUrlFailed'));
   }
 }
 
 export default function YoutubeTokenBanner() {
+  const t = useT();
   const [status, setStatus] = useState<YoutubeTokenStatus | null>(null);
 
   useEffect(() => {
@@ -59,9 +61,9 @@ export default function YoutubeTokenBanner() {
         showIcon
         banner
         style={{ marginBottom: 16 }}
-        title="Token xác thực YouTube đã hết hạn hoặc bị thu hồi"
-        description="Google đã từ chối token hiện tại (invalid_grant). Mọi sync và upload lên YouTube sẽ thất bại cho đến khi bạn Re-authorize."
-        action={<Button danger type="primary" onClick={startYoutubeReauthorize}>Re-authorize</Button>}
+        title={t('ytToken.invalidTitle')}
+        description={t('ytToken.invalidDesc')}
+        action={<Button danger type="primary" onClick={startYoutubeReauthorize}>{t('ytToken.reauthorize')}</Button>}
       />
     );
   }
@@ -73,8 +75,8 @@ export default function YoutubeTokenBanner() {
         showIcon
         banner
         style={{ marginBottom: 16 }}
-        title={`Token xác thực sắp hết hạn (còn ${status.daysRemaining ?? 0} ngày) — vui lòng Re-authorize để tránh gián đoạn sync`}
-        action={<Button onClick={startYoutubeReauthorize}>Re-authorize</Button>}
+        title={t('ytToken.expiringTitle', { days: status.daysRemaining ?? 0 })}
+        action={<Button onClick={startYoutubeReauthorize}>{t('ytToken.reauthorize')}</Button>}
       />
     );
   }

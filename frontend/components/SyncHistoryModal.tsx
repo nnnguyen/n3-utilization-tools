@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Button, List, Space, Spin, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -20,6 +21,7 @@ interface SyncHistoryModalProps {
 // Sync log of one Zoom recording. Used by Channel Content → Zoom Sync and
 // by the "Xem sync log" action in Channel Content → Videos.
 export default function SyncHistoryModal({ open, recordingId, topic, playlists = [], onClose }: SyncHistoryModalProps) {
+  const t = useT();
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -32,7 +34,7 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
         const response = await apiFetch(`/zoom/logs?recordingId=${encodeURIComponent(recordingId)}`);
         setHistoryLogs(response);
       } catch (error: any) {
-        message.error('Failed to load sync history');
+        message.error(t('syncHistory.loadFailed'));
       } finally {
         setHistoryLoading(false);
       }
@@ -42,16 +44,16 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
 
   return (
     <Modal
-      title="Sync History"
+      title={t('syncHistory.title')}
       open={open}
       onCancel={onClose}
       footer={[
-        <Button key="close" onClick={onClose}>Close</Button>
+        <Button key="close" onClick={onClose}>{t('common.close')}</Button>
       ]}
       width={700}
     >
       <div style={{ marginBottom: 16 }}>
-        <Text strong>Recording: </Text> <Text>{topic || historyLogs[0]?.meeting}</Text>
+        <Text strong>{t('syncHistory.recording')} </Text> <Text>{topic || historyLogs[0]?.meeting}</Text>
       </div>
       <Spin spinning={historyLoading}>
         <List
@@ -65,7 +67,7 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
                     <Text>{dayjs(log.createdAt).format('YYYY-MM-DD HH:mm:ss')}</Text>
                     {log.event && <Tag>{log.event}</Tag>}
                     <Tag color={log.syncStatus === 'COMPLETED' ? 'success' : log.syncStatus === 'FAILED' ? 'error' : 'processing'}>
-                      {log.syncStatus === 'COMPLETED' ? 'Success' : log.syncStatus === 'FAILED' ? 'Failed' : log.syncStatus}
+                      {log.syncStatus === 'COMPLETED' ? t('sync.status.success') : log.syncStatus === 'FAILED' ? t('sync.status.failed') : log.syncStatus}
                     </Tag>
                   </Space>
                 </div>
@@ -74,7 +76,7 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
                     <>
                       <Text type="danger" strong>{log.syncError}</Text>
                       {log.errorSource === 'youtube_processing' && (
-                        <Text type="secondary" italic>Error occurred after uploading to YouTube</Text>
+                        <Text type="secondary" italic>{t('syncHistory.afterUpload')}</Text>
                       )}
                     </>
                   )}
@@ -87,35 +89,35 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
                       href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`} 
                       target="_blank"
                     >
-                      View on YouTube
+                      {t('common.viewOnYouTube')}
                     </Button>
                   )}
 
                   {log.syncStatus === 'FAILED' && log.nextRetryAt && (
                     <Text type="secondary">
-                      Lỗi tạm thời — sẽ tự động thử lại lúc {dayjs(log.nextRetryAt).format('HH:mm:ss')} (lần {log.autoRetryCount + 1}/3)
+                      {t('syncHistory.retryScheduled', { time: dayjs(log.nextRetryAt).format('HH:mm:ss'), attempt: log.autoRetryCount + 1 })}
                     </Text>
                   )}
 
                   {log.playlistId && (
                     <Text type="secondary">
-                      Playlist:{' '}
+                      {t('syncHistory.playlist')}{' '}
                       <a href={`https://www.youtube.com/playlist?list=${log.playlistId}`} target="_blank" rel="noreferrer">
                         {playlists.find(p => p.id === log.playlistId)?.title || log.playlistId}
                       </a>
                     </Text>
                   )}
                   {log.playlistError && (
-                    <Text type="warning">Video đã upload nhưng không gán được vào playlist: {log.playlistError}</Text>
+                    <Text type="warning">{t('syncHistory.playlistError', { error: log.playlistError })}</Text>
                   )}
 
                   {(log.errorCode || log.errorMessage) && (
-                    <details style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
-                      <summary style={{ cursor: 'pointer', color: '#1890ff' }}>Technical Details</summary>
-                      <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', marginTop: 4 }}>
-                        {log.errorCode && <div><Text strong>Error Code:</Text> {log.errorCode}</div>}
-                        {log.errorMessage && <div><Text strong>Error Message:</Text> {log.errorMessage}</div>}
-                        {log.errorSource && <div><Text strong>Source:</Text> {log.errorSource}</div>}
+                    <details style={{ marginTop: 8, fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                      <summary style={{ cursor: 'pointer', color: 'var(--color-accent)' }}>{t('syncHistory.technicalDetails')}</summary>
+                      <div style={{ padding: '8px', background: 'var(--color-bg)', borderRadius: '4px', marginTop: 4 }}>
+                        {log.errorCode && <div><Text strong>{t('syncHistory.errorCode')}</Text> {log.errorCode}</div>}
+                        {log.errorMessage && <div><Text strong>{t('syncHistory.errorMessage')}</Text> {log.errorMessage}</div>}
+                        {log.errorSource && <div><Text strong>{t('syncHistory.source')}</Text> {log.errorSource}</div>}
                       </div>
                     </details>
                   )}

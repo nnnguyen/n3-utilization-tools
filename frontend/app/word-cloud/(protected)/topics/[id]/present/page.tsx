@@ -25,6 +25,7 @@ import { WordStatsTable } from '@/app/word-cloud/components/WordStatsTable';
 import { StatsVisualizer } from '@/app/word-cloud/components/StatsVisualizer';
 import { DEFAULT_TEXT_COLOR_SCHEME, getContrastColor, getContrastingPalette } from '@/app/word-cloud/lib/text-color-schemes';
 import type { Question } from '@/app/word-cloud/types/question';
+import { useT, translateNow, type MessageKey } from '@/lib/i18n';
 
 const { Title, Text } = Typography;
 
@@ -60,10 +61,10 @@ interface QuestionChangedEvent {
 
 type ConnectionStatus = 'connected' | 'reconnecting' | 'polling';
 
-const CONNECTION_LABEL: Record<ConnectionStatus, { text: string; color: string }> = {
-  connected: { text: 'Realtime', color: 'green' },
-  reconnecting: { text: 'Đang kết nối lại...', color: 'gold' },
-  polling: { text: 'Polling mỗi 3s', color: 'default' },
+const CONNECTION_LABEL: Record<ConnectionStatus, { text: MessageKey | null; color: string }> = {
+  connected: { text: null, color: 'green' }, // "Realtime" in every language
+  reconnecting: { text: 'wc.connReconnecting', color: 'gold' },
+  polling: { text: 'wc.connPolling', color: 'default' },
 };
 
 const RECONNECT_GRACE_MS = 5000;
@@ -76,6 +77,7 @@ function isResultHidden(question: Pick<Question, 'resultVisibility' | 'resultsRe
 }
 
 export default function TopicPresentPage() {
+  const t = useT();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [topic, setTopic] = useState<Topic | null>(null);
@@ -106,7 +108,7 @@ export default function TopicPresentPage() {
         return;
       }
       if (error.message.includes('403') || error.message.includes('404')) {
-        message.error('Bạn không có quyền truy cập topic này');
+        message.error(translateNow('wc.noAccess'));
         router.push('/word-cloud/dashboard');
         return;
       }
@@ -287,7 +289,7 @@ export default function TopicPresentPage() {
       });
       setTopic(data);
     } catch (error) {
-      message.error('Chuyển câu hỏi thất bại');
+      message.error(t('wc.changeQuestionFailed'));
     } finally {
       setChangingQuestion(false);
     }
@@ -312,7 +314,7 @@ export default function TopicPresentPage() {
       });
       setQuestions((prev) => prev.map((q) => (q.id === updated.id ? updated : q)));
     } catch (error) {
-      message.error('Hiện kết quả thất bại');
+      message.error(t('wc.revealFailed'));
     } finally {
       setRevealing(false);
     }
@@ -323,13 +325,13 @@ export default function TopicPresentPage() {
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(joinUrl);
-    message.success('Đã copy link');
+    message.success(t('wc.linkCopied'));
   };
 
   const handleCopyCode = async () => {
     if (!topic) return;
     await navigator.clipboard.writeText(topic.code);
-    message.success('Đã copy mã tham gia');
+    message.success(t('wc.codeCopied'));
   };
 
   if (loading) {
@@ -398,7 +400,7 @@ export default function TopicPresentPage() {
               backgroundColor: 'transparent',
             }}
           >
-            Quay lại
+            {t('wc.back')}
           </Button>
 
           {/* Logo */}
@@ -430,7 +432,7 @@ export default function TopicPresentPage() {
 
           <Space>
             <Tag color={CONNECTION_LABEL[connectionStatus].color}>
-              {CONNECTION_LABEL[connectionStatus].text}
+              {CONNECTION_LABEL[connectionStatus].text ? t(CONNECTION_LABEL[connectionStatus].text!) : 'Realtime'}
             </Tag>
             {currentQuestion && (
               <Button
@@ -442,7 +444,7 @@ export default function TopicPresentPage() {
                   backgroundColor: 'transparent',
                 }}
               >
-                Thống kê
+                {t('wc.stats')}
               </Button>
             )}
             {currentQuestion?.showJoiningInfo && (
@@ -469,7 +471,7 @@ export default function TopicPresentPage() {
       {/* Main content: question + nav + live word cloud */}
       {questions.length === 0 ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Text type="secondary">Chưa có câu hỏi nào — vào Chỉnh sửa để thêm câu hỏi.</Text>
+          <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>{t('wc.noQuestionsPresent')}</Text>
         </div>
       ) : (
         <>
@@ -505,23 +507,23 @@ export default function TopicPresentPage() {
                     {currentQuestion.prompt}
                   </Title>
                   <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>
-                    Câu {currentIndex + 1}/{questions.length} ·{' '}
+                    {t('wc.questionOf', { n: currentIndex + 1, total: questions.length })} ·{' '}
                     {currentQuestion.responseLimit !== null
-                      ? `Giới hạn: ${currentQuestion.responseLimit} từ/người`
-                      : 'Không giới hạn số từ'}
+                      ? t('wc.limitPerPerson', { limit: currentQuestion.responseLimit })
+                      : t('wc.noLimit')}
                   </Text>
                   <div style={{ marginTop: 8 }}>
                     <Space size="large">
                       <Space size="small">
                         <UserOutlined style={{ color: secondaryTextColor }} />
                         <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>
-                          {joinedCount} người đã join
+                          {t('wc.joinedCount', { count: joinedCount })}
                         </Text>
                       </Space>
                       <Space size="small">
                         <TeamOutlined style={{ color: secondaryTextColor }} />
                         <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>
-                          {wordCloud.uniqueParticipants} người đã trả lời
+                          {t('wc.answeredCount', { count: wordCloud.uniqueParticipants })}
                         </Text>
                       </Space>
                     </Space>
@@ -579,25 +581,25 @@ export default function TopicPresentPage() {
                   justifyContent: 'center',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 }}
-                title={isFullscreen ? 'Thu nhỏ' : 'Phóng to kết quả'}
+                title={isFullscreen ? t('wc.exitFullscreen') : t('wc.fullscreen')}
               />
             )}
 
             {hidden ? (
               <Space orientation="vertical" align="center">
                 <Statistic
-                  title={<Text style={{ color: secondaryTextColor }}>Tổng câu trả lời</Text>}
+                  title={<Text style={{ color: secondaryTextColor }}>{t('wc.totalResponses')}</Text>}
                   value={wordCloud.totalResponses}
                   valueStyle={{ color: 'inherit' }}
                 />
                 {currentQuestion?.resultVisibility === 'PRIVATE' && (
                   <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>
-                    Kết quả ở chế độ riêng tư, không hiện trên màn hình chiếu.
+                    {t('wc.privateResults')}
                   </Text>
                 )}
                 {currentQuestion?.resultVisibility === 'ON_CLICK' && (
                   <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>
-                    Bấm &quot;Thống kê&quot; để hiện kết quả.
+                    {t('wc.clickStatsToReveal')}
                   </Text>
                 )}
               </Space>
@@ -619,7 +621,7 @@ export default function TopicPresentPage() {
               </div>
             ) : (
               <Text style={{ color: secondaryTextColor || 'rgba(0, 0, 0, 0.45)' }}>
-                Chưa có câu trả lời nào.
+                {t('wc.noResponses')}
               </Text>
             )}
           </div>
@@ -642,7 +644,7 @@ export default function TopicPresentPage() {
           right: 0,
           height: '100%',
           width: QR_PANEL_WIDTH,
-          background: '#fff',
+          background: 'var(--color-surface)',
           boxShadow: '-4px 0 16px rgba(0,0,0,0.15)',
           transform: qrPanelOpen ? 'translateX(0)' : `translateX(${QR_PANEL_WIDTH}px)`,
           transition: 'transform 0.3s ease',
@@ -664,15 +666,15 @@ export default function TopicPresentPage() {
 
         {qrUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={qrUrl} alt="QR code tham gia" width={440} height={440} />
+          <img src={qrUrl} alt={t('wc.joinQrAlt')} width={440} height={440} />
         ) : (
           <Spin />
         )}
         <Space orientation="vertical" align="center" style={{ width: '100%' }}>
           <Button block icon={<CopyOutlined />} onClick={handleCopyLink}>
-            Copy link
+            {t('wc.copyLink')}
           </Button>
-          <Text type="secondary">Mã tham gia</Text>
+          <Text type="secondary">{t('wc.joinCode')}</Text>
           <Button
             block
             onClick={handleCopyCode}
@@ -685,7 +687,7 @@ export default function TopicPresentPage() {
 
       {/* Stats dialog */}
       <Modal
-        title="Thống kê kết quả"
+        title={t('wc.statsTitle')}
         open={statsModalOpen}
         onCancel={() => setStatsModalOpen(false)}
         footer={null}
@@ -694,9 +696,9 @@ export default function TopicPresentPage() {
         {currentQuestion && (
           <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Space size="large">
-              <Statistic title="Tổng câu trả lời" value={wordCloud.totalResponses || 0} />
-              <Statistic title="Người tham gia" value={wordCloud.uniqueParticipants || 0} />
-              {!hidden && <Statistic title="Số từ khác nhau" value={wordCloud.uniqueWords || 0} />}
+              <Statistic title={t('wc.totalResponses')} value={wordCloud.totalResponses || 0} />
+              <Statistic title={t('wc.participants')} value={wordCloud.uniqueParticipants || 0} />
+              {!hidden && <Statistic title={t('wc.uniqueWords')} value={wordCloud.uniqueWords || 0} />}
             </Space>
 
             {currentQuestion.resultVisibility === 'ON_CLICK' && !currentQuestion.resultsRevealed && (
@@ -706,12 +708,12 @@ export default function TopicPresentPage() {
                 loading={revealing}
                 onClick={handleRevealResults}
               >
-                Hiện kết quả
+                {t('wc.revealResults')}
               </Button>
             )}
 
             {currentQuestion.resultVisibility === 'PRIVATE' && (
-              <Text type="secondary">Kết quả ở chế độ riêng tư, không hiện trên màn hình chiếu.</Text>
+              <Text type="secondary">{t('wc.privateResults')}</Text>
             )}
 
             {!hidden && wordCloud.words && wordCloud.words.length > 0 && (
@@ -720,7 +722,7 @@ export default function TopicPresentPage() {
                 items={[
                   {
                     key: 'table',
-                    label: 'Dạng bảng',
+                    label: t('wc.tabTable'),
                     children: (
                       <WordStatsTable
                         words={wordCloud.words}
@@ -731,19 +733,19 @@ export default function TopicPresentPage() {
                   },
                   {
                     key: 'bar',
-                    label: 'Biểu đồ cột',
+                    label: t('wc.tabBar'),
                     children: <StatsVisualizer words={wordCloud.words} type="bar" />,
                   },
                   {
                     key: 'pie',
-                    label: 'Biểu đồ tròn',
+                    label: t('wc.tabPie'),
                     children: <StatsVisualizer words={wordCloud.words} type="pie" />,
                   },
                 ]}
               />
             )}
             {!hidden && (!wordCloud.words || wordCloud.words.length === 0) && (
-              <Text type="secondary">Chưa có câu trả lời nào.</Text>
+              <Text type="secondary">{t('wc.noResponses')}</Text>
             )}
           </Space>
         )}

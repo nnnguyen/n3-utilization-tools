@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Query,
   Req,
@@ -30,6 +31,7 @@ import {
   RegisterDto,
   ResetPasswordDto,
 } from "./dto/auth-email.dto";
+import { UpdatePreferencesDto } from "./dto/preferences.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -55,10 +57,7 @@ export class AuthController {
       maxAge: ACCESS_TOKEN_COOKIE_MAX_AGE_MS,
     });
     res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
+      ...this.authService.toSessionUser(user),
       // For browsers that drop the cross-site cookie (Safari, Firefox)
       accessToken: token,
     });
@@ -105,12 +104,10 @@ export class AuthController {
         maxAge: ACCESS_TOKEN_COOKIE_MAX_AGE_MS,
       });
       // The login page trades this one-time code for the token (POST /auth/exchange)
-      const code = this.authCodeStore.create(token, {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-      });
+      const code = this.authCodeStore.create(
+        token,
+        this.authService.toSessionUser(user),
+      );
       res.redirect(
         `${process.env.FRONTEND_URL}/login?authCode=${encodeURIComponent(code)}`,
       );
@@ -137,12 +134,16 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException();
     }
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-    };
+    return this.authService.toSessionUser(user);
+  }
+
+  @Patch("preferences")
+  @UseGuards(JwtAuthGuard)
+  updatePreferences(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return this.authService.updatePreferences(currentUser.id, dto);
   }
 
   @Post("logout")
@@ -160,6 +161,6 @@ export class AuthController {
   ) {
     // state contains the userId
     await this.youtubeService.handleCallback(state, code);
-    return res.redirect(`${process.env.FRONTEND_URL}/integrations?tab=youtube`);
+    return res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?tab=youtube`);
   }
 }

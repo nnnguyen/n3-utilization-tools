@@ -7,6 +7,7 @@ import { SendOutlined } from '@ant-design/icons';
 import { io, Socket } from 'socket.io-client';
 import { apiFetch, API_BASE_URL } from '@/lib/api';
 import { getParticipantSessionId } from '@/app/word-cloud/lib/participant';
+import { useT, translateNow } from '@/lib/i18n';
 
 const RECONNECT_GRACE_MS = 5000;
 const POLL_INTERVAL_MS = 3000;
@@ -45,6 +46,7 @@ interface QuestionChangedEvent {
 }
 
 export default function JoinPage() {
+  const t = useT();
   const { code } = useParams<{ code: string }>();
   const [topic, setTopic] = useState<PublicTopic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ export default function JoinPage() {
       setSubmittedCount(0);
       setText('');
       setError(null);
-      message.info('Đã chuyển sang câu hỏi mới', 3);
+      message.info(translateNow('join.questionChanged'), 3);
     });
 
     socket.on('disconnect', () => {
@@ -160,7 +162,7 @@ export default function JoinPage() {
       setSubmittedCount(data.submittedCount);
       setText('');
     } catch (error: any) {
-      setError(error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+      setError(error.message || t('join.genericError'));
       // Logic for 429 could be added here if needed, but apiFetch throws
     } finally {
       setSubmitting(false);
@@ -178,7 +180,7 @@ export default function JoinPage() {
   if (notFound || !topic) {
     return (
       <main style={{ padding: 16 }}>
-        <Result status="404" title="Không tìm thấy" subTitle="Mã tham gia không tồn tại." />
+        <Result status="404" title={t('join.notFound')} subTitle={t('join.codeNotFound')} />
       </main>
     );
   }
@@ -212,13 +214,13 @@ export default function JoinPage() {
           </div>
 
           {!question && (
-            <Alert type="info" showIcon title="Chưa có câu hỏi nào được kích hoạt." />
+            <Alert type="info" showIcon title={t('join.noActiveQuestion')} />
           )}
           {question?.status === 'DRAFT' && (
-            <Alert type="warning" showIcon title="Câu hỏi chưa được bắt đầu." />
+            <Alert type="warning" showIcon title={t('join.notStarted')} />
           )}
           {question?.status === 'CLOSED' && (
-            <Alert type="info" showIcon title="Câu hỏi đã bị khóa, không nhận thêm câu trả lời." />
+            <Alert type="info" showIcon title={t('join.closed')} />
           )}
           {error && (
             <Alert type="error" showIcon title={error} closable onClose={() => setError(null)} />
@@ -228,7 +230,7 @@ export default function JoinPage() {
             <>
               <Input
                 size="large"
-                placeholder="Nhập câu trả lời"
+                placeholder={t('join.placeholder')}
                 value={text}
                 maxLength={question.config.maxWordLength}
                 disabled={disabled || submitting}
@@ -244,14 +246,14 @@ export default function JoinPage() {
                 disabled={disabled || !text.trim()}
                 onClick={handleSubmit}
               >
-                Gửi
+                {t('join.send')}
               </Button>
 
               <div>
                 {responseLimit !== null ? (
                   <>
                     <Text type="secondary">
-                      Đã gửi {submittedCount}/{responseLimit} từ
+                      {t('join.sentOfLimit', { count: submittedCount, limit: responseLimit })}
                     </Text>
                     <Progress
                       percent={Math.min(100, (submittedCount / responseLimit) * 100)}
@@ -260,7 +262,7 @@ export default function JoinPage() {
                     />
                   </>
                 ) : (
-                  <Text type="secondary">Đã gửi {submittedCount} từ</Text>
+                  <Text type="secondary">{t('join.sent', { count: submittedCount })}</Text>
                 )}
               </div>
             </>

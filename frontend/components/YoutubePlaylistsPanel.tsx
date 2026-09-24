@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, Tag, Typography, Space, Button, Modal, Form, Input, Select, Popconfirm, Alert, Empty, Spin, message } from 'antd';
 import { PlusOutlined, LinkOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, UnorderedListOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { apiFetch } from '@/lib/api';
+import { useFormat, useT, type MessageKey } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -26,17 +27,23 @@ interface PlaylistItem {
   privacyStatus: string | null;
 }
 
-const PRIVACY_TAG: Record<string, { color: string; label: string }> = {
-  public: { color: 'green', label: 'Public' },
-  unlisted: { color: 'blue', label: 'Unlisted' },
-  private: { color: 'orange', label: 'Private' },
+const PRIVACY_TAG: Record<string, { color: string; label: MessageKey }> = {
+  public: { color: 'green', label: 'privacy.public' },
+  unlisted: { color: 'blue', label: 'privacy.unlisted' },
+  private: { color: 'orange', label: 'privacy.private' },
 };
 
-const PrivacyTag = ({ value }: { value: string | null }) =>
-  value ? <Tag color={PRIVACY_TAG[value]?.color}>{PRIVACY_TAG[value]?.label || value}</Tag> : <Text type="secondary">-</Text>;
+function PrivacyTag({ value }: { value: string | null }) {
+  const t = useT();
+  return value
+    ? <Tag color={PRIVACY_TAG[value]?.color}>{PRIVACY_TAG[value] ? t(PRIVACY_TAG[value].label) : value}</Tag>
+    : <Text type="secondary">-</Text>;
+}
 
 // Channel Content → Playlists: list, create/edit/delete, and the videos in each playlist
 export default function YoutubePlaylistsPanel({ connected, checking }: { connected: boolean; checking: boolean }) {
+  const t = useT();
+  const fmt = useFormat();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -63,7 +70,7 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       const data = await apiFetch('/youtube/playlists');
       setPlaylists(data);
     } catch (error: any) {
-      setLoadError(error.message || 'Không tải được danh sách playlist');
+      setLoadError(error.message || t('playlists.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -100,15 +107,15 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       });
       if (editing) {
         await apiFetch(`/youtube/playlists/${editing.id}`, { method: 'PATCH', body });
-        message.success('Đã cập nhật playlist');
+        message.success(t('playlists.updated'));
       } else {
         await apiFetch('/youtube/playlists', { method: 'POST', body });
-        message.success(`Đã tạo playlist "${values.title.trim()}"`);
+        message.success(t('playlists.created', { title: values.title.trim() }));
       }
       setFormOpen(false);
       fetchPlaylists();
     } catch (error: any) {
-      message.error(error.message || 'Không lưu được playlist');
+      message.error(error.message || t('playlists.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -116,18 +123,18 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
 
   const confirmDelete = (playlist: Playlist) => {
     Modal.confirm({
-      title: `Xoá playlist "${playlist.title}"?`,
-      content: 'Xoá playlist này sẽ không xoá video, chỉ xoá playlist. Các video vẫn còn trên kênh YouTube. Không thể hoàn tác.',
-      okText: 'Xoá playlist',
+      title: t('playlists.deleteTitle', { title: playlist.title }),
+      content: t('playlists.deleteContent'),
+      okText: t('playlists.deleteOk'),
       okButtonProps: { danger: true },
-      cancelText: 'Huỷ',
+      cancelText: t('common.cancel'),
       onOk: async () => {
         try {
           await apiFetch(`/youtube/playlists/${playlist.id}`, { method: 'DELETE' });
-          message.success('Đã xoá playlist');
+          message.success(t('playlists.deleted'));
           fetchPlaylists();
         } catch (error: any) {
-          message.error(error.message || 'Không xoá được playlist');
+          message.error(error.message || t('playlists.deleteFailed'));
           // A playlist already deleted in YouTube Studio should disappear from the list
           fetchPlaylists();
         }
@@ -143,7 +150,7 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       setItems(data);
     } catch (error: any) {
       setItems([]);
-      setItemsError(error.message || 'Không tải được danh sách video');
+      setItemsError(error.message || t('playlists.itemsLoadFailed'));
     } finally {
       setItemsLoading(false);
     }
@@ -160,11 +167,11 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
     setRemovingId(item.playlistItemId);
     try {
       await apiFetch(`/youtube/playlists/${viewing.id}/items/${item.playlistItemId}`, { method: 'DELETE' });
-      message.success('Đã gỡ video khỏi playlist');
+      message.success(t('playlists.itemRemoved'));
       setItems(prev => prev.filter(i => i.playlistItemId !== item.playlistItemId));
       setPlaylists(prev => prev.map(p => p.id === viewing.id ? { ...p, itemCount: Math.max(0, p.itemCount - 1) } : p));
     } catch (error: any) {
-      message.error(error.message || 'Không gỡ được video khỏi playlist');
+      message.error(error.message || t('playlists.itemRemoveFailed'));
     } finally {
       setRemovingId(null);
     }
@@ -172,7 +179,7 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
 
   const columns = [
     {
-      title: 'Tên playlist',
+      title: t('playlists.colName'),
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Playlist) => (
@@ -185,41 +192,41 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       ),
     },
     {
-      title: 'Số video',
+      title: t('playlists.colCount'),
       dataIndex: 'itemCount',
       key: 'itemCount',
       align: 'right' as const,
       sorter: (a: Playlist, b: Playlist) => a.itemCount - b.itemCount,
     },
     {
-      title: 'Privacy',
+      title: t('playlists.colPrivacy'),
       dataIndex: 'privacyStatus',
       key: 'privacyStatus',
       render: (value: string | null) => <PrivacyTag value={value} />,
     },
     {
-      title: 'Ngày tạo',
+      title: t('playlists.colCreated'),
       dataIndex: 'publishedAt',
       key: 'publishedAt',
       sorter: (a: Playlist, b: Playlist) => (a.publishedAt || '').localeCompare(b.publishedAt || ''),
-      render: (date: string | null) => date ? new Date(date).toLocaleDateString() : '-',
+      render: (date: string | null) => date ? fmt.date(date) : '-',
     },
     {
-      title: 'Actions',
+      title: t('col.actions'),
       key: 'actions',
       render: (_: any, record: Playlist) => (
         <Space>
           <Button size="small" icon={<UnorderedListOutlined />} onClick={() => openItems(record)}>
-            View details
+            {t('playlists.viewDetails')}
           </Button>
           <Button size="small" icon={<LinkOutlined />} href={`https://www.youtube.com/playlist?list=${record.id}`} target="_blank">
-            View on YouTube
+            {t('common.viewOnYouTube')}
           </Button>
           <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
-            Edit
+            {t('common.edit')}
           </Button>
           <Button size="small" danger icon={<DeleteOutlined />} onClick={() => confirmDelete(record)}>
-            Delete
+            {t('common.delete')}
           </Button>
         </Space>
       ),
@@ -228,16 +235,16 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
 
   const itemColumns = [
     {
-      title: 'Thumbnail',
+      title: t('col.thumbnail'),
       dataIndex: 'thumbnail',
       key: 'thumbnail',
       width: 120,
       render: (url: string | null) => url
         ? <img src={url} alt="thumbnail" style={{ width: 100, borderRadius: 4 }} />
-        : <div style={{ width: 100, height: 56, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>No Image</div>,
+        : <div style={{ width: 100, height: 56, background: 'var(--color-divider)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>{t('common.noImage')}</div>,
     },
     {
-      title: 'Title',
+      title: t('col.title'),
       dataIndex: 'title',
       key: 'title',
       render: (title: string, item: PlaylistItem) => (
@@ -253,15 +260,15 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       width: 190,
       render: (_: any, item: PlaylistItem) => (
         <Popconfirm
-          title="Gỡ video khỏi playlist?"
-          description="Video vẫn còn trên kênh, chỉ bị gỡ khỏi playlist này."
+          title={t('playlists.removeConfirm')}
+          description={t('playlists.removeConfirmDesc')}
           onConfirm={() => removeItem(item)}
-          okText="Gỡ"
+          okText={t('playlists.removeOk')}
           okButtonProps={{ danger: true }}
-          cancelText="Huỷ"
+          cancelText={t('common.cancel')}
         >
           <Button size="small" danger icon={<MinusCircleOutlined />} loading={removingId === item.playlistItemId}>
-            Remove from playlist
+            {t('playlists.removeFromPlaylist')}
           </Button>
         </Popconfirm>
       ),
@@ -273,10 +280,10 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchPlaylists} loading={loading} disabled={!isConnected}>
-            Refresh
+            {t('common.refresh')}
           </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={!isConnected}>
-            Create Playlist
+            {t('playlists.createPlaylist')}
           </Button>
         </Space>
       </div>
@@ -288,47 +295,47 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
         dataSource={playlists}
         rowKey="id"
         loading={loading || checking}
-        locale={{ emptyText: isConnected ? 'Kênh chưa có playlist nào' : 'Kết nối YouTube để xem danh sách playlist' }}
+        locale={{ emptyText: isConnected ? t('playlists.emptyConnected') : t('playlists.emptyNotConnected') }}
       />
 
       <Modal
-        title={editing ? 'Edit Playlist' : 'Create Playlist'}
+        title={editing ? t('playlists.editPlaylist') : t('playlists.createPlaylist')}
         open={formOpen}
         onCancel={() => !saving && setFormOpen(false)}
         onOk={handleSave}
-        okText={editing ? 'Save' : 'Create'}
+        okText={editing ? t('common.save') : t('common.create')}
         confirmLoading={saving}
         destroyOnHidden
       >
         <Form form={form} layout="vertical" initialValues={{ privacyStatus: 'private' }} preserve={false}>
           <Form.Item
-            label="Tên playlist"
+            label={t('playlists.colName')}
             name="title"
             rules={[
-              { required: true, whitespace: true, message: 'Vui lòng nhập tên playlist' },
-              { max: 150, message: 'Tên playlist tối đa 150 ký tự' },
+              { required: true, whitespace: true, message: t('playlists.nameRequired') },
+              { max: 150, message: t('validation.maxChars', { field: t('playlists.colName'), max: 150 }) },
             ]}
           >
-            <Input showCount maxLength={150} placeholder="Nhập tên playlist" />
+            <Input showCount maxLength={150} placeholder={t('playlists.namePlaceholder')} />
           </Form.Item>
-          <Form.Item label="Mô tả" name="description" rules={[{ max: 5000, message: 'Mô tả tối đa 5000 ký tự' }]}>
-            <Input.TextArea rows={3} showCount maxLength={5000} placeholder="Mô tả (không bắt buộc)" />
+          <Form.Item label={t('field.description')} name="description" rules={[{ max: 5000, message: t('validation.maxChars', { field: t('field.description'), max: 5000 }) }]}>
+            <Input.TextArea rows={3} showCount maxLength={5000} placeholder={t('playlists.descriptionPlaceholder')} />
           </Form.Item>
-          <Form.Item label="Privacy Status" name="privacyStatus">
+          <Form.Item label={t('field.privacyStatus')} name="privacyStatus">
             <Select>
-              <Select.Option value="public">Public</Select.Option>
-              <Select.Option value="unlisted">Unlisted</Select.Option>
-              <Select.Option value="private">Private</Select.Option>
+              <Select.Option value="public">{t('privacy.public')}</Select.Option>
+              <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
+              <Select.Option value="private">{t('privacy.private')}</Select.Option>
             </Select>
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={viewing ? `Video trong "${viewing.title}"` : ''}
+        title={viewing ? t('playlists.videosIn', { title: viewing.title }) : ''}
         open={!!viewing}
         onCancel={() => setViewing(null)}
-        footer={[<Button key="close" onClick={() => setViewing(null)}>Close</Button>]}
+        footer={[<Button key="close" onClick={() => setViewing(null)}>{t('common.close')}</Button>]}
         width={760}
       >
         {itemsError ? (
@@ -336,7 +343,7 @@ export default function YoutubePlaylistsPanel({ connected, checking }: { connect
         ) : (
           <Spin spinning={itemsLoading}>
             {!itemsLoading && items.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có video nào trong playlist này" />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('playlists.noVideos')} />
             ) : (
               <Table
                 size="small"

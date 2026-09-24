@@ -5,6 +5,7 @@ import { Modal, Form, Input, Select, Upload, Button, Spin, Alert, Typography, Sp
 import { UploadOutlined } from '@ant-design/icons';
 import { apiFetch, API_URL } from '@/lib/api';
 import { authHeaders } from '@/lib/auth-token';
+import { translateNow, useT } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -41,12 +42,13 @@ async function uploadThumbnail(videoId: string, file: File) {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const msg = data?.message;
-    throw new Error((Array.isArray(msg) ? msg[0] : msg) || `Thumbnail upload failed (${response.status})`);
+    throw new Error((Array.isArray(msg) ? msg[0] : msg) || translateNow('editVideo.thumbUploadFailed', { status: response.status }));
   }
   return data as { thumbnail: string | null };
 }
 
 export default function EditVideoModal({ videoId, open, onClose, onSaved }: EditVideoModalProps) {
+  const t = useT();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -74,7 +76,7 @@ export default function EditVideoModal({ videoId, open, onClose, onSaved }: Edit
         });
         setCurrentThumbnail(data.thumbnail);
       } catch (error: any) {
-        setLoadError(error.message || 'Failed to load video details');
+        setLoadError(error.message || t('editVideo.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -91,11 +93,11 @@ export default function EditVideoModal({ videoId, open, onClose, onSaved }: Edit
 
   const handleSelectThumbnail = (file: File) => {
     if (!THUMBNAIL_TYPES.includes(file.type)) {
-      message.error('Thumbnail must be a JPG or PNG image');
+      message.error(t('editVideo.thumbType'));
       return Upload.LIST_IGNORE;
     }
     if (file.size > THUMBNAIL_MAX_BYTES) {
-      message.error('Thumbnail must be 2MB or smaller');
+      message.error(t('editVideo.thumbSize'));
       return Upload.LIST_IGNORE;
     }
     setThumbnailFile(file);
@@ -125,18 +127,18 @@ export default function EditVideoModal({ videoId, open, onClose, onSaved }: Edit
           thumbnail = result.thumbnail || thumbnail;
         } catch (error: any) {
           // Metadata is already saved; report the thumbnail failure on its own
-          message.warning(`Đã lưu thông tin video nhưng không đổi được thumbnail: ${error.message}`);
+          message.warning(t('editVideo.savedThumbFailed', { error: error.message }));
           onSaved?.({ ...updated, thumbnail });
           onClose();
           return;
         }
       }
 
-      message.success('Video updated');
+      message.success(t('editVideo.updated'));
       onSaved?.({ ...updated, thumbnail });
       onClose();
     } catch (error: any) {
-      message.error(error.message || 'Failed to update video');
+      message.error(error.message || t('editVideo.updateFailed'));
     } finally {
       setSaving(false);
     }
@@ -144,11 +146,11 @@ export default function EditVideoModal({ videoId, open, onClose, onSaved }: Edit
 
   return (
     <Modal
-      title="Edit Video"
+      title={t('editVideo.title')}
       open={open}
       onCancel={onClose}
       onOk={handleSave}
-      okText="Save"
+      okText={t('common.save')}
       confirmLoading={saving}
       okButtonProps={{ disabled: loading || !!loadError }}
       width={640}
@@ -160,46 +162,46 @@ export default function EditVideoModal({ videoId, open, onClose, onSaved }: Edit
         ) : (
           <Form form={form} layout="vertical">
             <Form.Item
-              label="Title"
+              label={t('field.title')}
               name="title"
               rules={[
-                { required: true, whitespace: true, message: 'Title is required' },
-                { max: 100, message: 'Title must be at most 100 characters' },
+                { required: true, whitespace: true, message: t('validation.titleRequired') },
+                { max: 100, message: t('validation.maxChars', { field: t('field.title'), max: 100 }) },
               ]}
             >
               <Input showCount maxLength={100} />
             </Form.Item>
             <Form.Item
-              label="Description"
+              label={t('field.description')}
               name="description"
-              rules={[{ max: 5000, message: 'Description must be at most 5000 characters' }]}
+              rules={[{ max: 5000, message: t('validation.maxChars', { field: t('field.description'), max: 5000 }) }]}
             >
               <Input.TextArea rows={4} showCount maxLength={5000} />
             </Form.Item>
-            <Form.Item label="Tags" name="tags" extra="Nhấn Enter hoặc dấu phẩy để thêm tag">
-              <Select mode="tags" tokenSeparators={[',']} open={false} placeholder="Add tags" />
+            <Form.Item label={t('field.tags')} name="tags" extra={t('editVideo.tagsHint')}>
+              <Select mode="tags" tokenSeparators={[',']} open={false} placeholder={t('editVideo.addTags')} />
             </Form.Item>
-            <Form.Item label="Privacy Status" name="privacyStatus">
+            <Form.Item label={t('field.privacyStatus')} name="privacyStatus">
               <Select>
-                <Select.Option value="public">Public</Select.Option>
-                <Select.Option value="unlisted">Unlisted</Select.Option>
-                <Select.Option value="private">Private</Select.Option>
+                <Select.Option value="public">{t('privacy.public')}</Select.Option>
+                <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
+                <Select.Option value="private">{t('privacy.private')}</Select.Option>
               </Select>
             </Form.Item>
-            <Form.Item label="Thumbnail" extra="JPG hoặc PNG, tối đa 2MB">
+            <Form.Item label={t('field.thumbnail')} extra={t('editVideo.thumbHint')}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 {(thumbnailPreview || currentThumbnail) ? (
                   <img
                     src={thumbnailPreview || currentThumbnail || undefined}
                     alt="thumbnail"
-                    style={{ width: 160, borderRadius: 4, border: '1px solid #f0f0f0' }}
+                    style={{ width: 160, borderRadius: 4, border: '1px solid var(--color-divider)' }}
                   />
                 ) : (
-                  <Text type="secondary">No thumbnail</Text>
+                  <Text type="secondary">{t('editVideo.noThumbnail')}</Text>
                 )}
                 <Space>
                   <Upload accept="image/jpeg,image/png" showUploadList={false} beforeUpload={handleSelectThumbnail}>
-                    <Button icon={<UploadOutlined />}>Choose image</Button>
+                    <Button icon={<UploadOutlined />}>{t('editVideo.chooseImage')}</Button>
                   </Upload>
                   {thumbnailFile && (
                     <Button
@@ -209,7 +211,7 @@ export default function EditVideoModal({ videoId, open, onClose, onSaved }: Edit
                         setThumbnailPreview(null);
                       }}
                     >
-                      Undo
+                      {t('common.undo')}
                     </Button>
                   )}
                 </Space>

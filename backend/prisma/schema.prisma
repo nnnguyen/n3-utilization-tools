@@ -27,6 +27,11 @@ model User {
   notifyEmailOnCompleted Boolean @default(true)
   notifyEmailOnFailed    Boolean @default(true)
 
+  // Personalization (Settings → Personalization); defaults keep the original look
+  themeStyle String @default("broadsheet") // 'broadsheet' | 'organic' | 'classic'
+  themeMode  String @default("light") // 'light' | 'dark' | 'system'
+  language   String @default("vi") // 'vi' | 'en'
+
   createdAt     DateTime            @default(now())
   topics        Topic[]
   zoomConfig    ZoomConfig?

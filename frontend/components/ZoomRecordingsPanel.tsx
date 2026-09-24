@@ -6,6 +6,7 @@ import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, 
 import EditVideoModal from './EditVideoModal';
 import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
+import { useFormat, useT } from '@/lib/i18n';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -14,6 +15,8 @@ const { RangePicker } = DatePicker;
 // Zoom Recordings table with its sync flow (moved as-is from the Zoom
 // Utilities page into YouTube → Channel Content → Zoom Sync)
 export default function ZoomRecordingsPanel() {
+  const t = useT();
+  const fmt = useFormat();
   const [recordings, setRecordings] = useState([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,7 +96,7 @@ export default function ZoomRecordingsPanel() {
       const response = await apiFetch('/integrations/config');
       setConfigs(response);
     } catch (error: any) {
-      message.error('Failed to load integration settings');
+      message.error(t('zoomRec.configLoadFailed'));
     } finally {
       setConfigsLoading(false);
     }
@@ -125,7 +128,7 @@ export default function ZoomRecordingsPanel() {
       setCurrentPage(1);
     } catch (error: any) {
       console.error('Error fetching recordings:', error);
-      message.error(error.message || 'Failed to fetch Zoom recordings. Please check your credentials.');
+      message.error(error.message || t('zoomRec.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -195,7 +198,7 @@ export default function ZoomRecordingsPanel() {
 
   const handleManualSync = async (record: any, privacyStatus: string = 'private', playlistId?: string) => {
     if (quota && quota.unitsRemaining < 1650) {
-      message.error('Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai');
+      message.error(t('quota.exhausted'));
       return;
     }
     const recordingId = record.uuid || record.id;
@@ -205,7 +208,7 @@ export default function ZoomRecordingsPanel() {
       
       if (playlistId === 'create_new') {
         if (!newPlaylistTitle) {
-          message.error('Please enter a title for the new playlist');
+          message.error(t('playlistPicker.newTitleRequired'));
           setSyncingIds(prev => {
             const next = new Set(prev);
             next.delete(recordingId);
@@ -221,7 +224,7 @@ export default function ZoomRecordingsPanel() {
           })
         });
         finalPlaylistId = newPlaylist.id;
-        message.success(`Playlist "${newPlaylistTitle}" created`);
+        message.success(t('playlistPicker.created', { title: newPlaylistTitle }));
         fetchPlaylists();
       }
 
@@ -235,12 +238,12 @@ export default function ZoomRecordingsPanel() {
           playlistId: finalPlaylistId
         })
       });
-      message.success(`Sync started for: ${record.topic} (${privacyStatus})`);
+      message.success(t('zoomRec.syncStarted', { topic: record.topic, privacy: t(`privacy.${privacyStatus}` as 'privacy.public') }));
       // Immediately fetch logs and recordings to show "Processing" state
       await fetchAllData();
     } catch (error: any) {
       console.error('Manual sync failed:', error);
-      message.error(error.message || `Failed to sync: ${record.topic}`);
+      message.error(error.message || t('zoomRec.syncFailed', { topic: record.topic }));
     } finally {
       setSyncingIds(prev => {
         const next = new Set(prev);
@@ -252,27 +255,27 @@ export default function ZoomRecordingsPanel() {
 
   const recordingColumns = [
     {
-      title: 'Topic',
+      title: t('zoomRec.colTopic'),
       dataIndex: 'topic',
       key: 'topic',
       sorter: (a: any, b: any) => a.topic.localeCompare(b.topic),
     },
     {
-      title: 'Start Time',
+      title: t('zoomRec.colStartTime'),
       dataIndex: 'start_time',
       key: 'start_time',
-      render: (text: string) => new Date(text).toLocaleString(),
+      render: (text: string) => fmt.dateTime(text),
       sorter: (a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
       defaultSortOrder: 'descend' as const,
     },
     {
-      title: 'Duration (min)',
+      title: t('zoomRec.colDuration'),
       dataIndex: 'duration',
       key: 'duration',
       sorter: (a: any, b: any) => a.duration - b.duration,
     },
     {
-      title: 'File',
+      title: t('zoomRec.colFile'),
       dataIndex: 'recording_files',
       key: 'files',
       render: (files: any[]) => {
@@ -285,19 +288,19 @@ export default function ZoomRecordingsPanel() {
             target="_blank" 
             style={{ padding: 0 }}
           >
-            Download Link
+            {t('zoomRec.downloadLink')}
           </Button>
         );
       },
     },
     {
-      title: 'Status',
+      title: t('zoomRec.colStatus'),
       key: 'syncStatus',
       render: (record: any) => {
         const recordingId = record.uuid || record.id;
         const log = logs.find((l: any) => l.recordingId === recordingId);
         
-        if (!log) return <Tag color="default">Not synced</Tag>;
+        if (!log) return <Tag color="default">{t('zoomRec.notSynced')}</Tag>;
 
         const status = log.syncStatus || 'PENDING';
         
@@ -305,31 +308,31 @@ export default function ZoomRecordingsPanel() {
           case 'UPLOADING':
             return (
               <Space orientation="vertical" size={0} style={{ width: '100%' }}>
-                <Tag color="blue"><Spin size="small" style={{ marginRight: 8 }} />Uploading</Tag>
+                <Tag color="blue"><Spin size="small" style={{ marginRight: 8 }} />{t('zoomRec.uploading')}</Tag>
                 {log.progress > 0 && <Progress percent={log.progress} size="small" status="active" />}
               </Space>
             );
           case 'PROCESSING':
             const duration = log.syncStartedAt ? Math.floor((new Date().getTime() - new Date(log.syncStartedAt).getTime()) / 60000) : 0;
-            return <Tag color="warning">Processing {duration > 0 ? `(${duration}m)` : ''}</Tag>;
+            return <Tag color="warning">{t('zoomRec.processing')} {duration > 0 ? `(${duration}m)` : ''}</Tag>;
           case 'COMPLETED':
-            return <Tag color="success">Ready</Tag>;
+            return <Tag color="success">{t('zoomRec.ready')}</Tag>;
           case 'FAILED':
             return (
               <Space orientation="vertical" size={0}>
-                <Tooltip title={log.syncError || 'Unknown error'}>
-                  <Tag color="error" style={{ cursor: 'pointer' }}>Failed</Tag>
+                <Tooltip title={log.syncError || t('zoomRec.unknownError')}>
+                  <Tag color="error" style={{ cursor: 'pointer' }}>{t('sync.status.failed')}</Tag>
                 </Tooltip>
                 {log.nextRetryAt && (
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    Tự động thử lại lúc {dayjs(log.nextRetryAt).format('HH:mm')} (lần {log.autoRetryCount + 1}/3)
+                    {t('zoomRec.retryAt', { time: dayjs(log.nextRetryAt).format('HH:mm'), attempt: log.autoRetryCount + 1 })}
                   </Text>
                 )}
               </Space>
             );
           case 'PENDING':
           default:
-            return <Tag color="default">Not synced</Tag>;
+            return <Tag color="default">{t('zoomRec.notSynced')}</Tag>;
         }
       }
     },
@@ -349,7 +352,7 @@ export default function ZoomRecordingsPanel() {
               target="_blank"
               icon={<YoutubeOutlined />}
             >
-              Watch on YouTube
+              {t('zoomRec.watchOnYouTube')}
             </Button>
           );
         }
@@ -357,7 +360,7 @@ export default function ZoomRecordingsPanel() {
       }
     },
     {
-      title: 'Action',
+      title: t('zoomRec.colAction'),
       key: 'action',
       render: (record: any) => {
         const recordingId = record.uuid || record.id;
@@ -378,7 +381,7 @@ export default function ZoomRecordingsPanel() {
                 setDetailsVisible(true);
               }}
             >
-              Details
+              {t('zoomRec.details')}
             </Button>
             
             {!isCompleted && (
@@ -395,12 +398,12 @@ export default function ZoomRecordingsPanel() {
                 danger={isFailed}
                 type={isFailed ? 'primary' : 'default'}
               >
-                {isFailed ? 'Re-sync' : isSyncing ? 'Processing...' : 'Sync'}
+                {isFailed ? t('zoomRec.resync') : isSyncing ? t('zoomRec.processingEllipsis') : t('zoomRec.sync')}
               </Button>
             )}
 
             {hasHistory && (
-              <Tooltip title="View sync logs">
+              <Tooltip title={t('zoomRec.viewSyncLogs')}>
                 <Button 
                   icon={<HistoryOutlined />} 
                   size="small"
@@ -417,19 +420,19 @@ export default function ZoomRecordingsPanel() {
   return (
     <>
       <Card 
-        title={<Space><VideoCameraOutlined /><span>Zoom Recordings</span></Space>}
+        title={<Space><VideoCameraOutlined /><span>{t('zoomRec.title')}</span></Space>}
         extra={
           <Space>
             <Select value={dateFilter} onChange={setDateFilter} style={{ width: 150 }}>
-              <Select.Option value="30">Last 30 days</Select.Option>
-              <Select.Option value="custom">Custom Range</Select.Option>
+              <Select.Option value="30">{t('zoomRec.last30')}</Select.Option>
+              <Select.Option value="custom">{t('zoomRec.customRange')}</Select.Option>
             </Select>
             {dateFilter === 'custom' && (
               <RangePicker 
                 onChange={(dates) => setCustomDateRange(dates as any)}
               />
             )}
-            <Button icon={<ReloadOutlined />} onClick={() => fetchAllData()} loading={loading || logsLoading}>Refresh</Button>
+            <Button icon={<ReloadOutlined />} onClick={() => fetchAllData()} loading={loading || logsLoading}>{t('common.refresh')}</Button>
           </Space>
         }
       >
@@ -443,22 +446,22 @@ export default function ZoomRecordingsPanel() {
             current: currentPage,
             pageSize: 10,
             onChange: setCurrentPage,
-            showTotal: (total) => `${total} recordings`,
+            showTotal: (total) => t('zoomRec.total', { total }),
           }}
         />
       ) : (
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
-          <Text type="secondary">Zoom integration is inactive. Recordings cannot be displayed.</Text>
+          <Text type="secondary">{t('zoomRec.inactive')}</Text>
         </div>
       )}
       </Card>
 
       <Modal
-        title="Confirm YouTube Sync"
+        title={t('zoomRec.confirmTitle')}
         open={syncModalVisible}
         onOk={() => {
           if (syncPlaylistId === 'create_new' && !newPlaylistTitle.trim()) {
-            message.error('Please enter a title for the new playlist');
+            message.error(t('playlistPicker.newTitleRequired'));
             return;
           }
           handleManualSync(syncingRecord, syncPrivacyStatus, syncPlaylistId);
@@ -471,19 +474,24 @@ export default function ZoomRecordingsPanel() {
           setSyncPlaylistId('none');
           setNewPlaylistTitle('');
         }}
-        okText="Start Sync"
+        okText={t('zoomRec.startSync')}
         okButtonProps={{ disabled: quota && quota.unitsRemaining < 1650 }}
       >
-        <p>You are about to sync <strong>{syncingRecord?.topic}</strong> to YouTube.</p>
+        <p>
+          {/* Split around the placeholder so the topic can be bold in either language */}
+          {(() => {
+            const [before, after] = t('zoomRec.aboutToSync', { topic: '\u0000' }).split('\u0000');
+            return <>{before}<strong>{syncingRecord?.topic}</strong>{after}</>;
+          })()}
+        </p>
         
         {syncingRecord && youtubeStatus?.longUploadsStatus !== 'allowed' && syncingRecord.duration > 15 && (
           <Alert
-            title="Video quá dài (> 15 phút)"
+            title={t('zoomRec.tooLongTitle')}
             description={
               <span>
-                Channel YouTube của bạn chưa verify nên giới hạn video dưới 15 phút. 
-                Sync video này có thể bị YouTube từ chối. 
-                Hãy <a href="https://www.youtube.com/verify" target="_blank" rel="noreferrer">xác minh channel tại đây</a> trước.
+                {t('zoomRec.tooLongDesc')}{' '}
+                <a href="https://www.youtube.com/verify" target="_blank" rel="noreferrer">{t('zoomRec.verifyHere')}</a>.
               </span>
             }
             type="warning"
@@ -494,8 +502,8 @@ export default function ZoomRecordingsPanel() {
 
         {quota && quota.unitsRemaining < 1650 && (
           <Alert
-            title="Hết Quota"
-            description="Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai."
+            title={t('zoomRec.quotaTitle')}
+            description={t('quota.exhausted')}
             type="error"
             showIcon
             style={{ marginBottom: 16 }}
@@ -504,40 +512,40 @@ export default function ZoomRecordingsPanel() {
         <Form layout="vertical">
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Select Privacy Status">
+              <Form.Item label={t('zoomRec.selectPrivacy')}>
                 <Select 
                   value={syncPrivacyStatus} 
                   onChange={setSyncPrivacyStatus}
                   style={{ width: '100%' }}
                 >
-                  <Select.Option value="public">Public</Select.Option>
-                  <Select.Option value="unlisted">Unlisted</Select.Option>
-                  <Select.Option value="private">Private</Select.Option>
+                  <Select.Option value="public">{t('privacy.public')}</Select.Option>
+                  <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
+                  <Select.Option value="private">{t('privacy.private')}</Select.Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Playlist">
+              <Form.Item label={t('field.playlist')}>
                 <Select 
                   value={syncPlaylistId} 
                   onChange={setSyncPlaylistId}
                   style={{ width: '100%' }}
                   loading={loadingPlaylists}
                 >
-                  <Select.Option value="none">None</Select.Option>
+                  <Select.Option value="none">{t('playlistPicker.none')}</Select.Option>
                   {playlists.map(p => (
                     <Select.Option key={p.id} value={p.id}>{p.title}</Select.Option>
                   ))}
-                  <Select.Option value="create_new">+ Create new playlist...</Select.Option>
+                  <Select.Option value="create_new">{t('playlistPicker.createNew')}</Select.Option>
                 </Select>
               </Form.Item>
             </Col>
           </Row>
 
           {syncPlaylistId === 'create_new' && (
-            <Form.Item label="New Playlist Title" required>
+            <Form.Item label={t('playlistPicker.newTitle')} required>
               <Input 
-                placeholder="Enter new playlist title" 
+                placeholder={t('playlistPicker.newTitlePlaceholder')} 
                 value={newPlaylistTitle}
                 onChange={(e) => setNewPlaylistTitle(e.target.value)}
               />
@@ -551,16 +559,16 @@ export default function ZoomRecordingsPanel() {
         open={detailsVisible}
         onCancel={() => setDetailsVisible(false)}
         footer={[
-          <Button key="close" onClick={() => setDetailsVisible(false)}>Close</Button>
+          <Button key="close" onClick={() => setDetailsVisible(false)}>{t('common.close')}</Button>
         ]}
         width={800}
       >
         {selectedRecording && (
           <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
             <Descriptions bordered column={1} size="small">
-              <Descriptions.Item label="Topic">{selectedRecording.topic}</Descriptions.Item>
-              <Descriptions.Item label="Start Time">{new Date(selectedRecording.start_time).toLocaleString()}</Descriptions.Item>
-              <Descriptions.Item label="Duration">{selectedRecording.duration} minutes</Descriptions.Item>
+              <Descriptions.Item label={t('zoomRec.topic')}>{selectedRecording.topic}</Descriptions.Item>
+              <Descriptions.Item label={t('zoomRec.startTime')}>{fmt.dateTime(selectedRecording.start_time)}</Descriptions.Item>
+              <Descriptions.Item label={t('zoomRec.duration')}>{t('zoomRec.minutes', { count: selectedRecording.duration })}</Descriptions.Item>
               {(() => {
                 const log = logs.find((l: any) => l.recordingId === (selectedRecording.uuid || selectedRecording.id));
                 if (!log || log.syncStatus !== 'COMPLETED' || !log.youtubeVideoId) return null;
@@ -574,10 +582,10 @@ export default function ZoomRecordingsPanel() {
                         href={`https://www.youtube.com/watch?v=${log.youtubeVideoId}`}
                         target="_blank"
                       >
-                        View on YouTube
+                        {t('common.viewOnYouTube')}
                       </Button>
                       <Button size="small" icon={<EditOutlined />} onClick={() => setEditingVideoId(log.youtubeVideoId)}>
-                        Edit
+                        {t('common.edit')}
                       </Button>
                     </Space>
                   </Descriptions.Item>
@@ -585,10 +593,10 @@ export default function ZoomRecordingsPanel() {
               })()}
             </Descriptions>
 
-            <Divider titlePlacement="left"><PlayCircleOutlined /> Video Preview</Divider>
+            <Divider titlePlacement="left"><PlayCircleOutlined /> {t('zoomRec.videoPreview')}</Divider>
             {selectedRecording.recording_files?.find((f: any) => f.file_type === 'MP4') ? (
               <div style={{ textAlign: 'center', background: '#000', padding: 20 }}>
-                <Text style={{ color: '#fff' }}>Video preview would be here (Streamed from Zoom)</Text>
+                <Text style={{ color: '#fff' }}>{t('zoomRec.previewPlaceholder')}</Text>
                 <br/>
                 <Button 
                   icon={<PlayCircleOutlined />} 
@@ -597,31 +605,31 @@ export default function ZoomRecordingsPanel() {
                   type="primary"
                   style={{ marginTop: 10 }}
                 >
-                  Watch Video
+                  {t('zoomRec.watchVideo')}
                 </Button>
               </div>
-            ) : <Alert title="No video file available" type="warning" />}
+            ) : <Alert title={t('zoomRec.noVideoFile')} type="warning" />}
 
             <Row gutter={16} style={{ marginTop: 20 }}>
               <Col span={8}>
-                <Card size="small" title={<Space><AudioOutlined /> Audio</Space>}>
+                <Card size="small" title={<Space><AudioOutlined /> {t('zoomRec.audio')}</Space>}>
                   {selectedRecording.recording_files?.find((f: any) => f.file_type === 'M4A') ? (
-                    <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'M4A').download_url} target="_blank">Download Audio</Button>
-                  ) : <Text type="secondary">Not available</Text>}
+                    <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'M4A').download_url} target="_blank">{t('zoomRec.downloadAudio')}</Button>
+                  ) : <Text type="secondary">{t('zoomRec.notAvailable')}</Text>}
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" title={<Space><MessageOutlined /> Chat</Space>}>
+                <Card size="small" title={<Space><MessageOutlined /> {t('zoomRec.chat')}</Space>}>
                    {selectedRecording.recording_files?.find((f: any) => f.file_type === 'CHAT') ? (
-                    <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'CHAT').download_url} target="_blank">Download Chat</Button>
-                  ) : <Text type="secondary">Not available</Text>}
+                    <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'CHAT').download_url} target="_blank">{t('zoomRec.downloadChat')}</Button>
+                  ) : <Text type="secondary">{t('zoomRec.notAvailable')}</Text>}
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" title={<Space><FilePdfOutlined /> Transcript</Space>}>
+                <Card size="small" title={<Space><FilePdfOutlined /> {t('zoomRec.transcript')}</Space>}>
                   {selectedRecording.recording_files?.find((f: any) => f.file_type === 'TRANSCRIPT') ? (
-                    <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'TRANSCRIPT').download_url} target="_blank">Download Transcript</Button>
-                  ) : <Text type="secondary">Not available</Text>}
+                    <Button type="link" href={selectedRecording.recording_files.find((f: any) => f.file_type === 'TRANSCRIPT').download_url} target="_blank">{t('zoomRec.downloadTranscript')}</Button>
+                  ) : <Text type="secondary">{t('zoomRec.notAvailable')}</Text>}
                 </Card>
               </Col>
             </Row>

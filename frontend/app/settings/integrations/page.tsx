@@ -4,14 +4,17 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert, Avatar, Tag, Tooltip } from 'antd';
 import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
-import DashboardLayout from '../../components/DashboardLayout';
+import DashboardLayout from '../../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
-import { AUTH_RETURN_TO_KEY } from '../../components/YoutubeTokenBanner';
-import { YoutubeLogo, ZoomLogo } from '../../components/BrandLogos';
+import { AUTH_RETURN_TO_KEY } from '../../../components/YoutubeTokenBanner';
+import { YoutubeLogo, ZoomLogo } from '../../../components/BrandLogos';
+import { useT, useTNode } from '@/lib/i18n';
 
 const { Title, Text } = Typography;
 
 function IntegrationsContent() {
+  const t = useT();
+  const tNode = useTNode();
   const [configsLoading, setConfigsLoading] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
@@ -29,7 +32,7 @@ function IntegrationsContent() {
         method: 'POST',
         body: JSON.stringify({ code }),
       });
-      message.success('YouTube authorization successful!');
+      message.success(t('integ.ytAuthSuccess'));
       // Re-authorize started from another page (e.g. YouTube Utilities): go back there
       let returnTo: string | null = null;
       try {
@@ -43,10 +46,10 @@ function IntegrationsContent() {
         return;
       }
       // Clean up URL
-      router.replace('/integrations?tab=youtube');
+      router.replace('/settings/integrations?tab=youtube');
       fetchConfigs();
     } catch (error: any) {
-      message.error(error.message || 'YouTube authorization failed');
+      message.error(error.message || t('integ.ytAuthFailed'));
     } finally {
       setAuthorizing(false);
     }
@@ -70,7 +73,7 @@ function IntegrationsContent() {
       // Also fetch YouTube status
       fetchYoutubeStatus();
     } catch (error: any) {
-      message.error('Failed to load integration settings');
+      message.error(t('zoomDash.loadConfigFailed'));
     } finally {
       setConfigsLoading(false);
     }
@@ -99,10 +102,10 @@ function IntegrationsContent() {
         method: 'PATCH',
         body: JSON.stringify(values),
       });
-      message.success('Zoom credentials updated!');
+      message.success(t('integ.zoomSaved'));
       fetchConfigs();
     } catch (error: any) {
-      message.error(error.message || 'Failed to update Zoom credentials');
+      message.error(error.message || t('integ.zoomSaveFailed'));
     }
   };
 
@@ -112,10 +115,10 @@ function IntegrationsContent() {
         method: 'PATCH',
         body: JSON.stringify(values),
       });
-      message.success('YouTube credentials updated!');
+      message.success(t('integ.ytSaved'));
       fetchConfigs();
     } catch (error: any) {
-      message.error(error.message || 'Failed to update YouTube credentials');
+      message.error(error.message || t('integ.ytSaveFailed'));
     }
   };
 
@@ -127,8 +130,8 @@ function IntegrationsContent() {
         onFinish={onUpdateZoom}
         initialValues={configs.zoom}
       >
-        <Form.Item label="Activation" name="isActive" valuePropName="checked">
-          <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+        <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
+          <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
         </Form.Item>
         <Form.Item label="Account ID" name="accountId">
           <Input prefix={<LockOutlined />} placeholder="Zoom Account ID" />
@@ -143,14 +146,14 @@ function IntegrationsContent() {
           <Input.Password prefix={<LockOutlined />} placeholder="Zoom Webhook Secret Token" />
         </Form.Item>
         <Form.Item>
-          <Button type="primary" htmlType="submit">Save Zoom Config</Button>
+          <Button type="primary" htmlType="submit">{t('integ.saveZoom')}</Button>
         </Form.Item>
       </Form>
       
       <Divider />
       
       <Text type="secondary">
-        <strong>Webhook Endpoint:</strong><br/>
+        <strong>{t('integ.webhookEndpoint')}</strong><br/>
         <code>https://api.n3-utils.com/api/zoom/webhook</code>
       </Text>
     </>
@@ -161,7 +164,7 @@ function IntegrationsContent() {
       const { url } = await apiFetch('/youtube/auth-url');
       window.location.href = url;
     } catch (error: any) {
-      message.error(error.message || 'Failed to get authorization URL');
+      message.error(error.message || t('integ.authUrlFailed'));
     }
   };
 
@@ -169,8 +172,8 @@ function IntegrationsContent() {
     <>
       {authorizing && (
         <Alert
-          title="Authorizing YouTube..."
-          description="Please wait while we complete the connection."
+          title={t('integ.authorizingTitle')}
+          description={t('integ.authorizingDesc')}
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
@@ -178,39 +181,39 @@ function IntegrationsContent() {
       )}
       {youtubeStatus && (
         <Alert
-          title={youtubeStatus.connected ? "YouTube Connected" : "YouTube Not Connected"}
+          title={youtubeStatus.connected ? t('integ.ytConnected') : t('integ.ytNotConnected')}
           description={
             youtubeStatus.connected ? (
               <div>
                 <Space align="center" style={{ marginTop: 4 }}>
                   {youtubeStatus.channelThumbnail && <Avatar size={32} src={youtubeStatus.channelThumbnail} />}
-                  <span>Connected to channel: <strong>{youtubeStatus.channelTitle}</strong></span>
+                  <span>{tNode('integ.connectedChannel', { channel: <strong>{youtubeStatus.channelTitle}</strong> })}</span>
                 </Space>
                 <div style={{ marginTop: 8 }}>
                   {youtubeStatus.longUploadsStatus === 'allowed' ? (
-                    <Tag color="success">Verified — Video &gt;15m OK</Tag>
+                    <Tag color="success">{t('integ.verified')}</Tag>
                   ) : (
-                    <Tooltip title="Channel chưa verify số điện thoại sẽ bị giới hạn video dưới 15 phút.">
-                      <Tag color="warning" style={{ cursor: 'help' }}>Chưa verify — giới hạn video &lt; 15m</Tag>
+                    <Tooltip title={t('integ.notVerifiedHint')}>
+                      <Tag color="warning" style={{ cursor: 'help' }}>{t('integ.notVerified')}</Tag>
                     </Tooltip>
                   )}
                   <a href="https://www.youtube.com/verify" target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
-                    Xác minh tại đây
+                    {t('integ.verifyHere')}
                   </a>
                 </div>
               </div>
             ) : youtubeStatus.reason === 'not_configured'
-              ? "Please provide Client ID and Client Secret, then Authorize YouTube."
+              ? t('integ.reasonNotConfigured')
               : youtubeStatus.reason === 'token_expired'
-                ? "Token xác thực YouTube đã hết hạn hoặc bị thu hồi. Bấm Re-authorize để kết nối lại."
-                : "Invalid or expired credentials. Please re-authorize."
+                ? t('integ.reasonTokenExpired')
+                : t('integ.reasonInvalid')
           }
           type={youtubeStatus.connected ? "success" : "warning"}
           showIcon
           action={
             <Space orientation="vertical" align="end">
               <Button size="small" icon={<ReloadOutlined />} onClick={fetchYoutubeStatus} loading={checkingYoutube}>
-                Recheck Status
+                {t('integ.recheck')}
               </Button>
               {youtubeStatus.reason !== 'not_configured' && (
                 <Button
@@ -219,7 +222,7 @@ function IntegrationsContent() {
                   icon={<GoogleOutlined />}
                   onClick={onAuthorizeYoutube}
                 >
-                  Re-authorize
+                  {t('integ.reauthorize')}
                 </Button>
               )}
             </Space>
@@ -233,8 +236,8 @@ function IntegrationsContent() {
         onFinish={onUpdateYoutube}
         initialValues={configs.youtube}
       >
-        <Form.Item label="Activation" name="isActive" valuePropName="checked">
-          <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+        <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
+          <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
         </Form.Item>
         <Form.Item label="Client ID" name="clientId">
           <Input prefix={<LockOutlined />} placeholder="Google Client ID" />
@@ -242,18 +245,18 @@ function IntegrationsContent() {
         <Form.Item label="Client Secret" name="clientSecret">
           <Input.Password prefix={<LockOutlined />} placeholder="Google Client Secret" />
         </Form.Item>
-        <Form.Item label="Refresh Token" name="refreshToken" help="Usually obtained via 'Authorize YouTube' button below.">
+        <Form.Item label="Refresh Token" name="refreshToken" help={t('integ.refreshTokenHelp')}>
           <Input.Password prefix={<LockOutlined />} placeholder="Google OAuth Refresh Token" />
         </Form.Item>
         <Form.Item>
           <Space>
-            <Button type="primary" htmlType="submit">Save YouTube Config</Button>
+            <Button type="primary" htmlType="submit">{t('integ.saveYoutube')}</Button>
             <Button 
               icon={<GoogleOutlined />} 
               onClick={onAuthorizeYoutube}
               disabled={!configs.youtube?.clientId || !configs.youtube?.clientSecret || youtubeStatus?.connected}
             >
-              {youtubeStatus?.connected ? 'YouTube Authorized' : 'Authorize YouTube'}
+              {youtubeStatus?.connected ? t('integ.ytAuthorized') : t('integ.authorizeYoutube')}
             </Button>
           </Space>
         </Form.Item>
@@ -282,17 +285,17 @@ function IntegrationsContent() {
       <Title level={2}>
         <Space>
           <SettingOutlined />
-          <span>Integration & API Credentials</span>
+          <span>{t('integ.title')}</span>
         </Space>
       </Title>
       <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
-        Manage your third-party API credentials and activation status here.
+        {t('integ.subtitle')}
       </Text>
 
       <Card loading={configsLoading}>
         <Tabs 
           activeKey={searchParams.get('tab') || 'youtube'} 
-          onChange={(key) => router.push(`/integrations?tab=${key}`)}
+          onChange={(key) => router.push(`/settings/integrations?tab=${key}`)}
           items={items} 
         />
       </Card>

@@ -6,6 +6,7 @@ import { BellOutlined, CheckCircleTwoTone, CloseCircleTwoTone } from '@ant-desig
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -28,6 +29,7 @@ interface EmailPreferences {
 }
 
 export default function NotificationBell() {
+  const t = useT();
   const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -84,7 +86,7 @@ export default function NotificationBell() {
       setPrefs(data);
     } catch {
       setPrefs(previous);
-      message.error('Không lưu được cài đặt email');
+      message.error(t('notif.emailSaveFailed'));
     }
   };
 
@@ -111,23 +113,23 @@ export default function NotificationBell() {
   };
 
   const panel = (
-    <div style={{ width: 360, background: '#fff', borderRadius: 8, boxShadow: '0 6px 16px rgba(0,0,0,0.12)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #f0f0f0' }}>
-        <Text strong>Notifications</Text>
+    <div style={{ width: 360, background: 'var(--color-surface)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--color-divider)' }}>
+        <Text strong>{t('notif.title')}</Text>
         <Button type="link" size="small" onClick={markAllRead} disabled={unreadCount === 0}>
-          Mark all as read
+          {t('notif.markAllRead')}
         </Button>
       </div>
       <div style={{ maxHeight: 400, overflowY: 'auto' }}>
         {items.length === 0 ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No notifications" style={{ padding: 16 }} />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('notif.empty')} style={{ padding: 16 }} />
         ) : (
           <List
             dataSource={items}
             renderItem={(n) => (
               <List.Item
                 onClick={() => openNotification(n)}
-                style={{ padding: '10px 16px', cursor: 'pointer', background: n.read ? undefined : '#e6f4ff' }}
+                style={{ padding: '10px 16px', cursor: 'pointer', background: n.read ? undefined : 'color-mix(in srgb, var(--color-accent) 12%, transparent)' }}
               >
                 <List.Item.Meta
                   avatar={n.type === 'sync_completed'
@@ -148,10 +150,10 @@ export default function NotificationBell() {
       </div>
       {/* Email copies only exist when the server has SMTP configured */}
       {prefs?.emailConfigured && (
-        <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 16px' }}>
-          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Gửi thêm qua email</Text>
+        <div style={{ borderTop: '1px solid var(--color-divider)', padding: '10px 16px' }}>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>{t('notif.emailSection')}</Text>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <Text style={{ fontSize: 13 }}>Khi video sẵn sàng</Text>
+            <Text style={{ fontSize: 13 }}>{t('notif.emailOnCompleted')}</Text>
             <Switch
               size="small"
               checked={prefs.notifyEmailOnCompleted}
@@ -159,7 +161,7 @@ export default function NotificationBell() {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 13 }}>Khi sync thất bại</Text>
+            <Text style={{ fontSize: 13 }}>{t('notif.emailOnFailed')}</Text>
             <Switch
               size="small"
               checked={prefs.notifyEmailOnFailed}
@@ -174,7 +176,7 @@ export default function NotificationBell() {
   return (
     <Dropdown open={open} onOpenChange={setOpen} trigger={['click']} placement="bottomRight" popupRender={() => panel}>
       <Badge count={unreadCount} size="small" offset={[-4, 4]}>
-        <Button type="text" icon={<BellOutlined style={{ fontSize: 18 }} />} aria-label="Notifications" />
+        <Button type="text" icon={<BellOutlined style={{ fontSize: 18 }} />} aria-label={t('notif.title')} />
       </Badge>
     </Dropdown>
   );

@@ -14,12 +14,15 @@ import {
   DashboardOutlined,
   PlaySquareOutlined,
   BarChartOutlined,
+  ApiOutlined,
+  SkinOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import NotificationBell from './NotificationBell';
 import { YoutubeLogo, ZoomLogo } from './BrandLogos';
+import { useT } from '@/lib/i18n';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -28,6 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
   const { user, logout, loading } = useAuth();
   
   const {
@@ -44,12 +48,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     {
       key: '/',
       icon: <HomeOutlined />,
-      label: <Link href="/">Home</Link>,
+      label: <Link href="/">{t('nav.home')}</Link>,
     },
     {
       key: 'utilities',
       icon: <AppstoreOutlined />,
-      label: 'Utilities',
+      label: t('nav.utilities'),
       children: [
         {
           key: 'youtube',
@@ -60,17 +64,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {
               key: '/youtube/dashboard',
               icon: <DashboardOutlined />,
-              label: <Link href="/youtube/dashboard">Dashboard</Link>,
+              label: <Link href="/youtube/dashboard">{t('nav.dashboard')}</Link>,
             },
             {
               key: '/youtube/channel-content',
               icon: <PlaySquareOutlined />,
-              label: <Link href="/youtube/channel-content">Channel Content</Link>,
+              label: <Link href="/youtube/channel-content">{t('nav.channelContent')}</Link>,
             },
             {
               key: '/youtube/analytics',
               icon: <BarChartOutlined />,
-              label: <Link href="/youtube/analytics">Analytics</Link>,
+              label: <Link href="/youtube/analytics">{t('nav.analytics')}</Link>,
             },
           ],
         },
@@ -81,28 +85,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {
           key: '/word-cloud/dashboard',
           icon: <CloudOutlined />,
-          label: <Link href="/word-cloud/dashboard">Word Cloud</Link>,
+          label: <Link href="/word-cloud/dashboard">{t('nav.wordCloud')}</Link>,
         },
       ]
     },
     {
-      key: '/integrations',
+      key: 'settings',
       icon: <SettingOutlined />,
-      label: <Link href="/integrations">Integrations</Link>,
+      label: t('nav.settings'),
+      children: [
+        {
+          key: '/settings/integrations',
+          icon: <ApiOutlined />,
+          label: <Link href="/settings/integrations">{t('nav.integrations')}</Link>,
+        },
+        {
+          key: '/settings/personalization',
+          icon: <SkinOutlined />,
+          label: <Link href="/settings/personalization">{t('nav.personalization')}</Link>,
+        },
+      ],
     },
   ];
 
   const userMenuItems = [
     {
+      key: 'personalization',
+      icon: <SkinOutlined />,
+      label: t('nav.personalization'),
+      onClick: () => router.push('/settings/personalization'),
+    },
+    {
       key: 'integrations',
-      icon: <SettingOutlined />,
-      label: 'Integrations',
-      onClick: () => router.push('/integrations'),
+      icon: <ApiOutlined />,
+      label: t('nav.integrations'),
+      onClick: () => router.push('/settings/integrations'),
     },
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Logout',
+      label: t('nav.logout'),
       onClick: logout,
     },
   ];
@@ -115,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <Layout style={{ minHeight: '100vh' }}>
       {/* 272px: "Channel Content" sits three menu levels deep; with the Broadsheet serif and 1.25x spacing it needs this much */}
       <Sider trigger={null} collapsible collapsed={collapsed} theme="light" width={272}>
-        <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(0, 0, 0, 0.05)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+        <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'var(--color-surface)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
           {collapsed ? 'N3' : 'N3 Utils'}
         </div>
         <Menu
@@ -128,7 +150,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ? ['utilities', 'youtube']
               : ['/zoom-utilities', '/word-cloud'].some(p => pathname.startsWith(p))
                 ? ['utilities']
-                : []
+                : pathname.startsWith('/settings')
+                  ? ['settings']
+                  : []
           }
           items={menuItems}
         />
@@ -140,13 +164,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               type="text"
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               onClick={() => setCollapsed(!collapsed)}
+              aria-label={t('nav.toggleSidebar')}
               style={{
                 fontSize: '16px',
                 width: 64,
                 height: 64,
               }}
             />
-            <h2 style={{ margin: 0 }}>Dashboard</h2>
+            <h2 style={{ margin: 0 }}>{t('nav.dashboard')}</h2>
           </div>
           <Space size="middle">
             <NotificationBell />

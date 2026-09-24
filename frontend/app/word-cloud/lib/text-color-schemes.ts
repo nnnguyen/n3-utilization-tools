@@ -1,3 +1,5 @@
+import type { MessageKey } from '@/lib/i18n';
+
 export const DEFAULT_TEXT_COLOR_SCHEME = 'default';
 
 export const TEXT_COLOR_SCHEMES: Record<string, string[]> = {
@@ -7,11 +9,12 @@ export const TEXT_COLOR_SCHEMES: Record<string, string[]> = {
   mono: ['#262626', '#434343', '#595959', '#8c8c8c', '#bfbfbf', '#000000'],
 };
 
-export const TEXT_COLOR_SCHEME_OPTIONS = [
-  { value: 'default', label: 'Mặc định' },
-  { value: 'vibrant', label: 'Rực rỡ' },
-  { value: 'pastel', label: 'Pastel' },
-  { value: 'mono', label: 'Đơn sắc' },
+// Labels are i18n keys (translate with t() where the options are shown)
+export const TEXT_COLOR_SCHEME_OPTIONS: { value: string; label: MessageKey }[] = [
+  { value: 'default', label: 'wcq.schemeDefault' },
+  { value: 'vibrant', label: 'wcq.schemeVibrant' },
+  { value: 'pastel', label: 'wcq.schemePastel' },
+  { value: 'mono', label: 'wcq.schemeMono' },
 ];
 
 // Minimum WCAG contrast ratio word cloud text is nudged towards. 3:1 matches

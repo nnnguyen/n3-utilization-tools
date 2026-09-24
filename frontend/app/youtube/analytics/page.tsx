@@ -11,6 +11,7 @@ import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/
 import { YoutubePageTitle } from '../../../components/BrandLogos';
 import MonthlyBarChart, { type MonthlyPoint } from '../../../components/MonthlyBarChart';
 import { apiFetch } from '@/lib/api';
+import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -27,15 +28,18 @@ interface ChannelVideo {
 
 // Same colors as the Public/Unlisted/Private tags used in every video table
 const VISIBILITY = [
-  { key: 'public', label: 'Public', color: '#52c41a' },
-  { key: 'unlisted', label: 'Unlisted', color: '#1677ff' },
-  { key: 'private', label: 'Private', color: '#fa8c16' },
+  { key: 'public', label: 'privacy.public' as MessageKey, color: '#52c41a' },
+  { key: 'unlisted', label: 'privacy.unlisted' as MessageKey, color: '#1677ff' },
+  { key: 'private', label: 'privacy.private' as MessageKey, color: '#fa8c16' },
 ] as const;
 
 const sum = (videos: ChannelVideo[], field: 'viewCount' | 'likeCount' | 'commentCount') =>
   videos.reduce((total, v) => total + (v[field] ?? 0), 0);
 
 export default function YoutubeAnalyticsPage() {
+  const t = useT();
+  const tNode = useTNode();
+  const fmt = useFormat();
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [videos, setVideos] = useState<ChannelVideo[]>([]);
@@ -52,7 +56,7 @@ export default function YoutubeAnalyticsPage() {
     setVideos(data.videos || []);
     setLastFetchedAt(data.lastFetchedAt);
     setStale(!!data.stale);
-    setError(data.refreshError ? `Không cập nhật được từ YouTube: ${data.refreshError}` : null);
+    setError(data.refreshError ? t('analytics.refreshError', { error: data.refreshError }) : null);
   };
 
   // Reads the Videos-tab cache only; never calls YouTube (no quota)
@@ -61,7 +65,7 @@ export default function YoutubeAnalyticsPage() {
     try {
       apply(await apiFetch('/youtube/channel/videos?cacheOnly=true'));
     } catch (e: any) {
-      setError(e.message || 'Không tải được dữ liệu');
+      setError(e.message || t('analytics.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -73,7 +77,7 @@ export default function YoutubeAnalyticsPage() {
     try {
       apply(await apiFetch('/youtube/channel/videos/refresh', { method: 'POST' }));
     } catch (e: any) {
-      setError(e.message || 'Không cập nhật được dữ liệu');
+      setError(e.message || t('analytics.refreshFailed'));
     } finally {
       setRefreshing(false);
     }
@@ -126,23 +130,23 @@ export default function YoutubeAnalyticsPage() {
 
   const topColumns = [
     {
-      title: 'Thumbnail',
+      title: t('col.thumbnail'),
       dataIndex: 'thumbnail',
       key: 'thumbnail',
       width: 120,
       render: (url: string | null) => url
         ? <img src={url} alt="thumbnail" style={{ width: 100, borderRadius: 4 }} />
-        : <div style={{ width: 100, height: 56, background: '#f0f0f0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>No Image</div>,
+        : <div style={{ width: 100, height: 56, background: 'var(--color-divider)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>{t('common.noImage')}</div>,
     },
-    { title: 'Title', dataIndex: 'title', key: 'title', render: (t: string) => <Text strong>{t}</Text> },
-    { title: 'Views', dataIndex: 'viewCount', key: 'viewCount', align: 'right' as const, render: (n: number | null) => n?.toLocaleString() ?? '—' },
-    { title: 'Comments', dataIndex: 'commentCount', key: 'commentCount', align: 'right' as const, render: (n: number | null) => n?.toLocaleString() ?? '—' },
-    { title: 'Likes', dataIndex: 'likeCount', key: 'likeCount', align: 'right' as const, render: (n: number | null) => n?.toLocaleString() ?? '—' },
+    { title: t('col.title'), dataIndex: 'title', key: 'title', render: (title: string) => <Text strong>{title}</Text> },
+    { title: t('col.views'), dataIndex: 'viewCount', key: 'viewCount', align: 'right' as const, render: (n: number | null) => n == null ? '—' : fmt.number(n) },
+    { title: t('col.comments'), dataIndex: 'commentCount', key: 'commentCount', align: 'right' as const, render: (n: number | null) => n == null ? '—' : fmt.number(n) },
+    { title: t('col.likes'), dataIndex: 'likeCount', key: 'likeCount', align: 'right' as const, render: (n: number | null) => n == null ? '—' : fmt.number(n) },
     {
-      title: 'Published Date',
+      title: t('col.publishedDate'),
       dataIndex: 'publishedAt',
       key: 'publishedAt',
-      render: (date: string | null) => date ? new Date(date).toLocaleDateString() : '-',
+      render: (date: string | null) => date ? fmt.date(date) : '-',
     },
     {
       title: '',
@@ -155,7 +159,7 @@ export default function YoutubeAnalyticsPage() {
           target="_blank"
           onClick={(e) => e.stopPropagation()}
         >
-          View on YouTube
+          {t('common.viewOnYouTube')}
         </Button>
       ),
     },
@@ -165,14 +169,14 @@ export default function YoutubeAnalyticsPage() {
     <DashboardLayout>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <Space size="middle" align="center" wrap>
-          <YoutubePageTitle title="Analytics" />
+          <YoutubePageTitle title={t('nav.analytics')} />
           <YoutubeConnectionBadge status={status} checking={checkingStatus} />
         </Space>
         <Space wrap>
-          {lastFetchedAt && <Text type="secondary">Dữ liệu lúc {dayjs(lastFetchedAt).format('YYYY-MM-DD HH:mm')}</Text>}
-          <Tooltip title="Lấy lại dữ liệu mới nhất từ YouTube (cùng nút Refresh ở tab Videos)">
+          {lastFetchedAt && <Text type="secondary">{t('analytics.dataAt', { time: dayjs(lastFetchedAt).format('YYYY-MM-DD HH:mm') })}</Text>}
+          <Tooltip title={t('analytics.refreshTooltip')}>
             <Button icon={<ReloadOutlined />} onClick={refreshNow} loading={refreshing} disabled={!connected || loading}>
-              Refresh now
+              {t('analytics.refreshNow')}
             </Button>
           </Tooltip>
         </Space>
@@ -185,9 +189,12 @@ export default function YoutubeAnalyticsPage() {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          title="Chưa có dữ liệu video của kênh"
-          description={<>Bấm <b>Refresh now</b> hoặc mở tab <Link href="/youtube/channel-content?tab=videos">Channel Content → Videos</Link> để tải danh sách video lần đầu.</>}
-          action={<Button type="primary" size="small" onClick={refreshNow} loading={refreshing}>Refresh now</Button>}
+          title={t('analytics.emptyTitle')}
+          description={tNode('analytics.emptyDesc', {
+            button: <b>{t('analytics.refreshNow')}</b>,
+            link: <Link href="/youtube/channel-content?tab=videos">{t('analytics.videosTabLink')}</Link>,
+          })}
+          action={<Button type="primary" size="small" onClick={refreshNow} loading={refreshing}>{t('analytics.refreshNow')}</Button>}
         />
       )}
       {connected && hasCache && stale && (
@@ -195,9 +202,12 @@ export default function YoutubeAnalyticsPage() {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          title={`Số liệu đang là dữ liệu lưu lúc ${dayjs(lastFetchedAt).format('YYYY-MM-DD HH:mm')} (hơn 1 giờ trước)`}
-          description={<>Bấm <b>Refresh now</b> ở đây hoặc Refresh ở tab <Link href="/youtube/channel-content?tab=videos">Videos</Link> để cập nhật.</>}
-          action={<Button size="small" onClick={refreshNow} loading={refreshing}>Refresh now</Button>}
+          title={t('analytics.staleTitle', { time: dayjs(lastFetchedAt).format('YYYY-MM-DD HH:mm') })}
+          description={tNode('analytics.staleDesc', {
+            button: <b>{t('analytics.refreshNow')}</b>,
+            link: <Link href="/youtube/channel-content?tab=videos">{t('analytics.videosLink')}</Link>,
+          })}
+          action={<Button size="small" onClick={refreshNow} loading={refreshing}>{t('analytics.refreshNow')}</Button>}
         />
       )}
       {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
@@ -206,34 +216,34 @@ export default function YoutubeAnalyticsPage() {
         {/* 1. Totals */}
         <Col xs={24} sm={12} lg={6}>
           <Card loading={loading} style={{ height: '100%' }}>
-            <Statistic title="Tổng số video" value={videos.length} />
+            <Statistic title={t('analytics.totalVideos')} value={videos.length} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card loading={loading} style={{ height: '100%' }}>
-            <Statistic title="Tổng views" value={sum(videos, 'viewCount')} />
+            <Statistic title={t('analytics.totalViews')} value={sum(videos, 'viewCount')} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card loading={loading} style={{ height: '100%' }}>
-            <Statistic title="Tổng comments" value={sum(videos, 'commentCount')} />
-            {commentsOff > 0 && <Text type="secondary" style={{ fontSize: 12 }}>{commentsOff} video tắt bình luận (không tính)</Text>}
+            <Statistic title={t('analytics.totalComments')} value={sum(videos, 'commentCount')} />
+            {commentsOff > 0 && <Text type="secondary" style={{ fontSize: 12 }}>{t('analytics.commentsOffNote', { n: commentsOff })}</Text>}
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card loading={loading} style={{ height: '100%' }}>
-            <Statistic title="Tổng likes" value={sum(videos, 'likeCount')} />
-            {likesHidden > 0 && <Text type="secondary" style={{ fontSize: 12 }}>{likesHidden} video ẩn số like (không tính)</Text>}
+            <Statistic title={t('analytics.totalLikes')} value={sum(videos, 'likeCount')} />
+            {likesHidden > 0 && <Text type="secondary" style={{ fontSize: 12 }}>{t('analytics.likesHiddenNote', { n: likesHidden })}</Text>}
           </Card>
         </Col>
 
         {/* 5. Visibility breakdown */}
         <Col span={24}>
-          <Card title="Phân bổ theo Visibility" loading={loading}>
+          <Card title={t('analytics.visibilityTitle')} loading={loading}>
             {videos.length > 0 && (
               <div style={{ display: 'flex', gap: 2, height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 16 }}>
                 {visibility.filter(v => v.count > 0).map(v => (
-                  <Tooltip key={v.key} title={`${v.label}: ${v.count}`}>
+                  <Tooltip key={v.key} title={`${t(v.label)}: ${v.count}`}>
                     <div style={{ flex: v.count, background: v.color }} />
                   </Tooltip>
                 ))}
@@ -245,7 +255,7 @@ export default function YoutubeAnalyticsPage() {
                   <Space align="start">
                     <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: v.color, marginTop: 6 }} />
                     <Statistic
-                      title={v.label}
+                      title={t(v.label)}
                       value={v.count}
                       suffix={videos.length ? <Text type="secondary" style={{ fontSize: 14 }}>({Math.round((v.count / videos.length) * 100)}%)</Text> : undefined}
                     />
@@ -259,26 +269,26 @@ export default function YoutubeAnalyticsPage() {
         {/* 3. Videos published per month */}
         <Col span={24}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Text type="secondary">Khoảng thời gian:</Text>
+            <Text type="secondary">{t('range.label')}</Text>
             <Select
               value={months}
               onChange={setMonths}
               style={{ width: 200 }}
               options={[
-                { value: 3, label: '3 tháng gần nhất' },
-                { value: 6, label: '6 tháng gần nhất' },
-                { value: 12, label: '12 tháng gần nhất' },
+                { value: 3, label: t('range.months', { n: 3 }) },
+                { value: 6, label: t('range.months', { n: 6 }) },
+                { value: 12, label: t('range.months', { n: 12 }) },
               ]}
             />
           </div>
           <MonthlyBarChart
-            title="Video published theo tháng"
-            valueLabel="Video published"
+            title={t('analytics.chartTitle')}
+            valueLabel={t('analytics.chartValue')}
             loading={loading}
             data={monthly}
             note={
               <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
-                <InfoCircleOutlined /> Đếm theo ngày published của mọi video trên kênh (kể cả private/unlisted).
+                <InfoCircleOutlined /> {t('analytics.chartNote')}
               </Text>
             }
           />
@@ -287,11 +297,11 @@ export default function YoutubeAnalyticsPage() {
         {/* 2. Top videos by views */}
         <Col span={24}>
           <Card
-            title="Top 10 video theo lượt xem"
+            title={t('analytics.topTitle')}
             extra={
               // 4. The full sortable table already lives in Channel Content → Videos
               <Link href="/youtube/channel-content?tab=videos">
-                Xem chi tiết toàn bộ video <ArrowRightOutlined />
+                {t('analytics.seeAll')} <ArrowRightOutlined />
               </Link>
             }
           >
@@ -306,15 +316,14 @@ export default function YoutubeAnalyticsPage() {
                 onClick: () => window.open(`https://www.youtube.com/watch?v=${record.videoId}`, '_blank', 'noopener,noreferrer'),
                 style: { cursor: 'pointer' },
               })}
-              locale={{ emptyText: connected ? 'Chưa có dữ liệu video' : 'Kết nối YouTube để xem thống kê' }}
+              locale={{ emptyText: connected ? t('analytics.emptyConnected') : t('analytics.emptyNotConnected') }}
             />
           </Card>
         </Col>
       </Row>
 
       <Text type="secondary" style={{ display: 'block', marginTop: 16, fontSize: 12 }}>
-        <InfoCircleOutlined /> Số liệu tổng quan (views, comments, likes) lấy từ YouTube Data API. Watch time, thời lượng xem trung bình,
-        nguồn traffic và nhân khẩu học người xem cần YouTube Analytics API, sẽ có ở giai đoạn sau.
+        <InfoCircleOutlined /> {t('analytics.phaseNote')}
       </Text>
     </DashboardLayout>
   );

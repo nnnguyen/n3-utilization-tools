@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
       { source: '/youtube-utilities', destination: '/youtube/dashboard', permanent: true },
       { source: '/youtube-utilities/dashboard', destination: '/youtube/dashboard', permanent: true },
       { source: '/youtube/playlist', destination: '/youtube/channel-content?tab=playlists', permanent: true },
+      // Integrations moved under Settings (query strings such as ?tab= / ?code= carry over)
+      { source: '/integrations', destination: '/settings/integrations', permanent: true },
+      { source: '/settings', destination: '/settings/personalization', permanent: false },
     ];
   },
 };

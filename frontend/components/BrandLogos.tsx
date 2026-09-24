@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
 import { Typography } from 'antd';
+import { usePreferences } from '@/lib/preferences';
 
 // Official brand assets, served from /public/brand. Keep them as-is:
 //
@@ -8,14 +11,16 @@ import { Typography } from 'antd';
 // cropped and the size reduced):
 // - never alter the logo: no recoloring, outlines, shadows or effects
 // - red is #FF0033 and the triangle is always white; the full-color logo with
-//   Almost Black (#212121) text goes on white or light backgrounds
+//   Almost Black (#212121) text goes on light backgrounds, the White-text
+//   full-color logo on dark ones
 // - keep clear space around it (the width of the play triangle, about 1/4 of
 //   the icon's width) free of other elements
 // - replace the files when YouTube publishes an update; don't redraw them
 //
 // Zoom (Zoom Brand Center, https://brand.zoom.com/document/8, file
 // Zoom_Logo_Bloom_RGB.svg, copied unchanged):
-// - primary use is Bloom (#0B5CFF) on white; never recolor or restyle it
+// - primary use is Bloom (#0B5CFF) on white; on dark grounds the White logo
+//   (Zoom_Logo_White_RGB.svg, same source); never recolor or restyle it
 // - clear space is the height of the "Z" (half of it where space is tight)
 // - only source it from the Brand Center, never from third-party logo sites
 
@@ -32,9 +37,10 @@ export function YoutubeIcon({ width = 20, style }: { width?: number; style?: Rea
 }
 
 export function YoutubeLogo({ height = 24, style }: { height?: number; style?: React.CSSProperties }) {
+  const { resolvedMode } = usePreferences();
   return (
     <img
-      src="/brand/youtube/youtube-logo-fullcolor-almostblack.png"
+      src={resolvedMode === 'dark' ? '/brand/youtube/youtube-logo-fullcolor-white.png' : '/brand/youtube/youtube-logo-fullcolor-almostblack.png'}
       alt="YouTube"
       height={height}
       width={Math.round((height * 322) / 72)}
@@ -44,9 +50,10 @@ export function YoutubeLogo({ height = 24, style }: { height?: number; style?: R
 }
 
 export function ZoomLogo({ height = 22, style }: { height?: number; style?: React.CSSProperties }) {
+  const { resolvedMode } = usePreferences();
   return (
     <img
-      src="/brand/zoom/zoom-logo-bloom.svg"
+      src={resolvedMode === 'dark' ? '/brand/zoom/zoom-logo-white.svg' : '/brand/zoom/zoom-logo-bloom.svg'}
       alt="Zoom"
       height={height}
       width={Math.round((height * 351.845) / 80)}
@@ -55,9 +62,9 @@ export function ZoomLogo({ height = 22, style }: { height?: number; style?: Reac
   );
 }
 
-// Dark grey (Material Grey 800): one step lighter than the logo's Almost Black
-// (#212121, Grey 900), so the page name reads as secondary to the logo
-const PAGE_TITLE_COLOR = '#424242';
+// Dark grey (Material Grey 800) on light grounds, one step lighter than the
+// logo's Almost Black; a light grey on dark grounds (--color-title, globals.css)
+const PAGE_TITLE_COLOR = 'var(--color-title)';
 
 // Page heading: official brand logo + page name. The logo sits inside the <h2>
 // so the heading still reads "<Brand> <title>" (alt text). The 14px gap covers
