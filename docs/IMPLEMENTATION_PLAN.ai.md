@@ -221,19 +221,19 @@ Design: [docs/design/P2-1-connector.md](design/P2-1-connector.md) — approved w
 
 ### P2-2 subtasks (approved 2026-09-25)
 
-Design: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md) — approved with the proposed answers: multi-workspace users with a header switcher (`User.activeWorkspaceId`); no automatic merge of accounts sharing a Zoom account (invite suggestion, history stays); invites by email + link + bell; default invite role `editor`; manual-sync notifications to the actor, webhook/retry ones to owners/admins/editors; **open sign-up kept** (a new account owns its personal workspace only); super admin stored in DB (`User.platformRole`) with `BOOTSTRAP_SUPER_ADMIN_EMAIL` used only while none exists; manual account creation with an emailed generated temp password (forced change by default, else 30-day expiry); email through Resend. Specs are in §8 of the design note. P2-2a–h start after P2-1f; P2-2i can start now.
+Design: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md) — approved with the proposed answers: multi-workspace users with a header switcher (`User.activeWorkspaceId`); no automatic merge of accounts sharing a Zoom account (invite suggestion, history stays); invites by email + link + bell; default invite role `editor`; manual-sync notifications to the actor, webhook/retry ones to owners/admins/editors; **open sign-up kept** (a new account owns its personal workspace only); super admin stored in DB (`User.platformRole`) with `BOOTSTRAP_SUPER_ADMIN_EMAIL` used only while none exists; manual account creation with a generated temp password shown once to copy (forced change by default, else 30-day expiry); **email is off for now** (2026-09-26: no own domain for Resend, Railway Hobby blocks SMTP) — invites by link + bell, super admin verifies emails and resets temp passwords. Specs are in §8 of the design note. P2-2a–h start after P2-1f; P2-2i (email) is deferred.
 
 | ID | Task | Depends on |
 | --- | --- | --- |
-| P2-2i | Email through Resend (`RESEND_API_KEY`, `MAIL_FROM`), SMTP fallback | — |
 | P2-2a | Schema + personal workspaces backfill | P2-1f |
 | P2-2b | Workspace context, guard and roles; `/workspaces` | P2-2a |
 | P2-2c | Scope data by workspace; fix the shared `recordingId` overwrite | P2-2b |
-| P2-2h | Super admin, system admin pages, manual accounts with emailed temp passwords | P2-2b, P2-2i |
-| P2-2d | Members and invites (email, link), Settings → Workspace, header switcher | P2-2c |
+| P2-2h | Super admin, system admin pages, manual accounts (temp password shown once), stop logging mail bodies | P2-2b |
+| P2-2d | Members and invite links, Settings → Workspace, header switcher | P2-2c |
 | P2-2e | Activity log | P2-2c |
 | P2-2f | Shared Zoom account suggestion | P2-2d |
 | P2-2g | Contract — **destructive, ask before starting** | all above |
+| P2-2i | Email — **deferred** (Resend with an own domain, or Gmail SMTP on Railway Pro) | — |
 
 ## 5. Phase 3 — outline only
 
