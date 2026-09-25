@@ -12,6 +12,7 @@ import { YoutubeModule } from "./youtube/youtube.module";
 import { ZoomModule } from "./zoom/zoom.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { ConnectionsModule } from "./connections/connections.module";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     ZoomModule,
     IntegrationsModule,
     NotificationsModule,
+    ConnectionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

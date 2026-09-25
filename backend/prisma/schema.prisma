@@ -37,6 +37,8 @@ model User {
   zoomConfig             ZoomConfig?
   zoomWorkflowSettings   ZoomWorkflowSettings?
   zoomSyncRules          ZoomSyncRule[]
+  connections            Connection[]
+  quotaUsages            QuotaUsage[]
   youtubeConfig          YoutubeConfig?
   youtubeQuotas          YoutubeQuotaUsage[]
   zoomSyncLogs           ZoomSyncLog[]
@@ -89,6 +91,42 @@ model ZoomSyncRule {
   updatedAt           DateTime @updatedAt
 
   @@index([userId, position])
+}
+
+// One connection per app (provider) per account: replaces ZoomConfig /
+// YoutubeConfig step by step (docs/design/P2-1-connector.md)
+model Connection {
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider            String // 'youtube' | 'zoom' (connections/providers.ts)
+  status              String    @default("active") // 'active' | 'disabled' | 'needs_reauth'
+  externalAccountId   String? // Zoom account_id, YouTube channel id
+  externalAccountName String?
+  settings            Json      @default("{}") // non-secret: clientId, accountId…
+  credentials         String? // secrets, encrypted by connections/credentials-cipher.ts
+  state               Json      @default("{}") // provider bookkeeping (e.g. channelVideosFetchedAt)
+  tokenObtainedAt     DateTime?
+  lastTokenRefreshAt  DateTime?
+  tokenInvalidAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([userId, provider])
+  @@index([provider, externalAccountId])
+}
+
+// API quota used per account, app and day (the provider's reset day)
+model QuotaUsage {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider    String
+  date        String // YYYY-MM-DD in the provider's reset time zone
+  unitsUsed   Int      @default(0)
+  lastUpdated DateTime @updatedAt
+
+  @@unique([userId, provider, date])
 }
 
 model YoutubeConfig {
