@@ -69,6 +69,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 - **Cách làm**: lưu các cài đặt theo tài khoản: tự upload (bật/tắt), mẫu tiêu đề và mô tả với biến `{topic}`, `{date}`, `{time}`, quyền riêng tư và playlist mặc định. Áp dụng khi webhook tự upload và làm giá trị mặc định cho hộp thoại Sync thủ công.
 - **Giữ tương thích**: tài khoản chưa lưu cài đặt thì chạy như hiện nay (tự upload bật, riêng tư). Mô tả luôn giữ dòng mã recording để tính năng nhận diện video tiếp tục hoạt động.
 - **Nghiệm thu**: đổi mẫu tiêu đề → video upload tiếp theo mang tiêu đề mới; tắt tự upload → recording mới không tự lên YouTube nhưng vẫn sync thủ công được.
+- **Cập nhật (25/09/2026)**: theo yêu cầu, "Tự động upload" giờ **mặc định tắt**. Tài khoản chưa lưu thiết lập sẽ không tự upload nữa; các giá trị mặc định khác giữ nguyên.
 
 ### P1-5 ✅. Quy tắc theo tên cuộc họp và lên lịch công khai · Độ khó M · Sau P1-4
 

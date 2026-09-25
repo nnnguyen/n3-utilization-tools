@@ -59,13 +59,14 @@ model ZoomConfig {
   updatedAt          DateTime @updatedAt
 }
 
-// Automation Workflow settings of the Zoom page; defaults reproduce the
-// behaviour from before they existed (auto-upload on, private, fixed title)
+// Automation Workflow settings of the Zoom page. Auto-upload is off by
+// default; the other defaults reproduce the behaviour from before they existed
+// (private, fixed title). Keep in step with DEFAULT_WORKFLOW_SETTINGS.
 model ZoomWorkflowSettings {
   id                  String   @id @default(uuid())
   userId              String   @unique
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  autoUpload          Boolean  @default(true)
+  autoUpload          Boolean  @default(false)
   titleTemplate       String   @default("Zoom Recording: {topic}")
   descriptionTemplate String   @default("Recorded on {date} {time}")
   privacyStatus       String   @default("private") // 'public' | 'unlisted' | 'private'

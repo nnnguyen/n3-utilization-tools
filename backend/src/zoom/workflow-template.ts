@@ -1,8 +1,11 @@
 // Automation Workflow templates: title/description of Zoom recordings
 // uploaded to YouTube, with {topic}, {date} and {time} placeholders.
 
+// Accounts that never saved the Automation Workflow form use these values.
+// Auto-upload is off by default (2026-09-25): recordings reach YouTube only
+// after the account turns it on or syncs them by hand.
 export const DEFAULT_WORKFLOW_SETTINGS = {
-  autoUpload: true,
+  autoUpload: false,
   titleTemplate: "Zoom Recording: {topic}",
   descriptionTemplate: "Recorded on {date} {time}",
   privacyStatus: "private" as "public" | "unlisted" | "private",

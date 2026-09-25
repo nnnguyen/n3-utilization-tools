@@ -147,24 +147,16 @@ describe("ZoomService", () => {
       );
     });
 
-    it("keeps the historical behaviour without saved settings", async () => {
+    it("does not auto-upload without saved settings (off by default)", async () => {
       const sync = jest
         .spyOn(settingsService as any, "processRecordingSync")
         .mockResolvedValue({ id: "vid" });
 
-      await settingsService.handleRecordingCompleted(payload, "user-1");
-      expect(sync).toHaveBeenCalledWith(
-        "rec-1",
-        [],
-        "SOH",
-        "2026-09-25T10:05:00Z",
-        "user-1",
-        "dl",
-        "private",
-        undefined,
-        undefined,
-        null,
-      );
+      await expect(
+        settingsService.handleRecordingCompleted(payload, "user-1"),
+      ).resolves.toBeNull();
+      expect(sync).not.toHaveBeenCalled();
+      // A manual sync still gets the historical title and description
       await expect(
         (settingsService as any).renderUploadText("user-1", "SOH", "2026-09-25T10:05:00Z"),
       ).resolves.toEqual({
@@ -175,6 +167,14 @@ describe("ZoomService", () => {
     });
 
     it("applies the matching topic rule and its publish delay", async () => {
+      prisma.zoomWorkflowSettings.findUnique.mockResolvedValue({
+        autoUpload: true,
+        titleTemplate: "Zoom Recording: {topic}",
+        descriptionTemplate: "Recorded on {date} {time}",
+        privacyStatus: "private",
+        playlistId: null,
+        timeZone: "Asia/Ho_Chi_Minh",
+      });
       prisma.zoomSyncRule.findMany.mockResolvedValue([
         {
           id: "rule-1",
@@ -258,7 +258,12 @@ describe("ZoomService", () => {
       const prisma: any = {
         zoomConfig: { findMany: jest.fn().mockResolvedValue([]) },
         zoomWorkflowSettings: {
-          findMany: jest.fn().mockResolvedValue([{ userId: "user-c", autoUpload: false }]),
+          findMany: jest.fn().mockResolvedValue([
+            { userId: "user-a", autoUpload: true },
+            { userId: "user-b", autoUpload: true },
+            { userId: "user-c", autoUpload: false },
+            { userId: "user-d", autoUpload: true },
+          ]),
         },
       };
       const connections: any = {

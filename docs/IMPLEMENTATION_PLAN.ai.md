@@ -126,6 +126,8 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 **Acceptance**: changing the title template changes the next upload's title; turning auto-upload off stops webhook uploads; accounts without saved settings behave exactly as before.
 
+**Update (2026-09-25, requested by the human)**: auto-upload is now **off by default** (`DEFAULT_WORKFLOW_SETTINGS.autoUpload = false`, column default `false`, migration `default_auto_upload_off`). Accounts without saved settings no longer auto-upload and are not webhook owners; the other defaults are unchanged.
+
 ---
 
 ### P1-5 ✅ — Topic rules and scheduled publishing (after P1-4, decided)

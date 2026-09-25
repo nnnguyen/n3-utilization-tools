@@ -1,4 +1,5 @@
 import * as crypto from "crypto";
+import { DEFAULT_WORKFLOW_SETTINGS } from "./workflow-template";
 
 // Zoom webhooks carry the Zoom account id, not an app user: these helpers pick
 // the app account that owns a webhook and verify its signature.
@@ -8,7 +9,7 @@ export interface WebhookOwnerCandidate {
   isActive: boolean;
   updatedAt: Date;
   webhookSecretToken: string | null;
-  // Automation Workflow setting; undefined (no saved settings) = enabled
+  // Automation Workflow setting; undefined (no saved settings) = the default (off)
   autoUpload?: boolean;
 }
 
@@ -31,7 +32,9 @@ export function resolveWebhookAccounts<T extends WebhookOwnerCandidate>(
 ): { owner: T | null; account: T | null } {
   const active = candidates.filter((c) => c.isActive);
   return {
-    owner: mostRecent(active.filter((c) => c.autoUpload !== false)),
+    owner: mostRecent(
+      active.filter((c) => c.autoUpload ?? DEFAULT_WORKFLOW_SETTINGS.autoUpload),
+    ),
     account: mostRecent(active),
   };
 }

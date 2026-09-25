@@ -339,7 +339,7 @@ export const vi = {
   'zoomDash.autoUpload': 'Tự động upload lên YouTube',
   'zoomDash.titleTemplate': 'Mẫu tiêu đề YouTube mặc định',
   'zoomDash.defaultPrivacy': 'Chế độ hiển thị mặc định',
-  'zoomDash.autoUploadHelp': 'Khi bật, recording mới từ Zoom tự động được upload lên YouTube. Khi tắt, recording vẫn sync thủ công được.',
+  'zoomDash.autoUploadHelp': 'Mặc định: tắt. Khi bật, recording mới từ Zoom tự động được upload lên YouTube. Khi tắt, recording vẫn sync thủ công được.',
   'zoomDash.descriptionTemplate': 'Mẫu mô tả YouTube',
   'zoomDash.placeholdersHelp': 'Biến có thể dùng: {topic} (tên cuộc họp), {date} (ngày), {time} (giờ). Mẫu áp dụng cho cả sync thủ công; mô tả luôn có thêm dòng mã recording.',
   'zoomDash.defaultPlaylist': 'Playlist mặc định',

@@ -13,6 +13,7 @@ const candidate = (
   isActive: true,
   updatedAt: new Date("2026-09-01T00:00:00Z"),
   webhookSecretToken: "user-token",
+  autoUpload: true,
   ...over,
 });
 
@@ -28,6 +29,13 @@ describe("selectWebhookOwner", () => {
         candidate({ userId: "user-2", autoUpload: false }),
       ]),
     ).toBeNull();
+  });
+
+  it("treats an account without saved settings as auto-upload off (the default)", () => {
+    const result = resolveWebhookAccounts([candidate({ autoUpload: undefined })]);
+    expect(result.owner).toBeNull();
+    // Still the account whose webhook token verifies the request
+    expect(result.account?.userId).toBe("user-1");
   });
 
   it("returns the single active account", () => {
