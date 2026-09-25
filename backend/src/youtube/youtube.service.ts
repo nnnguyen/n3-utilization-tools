@@ -799,7 +799,16 @@ export class YoutubeService {
 
       const video = res.data.items?.[0];
       if (!video) {
-        throw new Error("Video not found on YouTube");
+        if (!recordingId) {
+          throw new Error("Video not found on YouTube");
+        }
+        await this.markVideoDeleted(recordingId, videoId);
+        return {
+          syncStatus: "FAILED" as const,
+          uploadStatus: undefined,
+          processingStatus: undefined,
+          youtubeVideoId: videoId,
+        };
       }
 
       const uploadStatus = video.status?.uploadStatus; // uploaded, processed, failed, rejected
@@ -893,6 +902,30 @@ export class YoutubeService {
       );
       throw error;
     }
+  }
+
+  // The video was deleted on YouTube: a final failure (no auto-retry). Only the
+  // check that moves the log to FAILED logs and notifies, so the frontend poll
+  // and the background job stop quietly afterwards.
+  private async markVideoDeleted(recordingId: string, videoId: string) {
+    const syncError = "Video đã bị xoá trên YouTube";
+    const { count } = await this.prisma.zoomSyncLog.updateMany({
+      where: { recordingId, syncStatus: { not: "FAILED" } },
+      data: {
+        syncStatus: "FAILED",
+        syncError,
+        errorSource: "youtube_processing",
+        errorCode: "VIDEO_NOT_FOUND",
+        errorMessage: "Video not found on YouTube",
+        nextRetryAt: null,
+      },
+    });
+    if (count === 0) return;
+
+    this.logger.warn(
+      `Video ${videoId} of recording ${recordingId} was deleted on YouTube; sync marked as failed`,
+    );
+    await this.handleSyncFailure(recordingId, new Error(syncError));
   }
 
   private async notifySyncCompleted(recordingId: string, videoId: string) {

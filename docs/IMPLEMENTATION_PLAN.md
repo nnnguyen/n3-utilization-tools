@@ -50,7 +50,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 - **Rủi ro**: trang chủ và trang Tích hợp đang dựa vào các khoá này để biết "đã kết nối chưa" — phải chuyển sang dùng cờ mới cùng lúc.
 - **Nghiệm thu**: mở DevTools → Network, phản hồi `/integrations/config` không còn chứa khoá bí mật; lưu cấu hình mà không nhập lại khoá vẫn giữ kết nối.
 
-### P1-2. Ngừng kiểm tra lại video đã bị xoá trên YouTube · Độ khó S
+### P1-2 ✅. Ngừng kiểm tra lại video đã bị xoá trên YouTube · Độ khó S
 
 - **Vấn đề**: bảng Zoom Recordings cứ 15 giây hỏi YouTube trạng thái của các video "đang xử lý". Nếu video đã bị xoá trên YouTube, backend báo lỗi nhưng không đổi trạng thái → hỏi mãi, tốn quota, rác log.
 - **Cách làm**: khi YouTube trả "không tìm thấy video", đánh dấu lần sync đó **thất bại** với lý do "Video đã bị xoá trên YouTube"; người dùng có thể sync lại.

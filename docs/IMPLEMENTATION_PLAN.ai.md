@@ -66,7 +66,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-2 — Mark syncs whose YouTube video was deleted as failed
+### P1-2 ✅ — Mark syncs whose YouTube video was deleted as failed
 
 **Goal**: end the endless status polling of videos deleted on YouTube.
 
