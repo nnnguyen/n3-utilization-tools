@@ -23,7 +23,12 @@ function formatSeconds(total?: number | null) {
 
 // Zoom Recordings table with its sync flow (moved as-is from the Zoom
 // Utilities page into YouTube → Channel Content → Zoom Sync)
-export default function ZoomRecordingsPanel() {
+export default function ZoomRecordingsPanel({
+  onPlaylistsLoaded,
+}: {
+  // Lets the Zoom page reuse the playlists without fetching them again
+  onPlaylistsLoaded?: (playlists: any[]) => void;
+} = {}) {
   const t = useT();
   const fmt = useFormat();
   const [recordings, setRecordings] = useState([]);
@@ -51,6 +56,7 @@ export default function ZoomRecordingsPanel() {
   const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [workflowDefaults, setWorkflowDefaults] = useState({ privacyStatus: 'private', playlistId: 'none' });
 
   // History Modal
   const [historyRecording, setHistoryRecording] = useState<any>(null);
@@ -183,11 +189,37 @@ export default function ZoomRecordingsPanel() {
     }
   };
 
+  // Defaults of the sync dialog come from the Automation Workflow settings
+  const fetchWorkflowDefaults = async () => {
+    try {
+      const settings = await apiFetch('/zoom/workflow-settings');
+      setWorkflowDefaults({ privacyStatus: settings.privacyStatus, playlistId: settings.playlistId || 'none' });
+      return settings;
+    } catch (error) {
+      console.error('Failed to fetch workflow settings', error);
+      return null;
+    }
+  };
+
+  const openSyncDialog = async (record: any) => {
+    setSyncingRecord(record);
+    setSyncPrivacyStatus(workflowDefaults.privacyStatus);
+    setSyncPlaylistId(workflowDefaults.playlistId);
+    setSyncModalVisible(true);
+    // Settings may have changed on the Zoom page since the panel loaded
+    const settings = await fetchWorkflowDefaults();
+    if (settings) {
+      setSyncPrivacyStatus(settings.privacyStatus);
+      setSyncPlaylistId(settings.playlistId || 'none');
+    }
+  };
+
   const fetchPlaylists = async () => {
     setLoadingPlaylists(true);
     try {
       const data = await apiFetch('/youtube/playlists');
       setPlaylists(data);
+      onPlaylistsLoaded?.(data);
     } catch (error) {
       console.error('Failed to fetch playlists', error);
     } finally {
@@ -524,11 +556,7 @@ export default function ZoomRecordingsPanel() {
               <Button 
                 icon={<YoutubeOutlined />} 
                 size="small"
-                onClick={() => {
-                  setSyncingRecord(record);
-                  setSyncPrivacyStatus('private');
-                  setSyncModalVisible(true);
-                }}
+                onClick={() => openSyncDialog(record)}
                 loading={syncingIds.has(recordingId)}
                 disabled={isSyncing && !isFailed}
                 danger={isFailed}

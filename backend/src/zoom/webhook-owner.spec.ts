@@ -1,4 +1,5 @@
 import {
+  resolveWebhookAccounts,
   selectWebhookOwner,
   verifyZoomSignature,
   WebhookOwnerCandidate,
@@ -52,6 +53,24 @@ describe("selectWebhookOwner", () => {
         }),
       ])?.userId,
     ).toBe("newest");
+  });
+});
+
+describe("resolveWebhookAccounts", () => {
+  it("keeps the account (for its webhook token) when auto-upload is off everywhere", () => {
+    const result = resolveWebhookAccounts([
+      candidate({ userId: "off", autoUpload: false }),
+      candidate({ userId: "inactive", isActive: false, updatedAt: new Date("2026-09-24") }),
+    ]);
+    expect(result.owner).toBeNull();
+    expect(result.account?.userId).toBe("off");
+  });
+
+  it("returns nothing when no account is active", () => {
+    expect(resolveWebhookAccounts([candidate({ isActive: false })])).toEqual({
+      owner: null,
+      account: null,
+    });
   });
 });
 

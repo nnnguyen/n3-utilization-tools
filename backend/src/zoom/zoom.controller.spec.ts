@@ -44,8 +44,8 @@ describe("ZoomController", () => {
       process.env.ZOOM_WEBHOOK_SECRET_TOKEN = "env-token";
       zoomService = {
         findWebhookOwner: jest.fn().mockResolvedValue({
-          userId: "owner-1",
-          webhookSecretToken: "owner-token",
+          owner: { userId: "owner-1", webhookSecretToken: "owner-token" },
+          account: { userId: "owner-1", webhookSecretToken: "owner-token" },
         }),
         handleRecordingCompleted: jest.fn().mockResolvedValue(undefined),
       };
@@ -101,7 +101,7 @@ describe("ZoomController", () => {
     });
 
     it('falls back to "system" when no owner is found', async () => {
-      zoomService.findWebhookOwner.mockResolvedValue(null);
+      zoomService.findWebhookOwner.mockResolvedValue({ owner: null, account: null });
       const signature = zoomSignature("env-token", timestamp, recordingPayload);
       await webhookController.handleWebhook(recordingPayload, signature, timestamp);
       expect(zoomService.handleRecordingCompleted).toHaveBeenCalledWith(
@@ -110,8 +110,23 @@ describe("ZoomController", () => {
       );
     });
 
+    it("skips the recording when the account turned auto-upload off", async () => {
+      zoomService.findWebhookOwner.mockResolvedValue({
+        owner: null,
+        account: { userId: "owner-1", webhookSecretToken: "owner-token" },
+      });
+      const signature = zoomSignature("owner-token", timestamp, recordingPayload);
+      const result = await webhookController.handleWebhook(
+        recordingPayload,
+        signature,
+        timestamp,
+      );
+      expect(result.status).toBe("skipped");
+      expect(zoomService.handleRecordingCompleted).not.toHaveBeenCalled();
+    });
+
     it("answers URL validation with the env token when no account is known", async () => {
-      zoomService.findWebhookOwner.mockResolvedValue(null);
+      zoomService.findWebhookOwner.mockResolvedValue({ owner: null, account: null });
       const validation = {
         event: "endpoint.url_validation",
         payload: { plainToken: "plain" },

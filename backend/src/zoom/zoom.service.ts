@@ -1,5 +1,11 @@
 import { RECORDING_ID_PREFIX } from "./youtube-match";
-import { selectWebhookOwner } from "./webhook-owner";
+import { resolveWebhookAccounts } from "./webhook-owner";
+import {
+  DEFAULT_WORKFLOW_SETTINGS,
+  renderUploadText,
+  WorkflowSettings,
+} from "./workflow-template";
+import { UpdateWorkflowSettingsDto } from "./workflow-settings.dto";
 import {
   Injectable,
   Logger,
@@ -270,9 +276,9 @@ export class ZoomService {
     });
   }
 
-  // App account that owns webhooks of a Zoom account (rule in webhook-owner.ts)
+  // App accounts behind a Zoom account's webhooks (rule in webhook-owner.ts)
   async findWebhookOwner(accountId: string | undefined) {
-    if (!accountId) return null;
+    if (!accountId) return { owner: null, account: null };
     const configs = await this.prisma.zoomConfig.findMany({
       where: { accountId },
       select: {
@@ -280,9 +286,44 @@ export class ZoomService {
         isActive: true,
         updatedAt: true,
         webhookSecretToken: true,
+        user: { select: { zoomWorkflowSettings: { select: { autoUpload: true } } } },
       },
     });
-    return selectWebhookOwner(configs);
+    return resolveWebhookAccounts(
+      configs.map(({ user, ...config }) => ({
+        ...config,
+        autoUpload: user.zoomWorkflowSettings?.autoUpload,
+      })),
+    );
+  }
+
+  // Saved Automation Workflow settings, or the defaults (= historical behaviour)
+  async getWorkflowSettings(userId: string): Promise<WorkflowSettings> {
+    const saved =
+      userId === "system"
+        ? null
+        : await this.prisma.zoomWorkflowSettings.findUnique({
+            where: { userId },
+          });
+    if (!saved) return { ...DEFAULT_WORKFLOW_SETTINGS };
+    return {
+      autoUpload: saved.autoUpload,
+      titleTemplate: saved.titleTemplate,
+      descriptionTemplate: saved.descriptionTemplate,
+      privacyStatus: saved.privacyStatus as WorkflowSettings["privacyStatus"],
+      playlistId: saved.playlistId,
+      timeZone: saved.timeZone,
+    };
+  }
+
+  async updateWorkflowSettings(userId: string, dto: UpdateWorkflowSettingsDto) {
+    const data = { ...dto, playlistId: dto.playlistId || null };
+    await this.prisma.zoomWorkflowSettings.upsert({
+      where: { userId },
+      update: data,
+      create: { ...data, userId },
+    });
+    return this.getWorkflowSettings(userId);
   }
 
   // ownerUserId: the app account resolved from the webhook's Zoom account;
@@ -293,6 +334,15 @@ export class ZoomService {
     const downloadToken = payload.download_token;
     const userId = ownerUserId || "system";
 
+    const settings = await this.getWorkflowSettings(userId);
+    if (!settings.autoUpload) {
+      // Nothing recorded: the recording stays "not synced" for a manual sync
+      this.logger.log(
+        `Auto-upload is off for user ${userId}; skipping recording ${recordingId}`,
+      );
+      return null;
+    }
+
     return this.processRecordingSync(
       recordingId,
       recording_files,
@@ -300,6 +350,8 @@ export class ZoomService {
       start_time,
       userId,
       downloadToken,
+      settings.privacyStatus,
+      settings.playlistId ?? undefined,
     );
   }
 
@@ -517,6 +569,28 @@ export class ZoomService {
     }
   }
 
+  // Title/description from the account's workflow templates and language
+  private async renderUploadText(
+    userId: string,
+    topic: string,
+    startTime: string,
+  ) {
+    const [settings, user] = await Promise.all([
+      this.getWorkflowSettings(userId),
+      userId === "system"
+        ? null
+        : this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { language: true },
+          }),
+    ]);
+    return renderUploadText(
+      settings,
+      { topic, startTime },
+      user?.language ?? "vi",
+    );
+  }
+
   private async uploadToYoutubeDirectly(
     downloadUrl: string,
     downloadToken: string | undefined,
@@ -570,12 +644,20 @@ export class ZoomService {
       }
     };
 
+    const { title, description } = await this.renderUploadText(
+      userId,
+      topic,
+      startTime,
+    );
+
     return this.youtubeService.uploadVideoFromStream(
       stream,
-      `Zoom Recording: ${topic}`,
+      title,
       // The recording ID line lets the app recognize this video later
       // (youtube-match.ts), even without its sync record
-      `Recorded on ${startTime}\n\n${RECORDING_ID_PREFIX} ${recordingId}`,
+      [description, `${RECORDING_ID_PREFIX} ${recordingId}`]
+        .filter(Boolean)
+        .join("\n\n"),
       privacyStatus || "private",
       userId,
       onProgress,

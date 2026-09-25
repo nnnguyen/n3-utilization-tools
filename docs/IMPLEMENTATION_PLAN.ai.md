@@ -105,7 +105,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-4 — Persist and apply the Automation Workflow settings (after P1-3)
+### P1-4 ✅ — Persist and apply the Automation Workflow settings (after P1-3)
 
 **Goal**: the "Automation Workflow Manager" form on the Zoom page is saved per account and applied.
 

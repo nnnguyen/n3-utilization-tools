@@ -65,4 +65,121 @@ describe("ZoomService", () => {
       expect(windows[windows.length - 1].from > "2015-01-01").toBe(true);
     });
   });
+
+  describe("webhook path and workflow settings", () => {
+    const payload = {
+      account_id: "zoom-acc",
+      download_token: "dl",
+      object: {
+        uuid: "rec-1",
+        topic: "SOH",
+        start_time: "2026-09-25T10:05:00Z",
+        recording_files: [],
+      },
+    };
+    let prisma: any;
+    let settingsService: ZoomService;
+
+    beforeEach(async () => {
+      prisma = {
+        zoomWorkflowSettings: { findUnique: jest.fn().mockResolvedValue(null) },
+        user: { findUnique: jest.fn().mockResolvedValue({ language: "vi" }) },
+      };
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ZoomService,
+          { provide: HttpService, useValue: {} },
+          { provide: YoutubeService, useValue: {} },
+          { provide: PrismaService, useValue: prisma },
+        ],
+      }).compile();
+      settingsService = module.get<ZoomService>(ZoomService);
+    });
+
+    it("does not upload when the owner turned auto-upload off", async () => {
+      prisma.zoomWorkflowSettings.findUnique.mockResolvedValue({
+        autoUpload: false,
+        titleTemplate: "{topic}",
+        descriptionTemplate: "",
+        privacyStatus: "private",
+        playlistId: null,
+        timeZone: "Asia/Ho_Chi_Minh",
+      });
+      const sync = jest
+        .spyOn(settingsService as any, "processRecordingSync")
+        .mockResolvedValue({ id: "vid" });
+
+      await expect(
+        settingsService.handleRecordingCompleted(payload, "user-1"),
+      ).resolves.toBeNull();
+      expect(sync).not.toHaveBeenCalled();
+    });
+
+    it("uploads with the saved privacy and playlist", async () => {
+      prisma.zoomWorkflowSettings.findUnique.mockResolvedValue({
+        autoUpload: true,
+        titleTemplate: "[Zoom] {topic}",
+        descriptionTemplate: "",
+        privacyStatus: "unlisted",
+        playlistId: "PL1",
+        timeZone: "Asia/Ho_Chi_Minh",
+      });
+      const sync = jest
+        .spyOn(settingsService as any, "processRecordingSync")
+        .mockResolvedValue({ id: "vid" });
+
+      await settingsService.handleRecordingCompleted(payload, "user-1");
+      expect(sync).toHaveBeenCalledWith(
+        "rec-1",
+        [],
+        "SOH",
+        "2026-09-25T10:05:00Z",
+        "user-1",
+        "dl",
+        "unlisted",
+        "PL1",
+      );
+    });
+
+    it("keeps the historical behaviour without saved settings", async () => {
+      const sync = jest
+        .spyOn(settingsService as any, "processRecordingSync")
+        .mockResolvedValue({ id: "vid" });
+
+      await settingsService.handleRecordingCompleted(payload, "user-1");
+      expect(sync).toHaveBeenCalledWith(
+        "rec-1",
+        [],
+        "SOH",
+        "2026-09-25T10:05:00Z",
+        "user-1",
+        "dl",
+        "private",
+        undefined,
+      );
+      await expect(
+        (settingsService as any).renderUploadText("user-1", "SOH", "2026-09-25T10:05:00Z"),
+      ).resolves.toEqual({
+        title: "Zoom Recording: SOH",
+        description: "Recorded on 25/09/2026 17:05",
+      });
+    });
+
+    it("renders the title from the saved template", async () => {
+      prisma.zoomWorkflowSettings.findUnique.mockResolvedValue({
+        autoUpload: true,
+        titleTemplate: "[Zoom] {topic} - {date}",
+        descriptionTemplate: "Buổi {topic}",
+        privacyStatus: "private",
+        playlistId: null,
+        timeZone: "Asia/Ho_Chi_Minh",
+      });
+      await expect(
+        (settingsService as any).renderUploadText("user-1", "SOH", "2026-09-25T10:05:00Z"),
+      ).resolves.toEqual({
+        title: "[Zoom] SOH - 25/09/2026",
+        description: "Buổi SOH",
+      });
+    });
+  });
 });

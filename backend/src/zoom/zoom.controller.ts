@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Logger,
   Get,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -19,6 +20,7 @@ import { DismissMatchDto, LinkRecordingDto, UnlinkRecordingDto } from "./youtube
 import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import * as crypto from "crypto";
 import { verifyZoomSignature } from "./webhook-owner";
+import { UpdateWorkflowSettingsDto } from "./workflow-settings.dto";
 
 @Controller("zoom")
 export class ZoomController {
@@ -71,6 +73,21 @@ export class ZoomController {
   @UseGuards(JwtAuthGuard)
   async dismissMatch(@CurrentUser() user: AuthenticatedUser, @Body() body: DismissMatchDto) {
     return this.youtubeMatchService.dismiss(user.id, body.recordingId, body.videoId);
+  }
+
+  @Get("workflow-settings")
+  @UseGuards(JwtAuthGuard)
+  async getWorkflowSettings(@CurrentUser() user: AuthenticatedUser) {
+    return this.zoomService.getWorkflowSettings(user.id);
+  }
+
+  @Put("workflow-settings")
+  @UseGuards(JwtAuthGuard)
+  async updateWorkflowSettings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: UpdateWorkflowSettingsDto,
+  ) {
+    return this.zoomService.updateWorkflowSettings(user.id, body);
   }
 
   @Get("logs")
@@ -132,12 +149,13 @@ export class ZoomController {
 
     // The Zoom account id tells which app account owns this webhook
     const zoomAccountId: string | undefined = payload.payload?.account_id;
-    const owner = await this.zoomService.findWebhookOwner(zoomAccountId);
+    const { owner, account } =
+      await this.zoomService.findWebhookOwner(zoomAccountId);
     const envToken = process.env.ZOOM_WEBHOOK_SECRET_TOKEN;
 
-    // Signed with the owner's token or the env one (kept for compatibility)
+    // Signed with the account's token or the env one (kept for compatibility)
     const verification = verifyZoomSignature(payload, timestamp, signature, [
-      owner?.webhookSecretToken,
+      account?.webhookSecretToken,
       envToken,
     ]);
     if (verification === "invalid") {
@@ -146,7 +164,7 @@ export class ZoomController {
     }
 
     // Handle Zoom Webhook Validation (URL Validation)
-    const validationToken = owner?.webhookSecretToken || envToken;
+    const validationToken = account?.webhookSecretToken || envToken;
     if (payload.event === "endpoint.url_validation" && validationToken) {
       const plainToken = payload.payload.plainToken;
       const hashForValidate = crypto
@@ -161,12 +179,19 @@ export class ZoomController {
     }
 
     if (payload.event === "recording.completed") {
-      // Process in background to avoid timeout
+      if (!owner && account) {
+        // The accounts of this Zoom account turned auto-upload off
+        this.logger.log(
+          `Auto-upload is off for Zoom account ${zoomAccountId}; recording not synced`,
+        );
+        return { status: "skipped", event: "recording.completed" };
+      }
       if (!owner) {
         this.logger.warn(
           `No active app account for Zoom account ${zoomAccountId ?? "(missing)"}; syncing as "system"`,
         );
       }
+      // Process in background to avoid timeout
       this.zoomService
         .handleRecordingCompleted(payload.payload, owner?.userId)
         .catch((err) =>

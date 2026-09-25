@@ -63,7 +63,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 - **Đã chốt (25/09/2026)**: nếu **nhiều tài khoản app dùng chung một tài khoản Zoom**, recording mới thuộc về tài khoản đang hoạt động, đã bật "Tự động upload" (trước khi có P1-4: mọi tài khoản đang hoạt động) và cập nhật cấu hình Zoom gần nhất. Về lâu dài sẽ giải quyết triệt để bằng Workspace (P2-2).
 - **Nghiệm thu**: recording mới từ webhook xuất hiện trong lịch sử sync của đúng tài khoản, có thông báo "Video đã sẵn sàng" trên chuông của tài khoản đó.
 
-### P1-4. Lưu thật "Automation Workflow Manager" · Độ khó M
+### P1-4 ✅. Lưu thật "Automation Workflow Manager" · Độ khó M
 
 - **Vấn đề**: form trên trang Zoom (bật/tắt tự upload, mẫu tiêu đề, quyền riêng tư mặc định) chỉ hiện "đã lưu" nhưng không lưu gì. Video luôn có tiêu đề "Zoom Recording: …".
 - **Cách làm**: lưu các cài đặt theo tài khoản: tự upload (bật/tắt), mẫu tiêu đề và mô tả với biến `{topic}`, `{date}`, `{time}`, quyền riêng tư và playlist mặc định. Áp dụng khi webhook tự upload và làm giá trị mặc định cho hộp thoại Sync thủ công.

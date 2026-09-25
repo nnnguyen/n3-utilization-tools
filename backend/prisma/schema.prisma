@@ -32,14 +32,15 @@ model User {
   themeMode  String @default("light") // 'light' | 'dark' | 'system'
   language   String @default("vi") // 'vi' | 'en'
 
-  createdAt     DateTime            @default(now())
-  topics        Topic[]
-  zoomConfig    ZoomConfig?
-  youtubeConfig YoutubeConfig?
-  youtubeQuotas YoutubeQuotaUsage[]
-  zoomSyncLogs  ZoomSyncLog[]
-  notifications Notification[]
-  channelVideos ChannelVideoCache[]
+  createdAt              DateTime                    @default(now())
+  topics                 Topic[]
+  zoomConfig             ZoomConfig?
+  zoomWorkflowSettings   ZoomWorkflowSettings?
+  youtubeConfig          YoutubeConfig?
+  youtubeQuotas          YoutubeQuotaUsage[]
+  zoomSyncLogs           ZoomSyncLog[]
+  notifications          Notification[]
+  channelVideos          ChannelVideoCache[]
   youtubeMatchDismissals ZoomYoutubeMatchDismissal[]
 }
 
@@ -53,6 +54,21 @@ model ZoomConfig {
   webhookSecretToken String?
   isActive           Boolean  @default(false)
   updatedAt          DateTime @updatedAt
+}
+
+// Automation Workflow settings of the Zoom page; defaults reproduce the
+// behaviour from before they existed (auto-upload on, private, fixed title)
+model ZoomWorkflowSettings {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  autoUpload          Boolean  @default(true)
+  titleTemplate       String   @default("Zoom Recording: {topic}")
+  descriptionTemplate String   @default("Recorded on {date} {time}")
+  privacyStatus       String   @default("private") // 'public' | 'unlisted' | 'private'
+  playlistId          String?
+  timeZone            String   @default("Asia/Ho_Chi_Minh") // for {date} and {time}
+  updatedAt           DateTime @updatedAt
 }
 
 model YoutubeConfig {

@@ -340,6 +340,13 @@ export const en: Record<MessageKey, string> = {
   'zoomDash.autoUpload': 'Auto-upload to YouTube',
   'zoomDash.titleTemplate': 'Default YouTube Title Template',
   'zoomDash.defaultPrivacy': 'Default Privacy Status',
+  'zoomDash.autoUploadHelp': 'When on, new Zoom recordings are uploaded to YouTube automatically. When off, recordings can still be synced manually.',
+  'zoomDash.descriptionTemplate': 'YouTube Description Template',
+  'zoomDash.placeholdersHelp': 'Available placeholders: {topic} (meeting name), {date}, {time}. Templates also apply to manual syncs; the description always ends with the recording ID line.',
+  'zoomDash.defaultPlaylist': 'Default Playlist',
+  'zoomDash.timeZone': 'Time zone for {date} and {time}',
+  'zoomDash.loadWorkflowFailed': 'Could not load the workflow settings',
+  'zoomDash.saveWorkflowFailed': 'Could not save the workflow settings',
   'zoomDash.saveWorkflow': 'Save Workflow Settings',
 
   // — settings: integrations —

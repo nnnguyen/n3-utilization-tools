@@ -8,24 +8,38 @@ export interface WebhookOwnerCandidate {
   isActive: boolean;
   updatedAt: Date;
   webhookSecretToken: string | null;
-  // Automation Workflow setting (P1-4); undefined until it exists = enabled
+  // Automation Workflow setting; undefined (no saved settings) = enabled
   autoUpload?: boolean;
 }
 
+function mostRecent<T extends WebhookOwnerCandidate>(list: T[]): T | null {
+  if (list.length === 0) return null;
+  return list.reduce((latest, c) =>
+    c.updatedAt.getTime() > latest.updatedAt.getTime() ? c : latest,
+  );
+}
+
 /**
- * Among the app accounts configured with the webhook's Zoom account: the active
- * ones with auto-upload enabled; if several, the most recently updated config.
+ * Among the app accounts configured with the webhook's Zoom account:
+ * - `owner`: the active ones with auto-upload enabled; if several, the most
+ *   recently updated config. New recordings are synced as this account.
+ * - `account`: the most recently updated active one regardless of auto-upload,
+ *   used for the webhook token; with no owner, the upload is skipped.
  */
+export function resolveWebhookAccounts<T extends WebhookOwnerCandidate>(
+  candidates: T[],
+): { owner: T | null; account: T | null } {
+  const active = candidates.filter((c) => c.isActive);
+  return {
+    owner: mostRecent(active.filter((c) => c.autoUpload !== false)),
+    account: mostRecent(active),
+  };
+}
+
 export function selectWebhookOwner<T extends WebhookOwnerCandidate>(
   candidates: T[],
 ): T | null {
-  const eligible = candidates.filter(
-    (c) => c.isActive && c.autoUpload !== false,
-  );
-  if (eligible.length === 0) return null;
-  return eligible.reduce((latest, c) =>
-    c.updatedAt.getTime() > latest.updatedAt.getTime() ? c : latest,
-  );
+  return resolveWebhookAccounts(candidates).owner;
 }
 
 export function zoomSignature(
