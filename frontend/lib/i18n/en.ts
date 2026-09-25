@@ -370,6 +370,7 @@ export const en: Record<MessageKey, string> = {
   'integ.reasonInvalid': 'Invalid or expired credentials. Please re-authorize.',
   'integ.recheck': 'Recheck Status',
   'integ.reauthorize': 'Re-authorize',
+  'integ.secretSaved': 'Saved — type to replace',
   'integ.refreshTokenHelp': 'Usually obtained via the \'Authorize YouTube\' button below.',
   'integ.ytAuthorized': 'YouTube Authorized',
   'integ.authorizeYoutube': 'Authorize YouTube',

@@ -83,8 +83,8 @@ export default function Home() {
     return null;
   }
 
-  const isZoomActive = configs?.zoom?.isActive && configs?.zoom?.clientId && configs?.zoom?.clientSecret;
-  const isYoutubeActive = configs?.youtube?.isActive && configs?.youtube?.refreshToken;
+  const isZoomActive = configs?.zoom?.isActive && configs?.zoom?.clientId && configs?.zoom?.hasClientSecret;
+  const isYoutubeActive = configs?.youtube?.isActive && configs?.youtube?.hasRefreshToken;
 
   const gettingStartedSteps = [
     {

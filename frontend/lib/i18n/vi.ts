@@ -369,6 +369,7 @@ export const vi = {
   'integ.reasonInvalid': 'Thông tin xác thực không hợp lệ hoặc đã hết hạn. Vui lòng uỷ quyền lại.',
   'integ.recheck': 'Kiểm tra lại',
   'integ.reauthorize': 'Uỷ quyền lại',
+  'integ.secretSaved': 'Đã lưu — nhập để thay đổi',
   'integ.refreshTokenHelp': 'Thường được lấy qua nút \'Uỷ quyền YouTube\' bên dưới.',
   'integ.ytAuthorized': 'Đã uỷ quyền YouTube',
   'integ.authorizeYoutube': 'Uỷ quyền YouTube',

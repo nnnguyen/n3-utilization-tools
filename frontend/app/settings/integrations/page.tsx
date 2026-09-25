@@ -12,6 +12,15 @@ import { useT, useTNode } from '@/lib/i18n';
 
 const { Title, Text } = Typography;
 
+// Send a secret only when the user typed one; empty means "keep the saved value"
+function withoutEmptySecrets(values: Record<string, any>, secretFields: string[]) {
+  const result = { ...values };
+  for (const field of secretFields) {
+    if (!result[field]) delete result[field];
+  }
+  return result;
+}
+
 function IntegrationsContent() {
   const t = useT();
   const tNode = useTNode();
@@ -67,8 +76,9 @@ function IntegrationsContent() {
     try {
       const response = await apiFetch('/integrations/config');
       setConfigs(response);
-      zoomForm.setFieldsValue(response.zoom);
-      youtubeForm.setFieldsValue(response.youtube);
+      // Secrets are never sent back: their inputs start empty (placeholder says whether one is saved)
+      zoomForm.setFieldsValue({ ...response.zoom, clientSecret: '', webhookSecretToken: '' });
+      youtubeForm.setFieldsValue({ ...response.youtube, clientSecret: '', refreshToken: '' });
       
       // Also fetch YouTube status
       fetchYoutubeStatus();
@@ -100,7 +110,7 @@ function IntegrationsContent() {
     try {
       await apiFetch('/integrations/zoom', {
         method: 'PATCH',
-        body: JSON.stringify(values),
+        body: JSON.stringify(withoutEmptySecrets(values, ['clientSecret', 'webhookSecretToken'])),
       });
       message.success(t('integ.zoomSaved'));
       fetchConfigs();
@@ -113,7 +123,7 @@ function IntegrationsContent() {
     try {
       await apiFetch('/integrations/youtube', {
         method: 'PATCH',
-        body: JSON.stringify(values),
+        body: JSON.stringify(withoutEmptySecrets(values, ['clientSecret', 'refreshToken'])),
       });
       message.success(t('integ.ytSaved'));
       fetchConfigs();
@@ -128,7 +138,6 @@ function IntegrationsContent() {
         form={zoomForm} 
         layout="vertical" 
         onFinish={onUpdateZoom}
-        initialValues={configs.zoom}
       >
         <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
           <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
@@ -140,10 +149,10 @@ function IntegrationsContent() {
           <Input prefix={<LockOutlined />} placeholder="Zoom Client ID" />
         </Form.Item>
         <Form.Item label="Client Secret" name="clientSecret">
-          <Input.Password prefix={<LockOutlined />} placeholder="Zoom Client Secret" />
+          <Input.Password prefix={<LockOutlined />} placeholder={configs.zoom?.hasClientSecret ? t('integ.secretSaved') : 'Zoom Client Secret'} />
         </Form.Item>
         <Form.Item label="Webhook Secret Token" name="webhookSecretToken">
-          <Input.Password prefix={<LockOutlined />} placeholder="Zoom Webhook Secret Token" />
+          <Input.Password prefix={<LockOutlined />} placeholder={configs.zoom?.hasWebhookSecretToken ? t('integ.secretSaved') : 'Zoom Webhook Secret Token'} />
         </Form.Item>
         <Form.Item>
           <Button type="primary" htmlType="submit">{t('integ.saveZoom')}</Button>
@@ -234,7 +243,6 @@ function IntegrationsContent() {
         form={youtubeForm} 
         layout="vertical" 
         onFinish={onUpdateYoutube}
-        initialValues={configs.youtube}
       >
         <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
           <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
@@ -243,10 +251,10 @@ function IntegrationsContent() {
           <Input prefix={<LockOutlined />} placeholder="Google Client ID" />
         </Form.Item>
         <Form.Item label="Client Secret" name="clientSecret">
-          <Input.Password prefix={<LockOutlined />} placeholder="Google Client Secret" />
+          <Input.Password prefix={<LockOutlined />} placeholder={configs.youtube?.hasClientSecret ? t('integ.secretSaved') : 'Google Client Secret'} />
         </Form.Item>
         <Form.Item label="Refresh Token" name="refreshToken" help={t('integ.refreshTokenHelp')}>
-          <Input.Password prefix={<LockOutlined />} placeholder="Google OAuth Refresh Token" />
+          <Input.Password prefix={<LockOutlined />} placeholder={configs.youtube?.hasRefreshToken ? t('integ.secretSaved') : 'Google OAuth Refresh Token'} />
         </Form.Item>
         <Form.Item>
           <Space wrap>
@@ -254,7 +262,7 @@ function IntegrationsContent() {
             <Button 
               icon={<GoogleOutlined />} 
               onClick={onAuthorizeYoutube}
-              disabled={!configs.youtube?.clientId || !configs.youtube?.clientSecret || youtubeStatus?.connected}
+              disabled={!configs.youtube?.clientId || !configs.youtube?.hasClientSecret || youtubeStatus?.connected}
             >
               {youtubeStatus?.connected ? t('integ.ytAuthorized') : t('integ.authorizeYoutube')}
             </Button>

@@ -39,7 +39,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ## 3. Phase 1 tasks (executable)
 
-### P1-1 — Stop returning secrets from `GET /integrations/config`
+### P1-1 ✅ — Stop returning secrets from `GET /integrations/config`
 
 **Goal**: the browser never receives Zoom/YouTube client secrets, the webhook secret token or the YouTube refresh token.
 

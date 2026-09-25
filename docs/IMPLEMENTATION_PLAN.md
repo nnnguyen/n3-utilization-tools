@@ -42,7 +42,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 
 ## 3. Giai đoạn 1 — Củng cố
 
-### P1-1. Không gửi mật khẩu/khoá bí mật về trình duyệt · Độ khó S · **Ưu tiên cao nhất**
+### P1-1 ✅. Không gửi mật khẩu/khoá bí mật về trình duyệt · Độ khó S · **Ưu tiên cao nhất**
 
 - **Vấn đề**: API `GET /integrations/config` trả nguyên cấu hình, gồm cả Client Secret của Zoom/YouTube, Webhook Secret Token và YouTube Refresh Token. Bất kỳ ai xem được trình duyệt của người dùng (hoặc một tiện ích độc hại) đều đọc được các khoá này.
 - **Cách làm**: API chỉ trả thông tin không bí mật (Client ID, Account ID, trạng thái bật/tắt) và cờ "đã lưu khoá hay chưa". Ô nhập khoá bí mật trên trang Tích hợp để trống, ghi chú "đã lưu — nhập để thay đổi"; để trống khi lưu thì giữ nguyên khoá cũ.

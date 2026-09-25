@@ -4,6 +4,14 @@ import {
   UpdateZoomConfigDto,
   UpdateYoutubeConfigDto,
 } from "./dto/update-config.dto";
+import {
+  stripEmptySecrets,
+  toPublicConfig,
+  toPublicYoutubeConfig,
+  toPublicZoomConfig,
+  YOUTUBE_SECRET_FIELDS,
+  ZOOM_SECRET_FIELDS,
+} from "./public-config";
 
 @Injectable()
 export class IntegrationsService {
@@ -15,31 +23,32 @@ export class IntegrationsService {
       this.prisma.youtubeConfig.findUnique({ where: { userId } }),
     ]);
 
-    return {
-      zoom: zoomConfig || { isActive: false },
-      youtube: youtubeConfig || { isActive: false },
-    };
+    return toPublicConfig(zoomConfig, youtubeConfig);
   }
 
   async updateZoomConfig(userId: string, dto: UpdateZoomConfigDto) {
-    return this.prisma.zoomConfig.upsert({
+    const data = stripEmptySecrets(dto, ZOOM_SECRET_FIELDS);
+    const config = await this.prisma.zoomConfig.upsert({
       where: { userId },
-      update: dto,
+      update: data,
       create: {
-        ...dto,
+        ...data,
         userId,
       },
     });
+    return toPublicZoomConfig(config);
   }
 
   async updateYoutubeConfig(userId: string, dto: UpdateYoutubeConfigDto) {
-    return this.prisma.youtubeConfig.upsert({
+    const data = stripEmptySecrets(dto, YOUTUBE_SECRET_FIELDS);
+    const config = await this.prisma.youtubeConfig.upsert({
       where: { userId },
-      update: dto,
+      update: data,
       create: {
-        ...dto,
+        ...data,
         userId,
       },
     });
+    return toPublicYoutubeConfig(config);
   }
 }
