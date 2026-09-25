@@ -74,6 +74,17 @@ export class ConnectionsService {
     return row ? this.toView(row) : null;
   }
 
+  /** Connections of one provider linked to an external account (e.g. a Zoom account id). */
+  async findByExternalAccount(
+    provider: ProviderId,
+    externalAccountId: string,
+  ): Promise<ConnectionView[]> {
+    const rows = await this.prisma.connection.findMany({
+      where: { provider, externalAccountId },
+    });
+    return rows.map((row) => this.toView(row));
+  }
+
   async save(
     userId: string,
     provider: ProviderId,

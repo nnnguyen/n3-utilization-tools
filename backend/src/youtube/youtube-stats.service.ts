@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { ConnectionReader } from "../connections/connection-reader.service";
 
 const QUOTA_AVERAGE_DAYS = 30;
 const TOP_FAILING_LIMIT = 10;
@@ -9,7 +10,10 @@ const TOP_FAILING_LIMIT = 10;
 // linked to a video already on YouTube (source "linked") are left out.
 @Injectable()
 export class YoutubeStatsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly connectionReader: ConnectionReader,
+  ) {}
 
   async getStats(userId: string, months = 6) {
     const monthsBack = Math.min(Math.max(months, 1), 24);
@@ -62,12 +66,7 @@ export class YoutubeStatsService {
           syncStartedAt: true,
         },
       }),
-      this.prisma.youtubeQuotaUsage.findMany({
-        where: { userId },
-        orderBy: { date: "desc" },
-        take: QUOTA_AVERAGE_DAYS,
-        select: { unitsUsed: true },
-      }),
+      this.connectionReader.youtubeQuotaHistory(userId, QUOTA_AVERAGE_DAYS),
     ]);
 
     // One bucket per month, oldest first, so empty months still show as 0
@@ -91,7 +90,7 @@ export class YoutubeStatsService {
     const totalFailures = attemptAgg._sum.failureCount ?? 0;
 
     const quotaDays = quotaRows.length;
-    const quotaUsed = quotaRows.reduce((sum, r) => sum + r.unitsUsed, 0);
+    const quotaUsed = quotaRows.reduce((sum, units) => sum + units, 0);
 
     return {
       monthly,

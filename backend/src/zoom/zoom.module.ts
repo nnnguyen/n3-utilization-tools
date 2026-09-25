@@ -8,9 +8,10 @@ import { ZoomSyncRulesController } from "./sync-rules.controller";
 import { HttpModule } from "@nestjs/axios";
 import { YoutubeModule } from "../youtube/youtube.module";
 import { PrismaModule } from "../prisma/prisma.module";
+import { ConnectionsModule } from "../connections/connections.module";
 
 @Module({
-  imports: [HttpModule, YoutubeModule, PrismaModule],
+  imports: [HttpModule, YoutubeModule, PrismaModule, ConnectionsModule],
   providers: [
     ZoomService,
     ZoomSyncSchedulerService,

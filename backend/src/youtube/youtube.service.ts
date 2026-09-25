@@ -16,6 +16,7 @@ import * as fs from "fs";
 import { Readable } from "stream";
 import { codedError } from "../common/coded-error";
 import { LegacyMirrorService } from "../connections/legacy-mirror.service";
+import { ConnectionReader } from "../connections/connection-reader.service";
 
 // Delays before automatic retry 1, 2 and 3 of a sync that failed transiently
 export const AUTO_RETRY_DELAYS_MS = [1 * 60_000, 5 * 60_000, 15 * 60_000];
@@ -85,6 +86,8 @@ export class YoutubeService {
     private readonly notificationsService: NotificationsService,
     // Copies writes of YoutubeConfig / YoutubeQuotaUsage to Connection (P2-1c)
     private readonly legacyMirror: LegacyMirrorService,
+    // Reads YouTube config and quota (Connection when CONNECTIONS_READ, P2-1d)
+    private readonly connectionReader: ConnectionReader,
   ) {}
 
   async hasQuotaForUpload(userId: string) {
@@ -207,11 +210,7 @@ export class YoutubeService {
 
   async getQuotaStatus(userId: string) {
     const date = this.getPacificDate();
-    const usage = await this.prisma.youtubeQuotaUsage.findUnique({
-      where: { userId_date: { userId, date } },
-    });
-
-    const unitsUsed = usage?.unitsUsed || 0;
+    const unitsUsed = await this.connectionReader.youtubeQuotaUsed(userId, date);
     const unitsRemaining = Math.max(0, this.QUOTA_LIMIT - unitsUsed);
     const estimatedUploadsRemaining = Math.floor(unitsRemaining / this.UPLOAD_COST);
 
@@ -233,9 +232,7 @@ export class YoutubeService {
       `${process.env.FRONTEND_URL}/api/auth/youtube/callback`;
 
     if (userId && userId !== "system") {
-      const config = await this.prisma.youtubeConfig.findUnique({
-        where: { userId },
-      });
+      const config = await this.connectionReader.youtubeConfig(userId);
       if (config?.clientId && config?.clientSecret) {
         clientId = config.clientId;
         clientSecret = config.clientSecret;
@@ -300,16 +297,7 @@ export class YoutubeService {
 
   // Cheap (DB only, no API call), so the UI can poll it for the banner.
   async getTokenStatus(userId: string) {
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-      select: {
-        refreshToken: true,
-        isActive: true,
-        tokenObtainedAt: true,
-        lastTokenRefreshAt: true,
-        tokenInvalidAt: true,
-      },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
     const testingMode = process.env.YOUTUBE_OAUTH_TESTING_MODE !== "false";
     const warnAfterDays = parseInt(
       process.env.YOUTUBE_TOKEN_WARN_AFTER_DAYS || "5",
@@ -401,9 +389,7 @@ export class YoutubeService {
   // can be present but revoked or expired, so this calls channels.list(mine)
   // to confirm it still authenticates against a real channel.
   async getConnectionStatus(userId: string): Promise<YoutubeConnectionStatus> {
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
 
     const clientId = config?.clientId || process.env.YOUTUBE_CLIENT_ID;
     const clientSecret =
@@ -540,7 +526,7 @@ export class YoutubeService {
       }
       const config =
         userId !== "system"
-          ? await this.prisma.youtubeConfig.findUnique({ where: { userId } })
+          ? await this.connectionReader.youtubeConfig(userId)
           : null;
 
       const refreshToken =
@@ -767,9 +753,7 @@ export class YoutubeService {
 
       // Find the specific config for the user
       const config = finalUserId
-        ? await this.prisma.youtubeConfig.findUnique({
-            where: { userId: finalUserId },
-          })
+        ? await this.connectionReader.youtubeConfig(finalUserId)
         : await this.prisma.youtubeConfig.findFirst({
             where: { isActive: true },
           });
@@ -997,9 +981,7 @@ export class YoutubeService {
   async getRecentUploads(userId: string, limit = 10, since?: Date) {
     const PAGE_SIZE = 50;
     const MAX_PAGES = 4;
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
 
     const refreshToken =
       config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
@@ -1079,9 +1061,7 @@ export class YoutubeService {
   }
 
   async listPlaylists(userId: string) {
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
     const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
     if (!config?.isActive || !refreshToken) {
       throw new UnauthorizedException("YouTube not connected");
@@ -1137,9 +1117,7 @@ export class YoutubeService {
     if (title.trim().length > 150) {
       throw new BadRequestException("Playlist title must be at most 150 characters");
     }
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
     const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
     if (!config?.isActive || !refreshToken) {
       throw new UnauthorizedException("YouTube not connected");
@@ -1165,9 +1143,7 @@ export class YoutubeService {
   }
 
   async addVideoToPlaylist(userId: string, playlistId: string, videoId: string) {
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
     const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
     if (!config?.isActive || !refreshToken) {
       throw new UnauthorizedException("YouTube not connected");
@@ -1200,9 +1176,7 @@ export class YoutubeService {
   }
 
   private async getYoutubeClient(userId: string) {
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
     const refreshToken = config?.refreshToken || process.env.YOUTUBE_REFRESH_TOKEN;
     if (!config?.isActive || !refreshToken) {
       throw new UnauthorizedException("YouTube not connected");
@@ -1619,10 +1593,7 @@ export class YoutubeService {
   // cacheOnly: never call YouTube, just report whether the cache is stale
   // (Analytics shows a "Refresh now" prompt instead of spending quota)
   async getChannelVideos(userId: string, forceRefresh = false, cacheOnly = false) {
-    const config = await this.prisma.youtubeConfig.findUnique({
-      where: { userId },
-      select: { channelVideosFetchedAt: true },
-    });
+    const config = await this.connectionReader.youtubeConfig(userId);
     const lastFetchedAt = config?.channelVideosFetchedAt ?? null;
     const stale =
       !lastFetchedAt ||
@@ -1664,10 +1635,7 @@ export class YoutubeService {
         where: { userId },
         orderBy: { publishedAt: "desc" },
       }),
-      this.prisma.youtubeConfig.findUnique({
-        where: { userId },
-        select: { channelVideosFetchedAt: true },
-      }),
+      this.connectionReader.youtubeConfig(userId),
     ]);
 
     // Soft link to Zoom sync: which videos came from a synced recording

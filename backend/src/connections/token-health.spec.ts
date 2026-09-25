@@ -118,7 +118,9 @@ describe("tokenHealth matches YoutubeService.getTokenStatus", () => {
           }),
         },
       };
-      const legacy = await new YoutubeService(prisma as any, {} as any, {} as any).getTokenStatus("user-1");
+      const legacy = await new YoutubeService(prisma as any, {} as any, {} as any, {
+        youtubeConfig: (userId: string) => prisma.youtubeConfig.findUnique({ where: { userId } }),
+      } as any).getTokenStatus("user-1");
       // Same instant for both: getTokenStatus reads the clock itself
       const health = tokenHealth(i, youtube, new Date());
       expect(health).toEqual(legacy);

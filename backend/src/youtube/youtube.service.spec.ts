@@ -4,6 +4,7 @@ import { YoutubeService } from "./youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { LegacyMirrorService } from "../connections/legacy-mirror.service";
+import { ConnectionReader } from "../connections/connection-reader.service";
 
 describe("YoutubeService", () => {
   let service: YoutubeService;
@@ -13,6 +14,7 @@ describe("YoutubeService", () => {
       providers: [
         YoutubeService,
         { provide: PrismaService, useValue: {} },
+        { provide: ConnectionReader, useValue: {} },
         { provide: NotificationsService, useValue: { create: jest.fn() } },
         { provide: LegacyMirrorService, useValue: { mirrorYoutube: jest.fn(), mirrorYoutubeQuota: jest.fn() } },
       ],
@@ -62,6 +64,8 @@ describe("YoutubeService", () => {
         providers: [
           YoutubeService,
           { provide: PrismaService, useValue: prisma },
+          // Flag off: reads the mocked legacy tables
+          { provide: ConnectionReader, useValue: new ConnectionReader(prisma, {} as any) },
           { provide: NotificationsService, useValue: notifications },
           { provide: LegacyMirrorService, useValue: { mirrorYoutube: jest.fn(), mirrorYoutubeQuota: jest.fn() } },
         ],

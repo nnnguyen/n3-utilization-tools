@@ -157,6 +157,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | `JWT_SECRET` | yes | Signs the session token |
 | `JWT_EXPIRES_IN` | no | Session lifetime (default `7d`) |
 | `CREDENTIALS_KEY` | yes, once connections are stored encrypted ([P2-1](docs/design/P2-1-connector.md)) | 32 random bytes in base64 that encrypt connection secrets at rest (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`). Keep a copy in a password manager: losing it means every connection must be re-entered |
+| `CONNECTIONS_READ` | no | `true` reads YouTube/Zoom connections and quota from the new `Connection`/`QuotaUsage` tables (falling back to the old tables when a row is missing or unreadable); unset = old tables. Temporary switch of the [P2-1](docs/design/P2-1-connector.md) migration |
 | `CREDENTIALS_KEY_PREVIOUS` | no | The previous `CREDENTIALS_KEY` while rotating keys: still decrypts, data is re-encrypted with the new key on its next write |
 | `PORT` | no | HTTP port (default `3000`; use `3001` locally) |
 | `NODE_ENV` | no | `production` makes the session cookie `Secure` and cross-site, as needed in deployment; use `development` locally; `test` turns off the sync scheduler |

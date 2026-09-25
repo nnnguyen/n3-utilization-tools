@@ -3,6 +3,7 @@ import { HttpService } from "@nestjs/axios";
 import { ZoomService } from "./zoom.service";
 import { YoutubeService } from "../youtube/youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { ConnectionReader } from "../connections/connection-reader.service";
 
 // @nestjs/axios v12 is ESM-only and Jest cannot require it; these tests never
 // call Zoom, so a stand-in HttpService class is enough.
@@ -18,6 +19,7 @@ describe("ZoomService", () => {
         { provide: HttpService, useValue: {} },
         { provide: YoutubeService, useValue: {} },
         { provide: PrismaService, useValue: {} },
+        { provide: ConnectionReader, useValue: {} },
       ],
     }).compile();
 
@@ -92,6 +94,7 @@ describe("ZoomService", () => {
           { provide: HttpService, useValue: {} },
           { provide: YoutubeService, useValue: {} },
           { provide: PrismaService, useValue: prisma },
+          { provide: ConnectionReader, useValue: {} },
         ],
       }).compile();
       settingsService = module.get<ZoomService>(ZoomService);
@@ -224,6 +227,67 @@ describe("ZoomService", () => {
         description: "Buổi SOH",
         tags: [],
       });
+    });
+  });
+
+  describe("findWebhookOwner on Connection data (CONNECTIONS_READ=true)", () => {
+    const env = { ...process.env };
+    afterEach(() => {
+      process.env = { ...env };
+    });
+
+    const view = (userId: string, legacyUpdatedAt: string, copiedAt: string, over: any = {}) => ({
+      id: userId,
+      userId,
+      provider: "zoom",
+      status: "active",
+      externalAccountId: "zoom-acc",
+      externalAccountName: null,
+      settings: { accountId: "zoom-acc" },
+      secrets: { webhookSecretToken: `${userId}-token` },
+      state: { legacyUpdatedAt },
+      tokenObtainedAt: null,
+      lastTokenRefreshAt: null,
+      tokenInvalidAt: null,
+      updatedAt: new Date(copiedAt),
+      ...over,
+    });
+
+    it("picks the most recently updated config, not the most recent copy", async () => {
+      process.env.CONNECTIONS_READ = "true";
+      const prisma: any = {
+        zoomConfig: { findMany: jest.fn().mockResolvedValue([]) },
+        zoomWorkflowSettings: {
+          findMany: jest.fn().mockResolvedValue([{ userId: "user-c", autoUpload: false }]),
+        },
+      };
+      const connections: any = {
+        findByExternalAccount: jest.fn().mockResolvedValue([
+          // Copied last by the backfill, but its config is the oldest
+          view("user-a", "2026-09-10T00:00:00Z", "2026-09-25T00:00:05Z"),
+          view("user-b", "2026-09-20T00:00:00Z", "2026-09-25T00:00:01Z"),
+          // Newest config, but auto-upload is off
+          view("user-c", "2026-09-22T00:00:00Z", "2026-09-25T00:00:02Z"),
+          view("user-d", "2026-09-23T00:00:00Z", "2026-09-25T00:00:03Z", { status: "disabled" }),
+        ]),
+      };
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ZoomService,
+          { provide: HttpService, useValue: {} },
+          { provide: YoutubeService, useValue: {} },
+          { provide: PrismaService, useValue: prisma },
+          { provide: ConnectionReader, useValue: new ConnectionReader(prisma, connections) },
+        ],
+      }).compile();
+      const zoom = module.get<ZoomService>(ZoomService);
+
+      const { owner, account } = await zoom.findWebhookOwner("zoom-acc");
+      expect(connections.findByExternalAccount).toHaveBeenCalledWith("zoom", "zoom-acc");
+      expect(owner?.userId).toBe("user-b");
+      expect(owner?.webhookSecretToken).toBe("user-b-token");
+      // The token account ignores auto-upload: user-c is the newest active one
+      expect(account?.userId).toBe("user-c");
     });
   });
 });

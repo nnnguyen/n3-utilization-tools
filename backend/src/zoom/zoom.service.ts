@@ -1,5 +1,6 @@
 import { RECORDING_ID_PREFIX } from "./youtube-match";
 import { resolveWebhookAccounts } from "./webhook-owner";
+import { ConnectionReader } from "../connections/connection-reader.service";
 import {
   DEFAULT_WORKFLOW_SETTINGS,
   renderUploadText,
@@ -43,12 +44,12 @@ export class ZoomService {
     private readonly httpService: HttpService,
     private readonly youtubeService: YoutubeService,
     private readonly prisma: PrismaService,
+    // Reads Zoom configs (Connection when CONNECTIONS_READ, P2-1d)
+    private readonly connectionReader: ConnectionReader,
   ) {}
 
   private async isZoomConfigured(userId: string): Promise<boolean> {
-    const config = await this.prisma.zoomConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.zoomConfig(userId);
 
     if (!config || !config.isActive) return false;
 
@@ -76,9 +77,7 @@ export class ZoomService {
     }
 
     this.logger.log(`Fetching new Zoom access token for user ${userId}`);
-    const config = await this.prisma.zoomConfig.findUnique({
-      where: { userId },
-    });
+    const config = await this.connectionReader.zoomConfig(userId);
 
     const accountId = config?.accountId || process.env.ZOOM_ACCOUNT_ID;
     const clientId = config?.clientId || process.env.ZOOM_CLIENT_ID;
@@ -285,20 +284,19 @@ export class ZoomService {
   // App accounts behind a Zoom account's webhooks (rule in webhook-owner.ts)
   async findWebhookOwner(accountId: string | undefined) {
     if (!accountId) return { owner: null, account: null };
-    const configs = await this.prisma.zoomConfig.findMany({
-      where: { accountId },
-      select: {
-        userId: true,
-        isActive: true,
-        updatedAt: true,
-        webhookSecretToken: true,
-        user: { select: { zoomWorkflowSettings: { select: { autoUpload: true } } } },
-      },
+    const configs = await this.connectionReader.zoomConfigsByAccount(accountId);
+    const settings = await this.prisma.zoomWorkflowSettings.findMany({
+      where: { userId: { in: configs.map((c) => c.userId) } },
+      select: { userId: true, autoUpload: true },
     });
+    const autoUpload = new Map(settings.map((s) => [s.userId, s.autoUpload]));
     return resolveWebhookAccounts(
-      configs.map(({ user, ...config }) => ({
-        ...config,
-        autoUpload: user.zoomWorkflowSettings?.autoUpload,
+      configs.map((config) => ({
+        userId: config.userId,
+        isActive: config.isActive,
+        updatedAt: config.updatedAt,
+        webhookSecretToken: config.webhookSecretToken,
+        autoUpload: autoUpload.get(config.userId),
       })),
     );
   }

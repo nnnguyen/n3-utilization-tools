@@ -102,15 +102,19 @@ export class LegacyMirrorService implements OnApplicationBootstrap {
       quota: 0,
     };
     const existing = await this.prisma.connection.findMany({
-      select: { userId: true, provider: true, updatedAt: true },
+      select: { userId: true, provider: true, state: true },
     });
-    const updatedAt = new Map(
-      existing.map((c) => [`${c.userId}:${c.provider}`, c.updatedAt]),
+    // The legacy updatedAt each Connection was copied from
+    const copiedFrom = new Map(
+      existing.map((c) => [
+        `${c.userId}:${c.provider}`,
+        (c.state as { legacyUpdatedAt?: string } | null)?.legacyUpdatedAt,
+      ]),
     );
-    // A Connection written after the legacy row is already a copy of it
+    // Up to date when copied from this legacy version or a newer one
     const isUpToDate = (userId: string, provider: string, legacyUpdatedAt: Date) => {
-      const copied = updatedAt.get(`${userId}:${provider}`);
-      return !!copied && copied >= legacyUpdatedAt;
+      const copied = copiedFrom.get(`${userId}:${provider}`);
+      return !!copied && new Date(copied) >= legacyUpdatedAt;
     };
 
     for (const config of await this.prisma.zoomConfig.findMany()) {
