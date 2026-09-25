@@ -157,6 +157,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | `JWT_SECRET` | yes | Signs the session token |
 | `JWT_EXPIRES_IN` | no | Session lifetime (default `7d`) |
 | `PORT` | no | HTTP port (default `3000`; use `3001` locally) |
+| `NODE_ENV` | no | `production` makes the session cookie `Secure` and cross-site, as needed in deployment; use `development` locally; `test` turns off the sync scheduler |
 | `FRONTEND_URL` | yes | Frontend origin(s) allowed by CORS and used in redirects (comma-separated) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | no | Google sign-in; leave empty to disable |
 | `YOUTUBE_CALLBACK_URL` (or `YOUTUBE_REDIRECT_URI`) | yes, to connect YouTube | OAuth redirect for connecting YouTube: the backend's `<backend URL>/api/auth/youtube/callback` (e.g. `http://localhost:3001/api/auth/youtube/callback`) |

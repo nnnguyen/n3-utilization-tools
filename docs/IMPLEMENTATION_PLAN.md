@@ -81,7 +81,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 
 Header đang luôn ghi "Tổng quan". Đổi thành tên trang hiện tại (Trang chủ, Nội dung kênh, Cá nhân hóa…). Nghiệm thu: đi qua từng trang, tiêu đề header khớp mục đang chọn trên menu.
 
-### P1-7. Dọn tài liệu và cấu hình mẫu · Độ khó S
+### P1-7 ✅. Dọn tài liệu và cấu hình mẫu · Độ khó S
 
 README của `backend/` và `frontend/` trỏ về README chính; `.env.example` có đủ các biến backend đang đọc. Nghiệm thu: người mới chỉ cần README chính để chạy được dự án.
 

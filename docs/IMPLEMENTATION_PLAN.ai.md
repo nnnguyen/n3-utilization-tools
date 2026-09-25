@@ -152,7 +152,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-7 — Documentation and `.env.example`
+### P1-7 ✅ — Documentation and `.env.example`
 
 **Changes**
 1. Replace `backend/README.md` and `frontend/README.md` (framework boilerplate) with a few lines pointing to the root `README.md` and listing that package's scripts.
