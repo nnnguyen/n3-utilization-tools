@@ -84,9 +84,9 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-3 — Route Zoom webhooks to the right account ⚠ Decision required
+### P1-3 — Route Zoom webhooks to the right account ✅ Decided
 
-**Question for the human**: when several app accounts configured the same Zoom account, who owns a new recording? **Default proposal**: accounts with that `ZoomConfig.accountId`, `isActive = true` and auto-upload enabled (P1-4; until then: all active ones); if more than one, the one with the most recent `ZoomConfig.updatedAt`.
+**Decision (2026-09-25)**: when several app accounts configured the same Zoom account, the new recording belongs to the accounts with that `ZoomConfig.accountId`, `isActive = true` and auto-upload enabled (P1-4; until then: all active ones); if more than one, the one with the most recent `ZoomConfig.updatedAt`.
 
 **Context**
 - `backend/src/zoom/zoom.controller.ts` → `handleWebhook`: verifies the signature only with `process.env.ZOOM_WEBHOOK_SECRET_TOKEN`; calls `zoomService.handleRecordingCompleted(payload.payload)`.
@@ -128,9 +128,9 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-5 — Topic rules and scheduled publishing (after P1-4) ⚠ Decision required
+### P1-5 — Topic rules and scheduled publishing (after P1-4) ✅ Decided
 
-**Question for the human**: the initial rules to seed (e.g. topic contains "SOH" → playlist X). **Default**: no seeded rules; the UI lets users add them.
+**Decision (2026-09-25)**: no seeded rules; users add their own in the UI.
 
 **Changes**
 1. Model `ZoomSyncRule { id, userId, position Int, matchText String, titleTemplate String?, descriptionTemplate String?, playlistId String?, tags String[], privacyStatus String?, publishDelayMinutes Int? }`.
@@ -162,9 +162,9 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-8 — Telegram notifications (after P1-9) ⚠ Decision required
+### P1-8 — Telegram notifications (after P1-9) ✅ Decided
 
-**Question for the human**: Telegram first, or Zalo OA first? **Default**: Telegram now; Zalo OA in P2-6.
+**Decision (2026-09-25)**: Telegram now; Zalo OA later in P2-6.
 
 **Changes**
 1. Env `TELEGRAM_BOT_TOKEN` (one bot for the app). Model `TelegramLink { userId @unique, chatId String, linkedAt }` and a short-lived link code.

@@ -60,7 +60,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 
 - **Vấn đề**: khi Zoom báo có recording mới, backend không biết recording đó thuộc tài khoản nào của app ("system"), nên không áp dụng được cài đặt riêng của ai, không gửi được thông báo, và chỉ dùng khoá YouTube chung trong biến môi trường. Khoá webhook nhập ở trang Tích hợp cũng không được dùng.
 - **Cách làm**: Zoom gửi kèm **Account ID** của tài khoản Zoom. Backend tìm các tài khoản app đã cấu hình Zoom với Account ID đó, kiểm tra chữ ký bằng khoá webhook của chính tài khoản ấy (vẫn chấp nhận khoá chung trong biến môi trường để không gián đoạn).
-- **Cần anh/chị quyết định**: nếu **nhiều tài khoản app dùng chung một tài khoản Zoom** (đang xảy ra), recording mới sẽ thuộc về ai? Đề xuất: người đã bật "Tự động upload" và cập nhật cấu hình gần nhất; về lâu dài giải quyết triệt để bằng Workspace (P2-2).
+- **Đã chốt (25/09/2026)**: nếu **nhiều tài khoản app dùng chung một tài khoản Zoom**, recording mới thuộc về tài khoản đang hoạt động, đã bật "Tự động upload" (trước khi có P1-4: mọi tài khoản đang hoạt động) và cập nhật cấu hình Zoom gần nhất. Về lâu dài sẽ giải quyết triệt để bằng Workspace (P2-2).
 - **Nghiệm thu**: recording mới từ webhook xuất hiện trong lịch sử sync của đúng tài khoản, có thông báo "Video đã sẵn sàng" trên chuông của tài khoản đó.
 
 ### P1-4. Lưu thật "Automation Workflow Manager" · Độ khó M
@@ -73,6 +73,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 ### P1-5. Quy tắc theo tên cuộc họp và lên lịch công khai · Độ khó M · Sau P1-4
 
 - **Quy tắc**: ví dụ *tên cuộc họp chứa "SOH" → playlist "SOH", tiêu đề theo mẫu riêng, thêm tag*. Quy tắc đầu tiên khớp được áp dụng; không khớp thì dùng cài đặt chung của P1-4.
+- **Đã chốt (25/09/2026)**: không tạo sẵn quy tắc nào; người dùng tự thêm trên giao diện.
 - **Lên lịch công khai**: upload ở chế độ riêng tư, YouTube tự công khai vào giờ chọn (ví dụ "20:00 cùng ngày" hoặc "sau 24 giờ").
 - **Nghiệm thu**: recording có tên khớp quy tắc được đưa vào đúng playlist; video có lịch công khai hiện giờ công khai trên YouTube Studio.
 
@@ -87,7 +88,7 @@ README của `backend/` và `frontend/` trỏ về README chính; `.env.example`
 ### P1-8. Thông báo qua Telegram · Độ khó S–M · Sau P1-9
 
 - Người dùng tạo bot/nhóm Telegram, nhập mã kết nối ở trang Tích hợp; app gửi tin khi video sẵn sàng hoặc sync lỗi (tuỳ chọn như email).
-- **Cần anh/chị quyết định**: Telegram trước (nhanh, miễn phí, không cần xét duyệt) hay **Zalo OA** trước (phổ biến hơn ở Việt Nam nhưng cần Official Account đã xác thực và quy trình xin quyền)? Đề xuất: Telegram trong giai đoạn 1, Zalo OA ở giai đoạn 2 trên khung kết nối chung.
+- **Đã chốt (25/09/2026)**: làm Telegram trong giai đoạn 1 (nhanh, miễn phí, không cần xét duyệt); Zalo OA để sang giai đoạn 2 (P2-6) trên khung kết nối chung.
 
 ### P1-9. Dịch thông báo từ backend · Độ khó M
 
@@ -120,9 +121,9 @@ Trình tạo quy trình tự động "Khi … thì …", Facebook Page, Podcast 
 
 ## 6. Các quyết định cần anh/chị chốt
 
-1. **P1-3**: recording mới thuộc về ai khi nhiều tài khoản dùng chung một Zoom?
-2. **P1-8**: Telegram hay Zalo OA trước?
-3. **P1-5**: các quy tắc cụ thể ban đầu (ví dụ nhóm "SOH", "GOH" → playlist nào)?
+1. ~~**P1-3**: recording mới thuộc về ai khi nhiều tài khoản dùng chung một Zoom?~~ Đã chốt: tài khoản đang hoạt động, bật tự upload, cập nhật cấu hình gần nhất.
+2. ~~**P1-8**: Telegram hay Zalo OA trước?~~ Đã chốt: Telegram trước, Zalo OA ở P2-6.
+3. ~~**P1-5**: các quy tắc cụ thể ban đầu (ví dụ nhóm "SOH", "GOH" → playlist nào)?~~ Đã chốt: không tạo sẵn.
 4. **P2-5**: phụ đề tự động bật mặc định hay để người dùng bật?
 5. **Giai đoạn 2**: có cần Workspace ngay, hay tiếp tục mô hình mỗi người một kết nối?
 
