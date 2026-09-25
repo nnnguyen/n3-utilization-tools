@@ -85,7 +85,9 @@ Header đang luôn ghi "Tổng quan". Đổi thành tên trang hiện tại (Tra
 
 README của `backend/` và `frontend/` trỏ về README chính; `.env.example` có đủ các biến backend đang đọc. Nghiệm thu: người mới chỉ cần README chính để chạy được dự án.
 
-### P1-8. Thông báo qua Telegram · Độ khó S–M · Sau P1-9
+### P1-8 ⏸. Thông báo qua Telegram · Độ khó S–M · Sau P1-9 · **Tạm dừng**
+
+- **Tạm dừng (25/09/2026)**: anh/chị đã quyết định ngưng task này; chỉ làm lại khi anh/chị yêu cầu.
 
 - Người dùng tạo bot/nhóm Telegram, nhập mã kết nối ở trang Tích hợp; app gửi tin khi video sẵn sàng hoặc sync lỗi (tuỳ chọn như email).
 - **Đã chốt (25/09/2026)**: làm Telegram trong giai đoạn 1 (nhanh, miễn phí, không cần xét duyệt); Zalo OA để sang giai đoạn 2 (P2-6) trên khung kết nối chung.

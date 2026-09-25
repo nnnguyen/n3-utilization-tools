@@ -162,7 +162,9 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-8 — Telegram notifications (after P1-9) ✅ Decided
+### P1-8 ⏸ — Telegram notifications (after P1-9, decided) — PAUSED
+
+**Paused (2026-09-25)**: the human stopped this task. Do not implement it unless the human explicitly resumes it.
 
 **Decision (2026-09-25)**: Telegram now; Zalo OA later in P2-6.
 
