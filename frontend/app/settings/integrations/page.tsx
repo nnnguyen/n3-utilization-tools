@@ -5,7 +5,7 @@ import { Card, Row, Col, Typography, Form, Input, Button, Space, Switch, Divider
 import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, CalendarOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../../components/DashboardLayout';
-import { apiFetch } from '@/lib/api';
+import { API_URL, apiFetch } from '@/lib/api';
 import { AUTH_RETURN_TO_KEY } from '../../../components/YoutubeTokenBanner';
 import { YoutubeLogo, ZoomLogo } from '../../../components/BrandLogos';
 import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
@@ -212,7 +212,8 @@ function IntegrationsContent() {
 
       <Text type="secondary">
         <strong>{t('integ.webhookEndpoint')}</strong><br/>
-        <code>https://api.n3-utils.com/api/zoom/webhook</code>
+        {/* The backend this frontend talks to: what Zoom must call */}
+        <Text code copyable>{`${API_URL}/zoom/webhook`}</Text>
       </Text>
     </>
   );
