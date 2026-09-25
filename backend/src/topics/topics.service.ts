@@ -12,6 +12,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { WordCloudGateway } from "../realtime/word-cloud.gateway";
 import { CreateTopicDto } from "./dto/create-topic.dto";
 import { UpdateTopicDto } from "./dto/update-topic.dto";
+import { codedError } from "../common/coded-error";
 
 const CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const CODE_LENGTH = 6;
@@ -35,7 +36,9 @@ export class TopicsService {
         return code;
       }
     }
-    throw new InternalServerErrorException(
+    throw codedError(
+      InternalServerErrorException,
+      "TOPIC_CODE_GENERATION_FAILED",
       "Không thể sinh mã topic, thử lại sau.",
     );
   }
@@ -62,10 +65,14 @@ export class TopicsService {
   async findOneForUser(id: string, ownerId: string): Promise<Topic> {
     const topic = await this.prisma.topic.findUnique({ where: { id } });
     if (!topic) {
-      throw new NotFoundException("Không tìm thấy topic.");
+      throw codedError(NotFoundException, "TOPIC_NOT_FOUND", "Không tìm thấy topic.");
     }
     if (topic.ownerId !== ownerId) {
-      throw new ForbiddenException("Bạn không có quyền truy cập topic này.");
+      throw codedError(
+        ForbiddenException,
+        "TOPIC_FORBIDDEN",
+        "Bạn không có quyền truy cập topic này.",
+      );
     }
     return topic;
   }
@@ -102,7 +109,11 @@ export class TopicsService {
       where: { id: questionId },
     });
     if (!question || question.topicId !== topicId) {
-      throw new BadRequestException("Câu hỏi không thuộc topic này.");
+      throw codedError(
+        BadRequestException,
+        "QUESTION_NOT_IN_TOPIC",
+        "Câu hỏi không thuộc topic này.",
+      );
     }
 
     const previousQuestionId = existingTopic.currentQuestionId;

@@ -58,6 +58,7 @@ export class YoutubeStatsService {
           attemptCount: true,
           syncStatus: true,
           syncError: true,
+          errorCode: true,
           syncStartedAt: true,
         },
       }),

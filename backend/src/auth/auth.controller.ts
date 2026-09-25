@@ -32,6 +32,7 @@ import {
   ResetPasswordDto,
 } from "./dto/auth-email.dto";
 import { UpdatePreferencesDto } from "./dto/preferences.dto";
+import { codedError } from "../common/coded-error";
 
 @Controller("auth")
 export class AuthController {
@@ -122,7 +123,11 @@ export class AuthController {
   exchange(@Body("code") code: string) {
     const login = typeof code === "string" ? this.authCodeStore.consume(code) : null;
     if (!login) {
-      throw new UnauthorizedException("Mã đăng nhập không hợp lệ hoặc đã hết hạn");
+      throw codedError(
+        UnauthorizedException,
+        "AUTH_INVALID_LOGIN_CODE",
+        "Mã đăng nhập không hợp lệ hoặc đã hết hạn",
+      );
     }
     return { ...login.user, accessToken: login.token };
   }

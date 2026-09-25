@@ -11,7 +11,7 @@ import YoutubeConnectionBadge, { type YoutubeStatus } from '../../../components/
 import { YoutubePageTitle } from '../../../components/BrandLogos';
 import MonthlyBarChart, { type MonthlyPoint } from '../../../components/MonthlyBarChart';
 import { apiFetch } from '@/lib/api';
-import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
+import { useFormat, useSyncErrorText, useT, useTNode, type MessageKey } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -38,6 +38,7 @@ const sum = (videos: ChannelVideo[], field: 'viewCount' | 'likeCount' | 'comment
 
 export default function YoutubeAnalyticsPage() {
   const t = useT();
+  const syncErrorText = useSyncErrorText();
   const tNode = useTNode();
   const fmt = useFormat();
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
@@ -56,7 +57,7 @@ export default function YoutubeAnalyticsPage() {
     setVideos(data.videos || []);
     setLastFetchedAt(data.lastFetchedAt);
     setStale(!!data.stale);
-    setError(data.refreshError ? t('analytics.refreshError', { error: data.refreshError }) : null);
+    setError(data.refreshError ? t('analytics.refreshError', { error: syncErrorText(data.refreshErrorCode, data.refreshError) }) : null);
   };
 
   // Reads the Videos-tab cache only; never calls YouTube (no quota)

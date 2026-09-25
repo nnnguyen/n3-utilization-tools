@@ -6,7 +6,7 @@ import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, 
 import EditVideoModal from './EditVideoModal';
 import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
-import { useFormat, useT } from '@/lib/i18n';
+import { useFormat, useSyncErrorText, useT } from '@/lib/i18n';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -30,6 +30,7 @@ export default function ZoomRecordingsPanel({
   onPlaylistsLoaded?: (playlists: any[]) => void;
 } = {}) {
   const t = useT();
+  const syncErrorText = useSyncErrorText();
   const fmt = useFormat();
   const [recordings, setRecordings] = useState([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -456,7 +457,7 @@ export default function ZoomRecordingsPanel({
           case 'FAILED':
             return (
               <Space orientation="vertical" size={0}>
-                <Tooltip title={log.syncError || t('zoomRec.unknownError')}>
+                <Tooltip title={log.syncError ? syncErrorText(log.errorCode, log.syncError) : t('zoomRec.unknownError')}>
                   <Tag color="error" style={{ cursor: 'pointer' }}>{t('sync.status.failed')}</Tag>
                 </Tooltip>
                 {log.nextRetryAt && (

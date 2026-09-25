@@ -41,7 +41,7 @@ export class IpRateLimitGuard implements CanActivate {
     entry.count += 1;
     if (entry.count > MAX_REQUESTS_PER_WINDOW) {
       throw new HttpException(
-        "Quá nhiều yêu cầu, vui lòng thử lại sau.",
+        { code: "RATE_LIMITED", message: "Quá nhiều yêu cầu, vui lòng thử lại sau." },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

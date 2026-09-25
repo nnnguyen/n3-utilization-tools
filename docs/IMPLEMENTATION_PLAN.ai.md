@@ -175,7 +175,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-9 — Localize backend-generated notifications and errors
+### P1-9 ✅ — Localize backend-generated notifications and errors
 
 **Context**: `Notification.title`/`message` are stored as finished Vietnamese sentences (see `notifySyncCompleted` and the failure path in `backend/src/youtube/youtube.service.ts`, the scheduler, and `NotificationsService.sendEmailCopy`).
 

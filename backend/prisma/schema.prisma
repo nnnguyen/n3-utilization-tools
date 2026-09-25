@@ -246,6 +246,9 @@ model Notification {
   type        String // 'sync_completed' | 'sync_failed'
   title       String
   message     String
+  // Values to render title/message in the reader's language (null on rows
+  // created before; title/message stay as the Vietnamese fallback)
+  data        Json?
   link        String?
   recordingId String?
   read        Boolean  @default(false)

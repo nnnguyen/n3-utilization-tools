@@ -11,6 +11,7 @@ import { User } from "@prisma/client";
 import { GoogleProfile } from "./strategies/google.strategy";
 import { MailService } from "../mail/mail.service";
 import { RegisterDto, LoginDto, ResetPasswordDto } from "./dto/auth-email.dto";
+import { codedError } from "../common/coded-error";
 
 @Injectable()
 export class AuthService {
@@ -70,7 +71,7 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (existingUser) {
-      throw new ConflictException("Email đã tồn tại");
+      throw codedError(ConflictException, "AUTH_EMAIL_EXISTS", "Email đã tồn tại");
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -97,16 +98,26 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (!user || !user.password) {
-      throw new UnauthorizedException("Thông tin đăng nhập không chính xác");
+      throw codedError(
+        UnauthorizedException,
+        "AUTH_INVALID_CREDENTIALS",
+        "Thông tin đăng nhập không chính xác",
+      );
     }
 
     const isMatch = await bcrypt.compare(dto.password, user.password);
     if (!isMatch) {
-      throw new UnauthorizedException("Thông tin đăng nhập không chính xác");
+      throw codedError(
+        UnauthorizedException,
+        "AUTH_INVALID_CREDENTIALS",
+        "Thông tin đăng nhập không chính xác",
+      );
     }
 
     if (!user.isEmailVerified) {
-      throw new UnauthorizedException(
+      throw codedError(
+        UnauthorizedException,
+        "AUTH_EMAIL_NOT_VERIFIED",
         "Vui lòng xác thực email trước khi đăng nhập",
       );
     }
@@ -119,7 +130,11 @@ export class AuthService {
       where: { verificationToken: token },
     });
     if (!user) {
-      throw new UnauthorizedException("Token xác thực không hợp lệ");
+      throw codedError(
+        UnauthorizedException,
+        "AUTH_INVALID_VERIFICATION_TOKEN",
+        "Token xác thực không hợp lệ",
+      );
     }
 
     await this.prisma.user.update({
@@ -168,7 +183,11 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException("Token không hợp lệ hoặc đã hết hạn");
+      throw codedError(
+        UnauthorizedException,
+        "AUTH_INVALID_RESET_TOKEN",
+        "Token không hợp lệ hoặc đã hết hạn",
+      );
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);

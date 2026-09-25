@@ -6,7 +6,7 @@ import { BellOutlined, CheckCircleTwoTone, CloseCircleTwoTone } from '@ant-desig
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useSyncErrorText, useT } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -18,6 +18,14 @@ interface AppNotification {
   title: string;
   message: string;
   link?: string | null;
+  // Present on notifications created since P1-9: rendered in the chosen
+  // language; older rows only have the stored (Vietnamese) title/message
+  data?: {
+    meeting?: string;
+    errorCode?: string | null;
+    error?: string;
+    autoRetryCount?: number;
+  } | null;
   read: boolean;
   createdAt: string;
 }
@@ -30,7 +38,34 @@ interface EmailPreferences {
 
 export default function NotificationBell() {
   const t = useT();
+  const syncErrorText = useSyncErrorText();
   const router = useRouter();
+
+  const textOf = (n: AppNotification): { title: string; message: string } => {
+    const data = n.data;
+    if (!data?.meeting) return { title: n.title, message: n.message };
+    if (n.type === 'sync_completed') {
+      return {
+        title: t('notif.type.sync_completed.title'),
+        message: t('notif.type.sync_completed.message', { meeting: data.meeting }),
+      };
+    }
+    if (n.type === 'sync_failed') {
+      const retries = data.autoRetryCount ?? 0;
+      return {
+        title: t('notif.type.sync_failed.title'),
+        message: t('notif.type.sync_failed.message', {
+          meeting: data.meeting,
+          reason: syncErrorText(data.errorCode, data.error ?? ''),
+          retried: retries > 0 ? t('notif.retried', { count: retries }) : '',
+        }),
+      };
+    }
+    return { title: n.title, message: n.message };
+  };
+  // The poll callback is created once; it reads the current renderer from here
+  const textOfRef = useRef(textOf);
+  textOfRef.current = textOf;
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -48,7 +83,8 @@ export default function NotificationBell() {
           .filter(n => !n.read && !seenIds.current!.has(n.id))
           .forEach(n => {
             const show = n.type === 'sync_completed' ? notification.success : notification.error;
-            show({ title: n.title, description: n.message, placement: 'topRight' });
+            const { title, message: description } = textOfRef.current(n);
+            show({ title, description, placement: 'topRight' });
           });
       }
       seenIds.current = new Set(list.map(n => n.id));
@@ -135,10 +171,10 @@ export default function NotificationBell() {
                   avatar={n.type === 'sync_completed'
                     ? <CheckCircleTwoTone twoToneColor="#52c41a" />
                     : <CloseCircleTwoTone twoToneColor="#ff4d4f" />}
-                  title={n.title}
+                  title={textOf(n).title}
                   description={
                     <>
-                      <div>{n.message}</div>
+                      <div>{textOf(n).message}</div>
                       <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(n.createdAt).format('YYYY-MM-DD HH:mm')}</Text>
                     </>
                   }

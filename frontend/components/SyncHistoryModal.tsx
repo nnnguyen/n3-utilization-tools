@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Button, List, Space, Spin, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useSyncErrorText, useT } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -22,6 +22,7 @@ interface SyncHistoryModalProps {
 // by the "Xem sync log" action in Channel Content → Videos.
 export default function SyncHistoryModal({ open, recordingId, topic, playlists = [], onClose }: SyncHistoryModalProps) {
   const t = useT();
+  const syncErrorText = useSyncErrorText();
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -74,7 +75,7 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {log.syncStatus === 'FAILED' && (
                     <>
-                      <Text type="danger" strong>{log.syncError}</Text>
+                      <Text type="danger" strong>{syncErrorText(log.errorCode, log.syncError)}</Text>
                       {log.errorSource === 'youtube_processing' && (
                         <Text type="secondary" italic>{t('syncHistory.afterUpload')}</Text>
                       )}

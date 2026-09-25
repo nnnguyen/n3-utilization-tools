@@ -2,29 +2,31 @@
 
 import React, { Fragment, useCallback, useMemo } from 'react';
 import { usePreferences, type Language } from '../preferences';
-import { vi, type MessageKey } from './vi';
-import { en } from './en';
+import {
+  dictionaries,
+  syncErrorText,
+  translate,
+  type MessageKey,
+  type TranslateParams,
+} from './translate';
 
-export type { MessageKey };
+export {
+  apiErrorText,
+  currentLanguage,
+  hasMessage,
+  syncErrorText,
+  translate,
+  translateNow,
+  type MessageKey,
+  type TranslateParams,
+} from './translate';
 
-// Flat keys ("zoom.recordings.title") so the type checker can list them all;
-// en.ts must define every key vi.ts has, or the build fails.
-const dictionaries: Record<Language, Record<MessageKey, string>> = { vi, en };
-
-export type TranslateParams = Record<string, string | number>;
-
-export function translate(language: Language, key: MessageKey, params?: TranslateParams): string {
-  const template = dictionaries[language][key] ?? dictionaries.vi[key] ?? key;
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match));
-}
-
-// For code outside React components (plain helpers, callbacks built at module
-// level): the current language as last applied to <html lang> by the
-// preferences provider
-export function translateNow(key: MessageKey, params?: TranslateParams): string {
-  const lang = typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'vi';
-  return translate(lang, key, params);
+export function useSyncErrorText() {
+  const { language } = usePreferences();
+  return useCallback(
+    (code: string | null | undefined, fallback: string) => syncErrorText(language, code, fallback),
+    [language],
+  );
 }
 
 export function useT() {

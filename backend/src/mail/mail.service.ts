@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { emailText, Language } from "../notifications/notification-text";
 import * as nodemailer from "nodemailer";
 
 // Notification text includes user-controlled values (e.g. Zoom meeting topics)
@@ -58,7 +59,9 @@ export class MailService {
       message: string;
       link?: string | null;
     },
+    language: Language = "vi",
   ) {
+    const text = emailText(language);
     const isFailure = notification.type === "sync_failed";
     const accent = isFailure ? "#d73224" : "#1677ff";
     // Relative links point into the app; absolute ones (YouTube) stay as they are
@@ -74,19 +77,19 @@ export class MailService {
         <div style="border-left: 4px solid ${accent}; padding: 4px 16px; margin-bottom: 16px;">
           <h2 style="margin: 0; color: ${accent};">${escapeHtml(notification.title)}</h2>
         </div>
-        <p>Xin chào ${escapeHtml(name || "bạn")},</p>
+        <p>${escapeHtml(text.greeting(name))}</p>
         <p>${escapeHtml(notification.message)}</p>
         ${
           url
             ? `<div style="text-align: center; margin: 24px 0;">
                 <a href="${escapeHtml(url)}" style="background-color: ${accent}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                  ${isFailure ? "Xem chi tiết" : "Xem video"}
+                  ${isFailure ? text.viewDetails : text.viewVideo}
                 </a>
               </div>`
             : ""
         }
         <div style="border-top: 1px solid #eee; padding-top: 16px; font-size: 12px; color: #888;">
-          Đây là email tự động từ N3 Connect. Bạn có thể tắt email thông báo trong mục Notifications (biểu tượng chuông) tại
+          ${escapeHtml(text.footer)}
           <a href="${escapeHtml(settingsUrl)}" style="color: #888;">${escapeHtml(settingsUrl)}</a>.
         </div>
       </div>

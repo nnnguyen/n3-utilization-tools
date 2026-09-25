@@ -1,12 +1,18 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
+import {
+  NotificationData,
+  NotificationType,
+  renderNotification,
+  toLanguage,
+} from "./notification-text";
 
 export interface CreateNotificationInput {
   userId: string;
-  type: "sync_completed" | "sync_failed";
-  title: string;
-  message: string;
+  type: NotificationType;
+  // Rendered per reader: bell (frontend i18n) and email (User.language)
+  data: NotificationData;
   link?: string | null;
   recordingId?: string | null;
 }
@@ -25,7 +31,12 @@ export class NotificationsService {
     if (!input.userId || input.userId === "system") return null;
     try {
       const notification = await this.prisma.notification.create({
-        data: input,
+        data: {
+          ...input,
+          data: input.data as object,
+          // Vietnamese fallback for clients that do not render `data`
+          ...renderNotification(input.type, input.data, "vi"),
+        },
       });
       // Not awaited: SMTP can be slow and must not hold up the sync flow
       void this.sendEmailCopy(input);
@@ -47,6 +58,7 @@ export class NotificationsService {
           name: true,
           notifyEmailOnCompleted: true,
           notifyEmailOnFailed: true,
+          language: true,
         },
       });
       if (!user?.email) return;
@@ -56,7 +68,17 @@ export class NotificationsService {
           : user.notifyEmailOnFailed;
       if (!wanted) return;
 
-      await this.mailService.sendNotificationEmail(user.email, user.name, input);
+      const language = toLanguage(user.language);
+      await this.mailService.sendNotificationEmail(
+        user.email,
+        user.name,
+        {
+          type: input.type,
+          link: input.link,
+          ...renderNotification(input.type, input.data, language),
+        },
+        language,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to send notification email to user ${input.userId}: ${error.message}`,

@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import EditVideoModal from './EditVideoModal';
 import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
-import { useFormat, useT, type MessageKey } from '@/lib/i18n';
+import { useFormat, useSyncErrorText, useT, type MessageKey } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -48,6 +48,7 @@ const formatCount = (n: number | null, hiddenLabel: string, formatNumber: (n: nu
 // Channel Content → Videos: every video on the channel, served from the backend cache
 export default function YoutubeVideosPanel({ connected, checking }: { connected: boolean; checking: boolean }) {
   const t = useT();
+  const syncErrorText = useSyncErrorText();
   const fmt = useFormat();
   const [videos, setVideos] = useState<ChannelVideo[]>([]);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export default function YoutubeVideosPanel({ connected, checking }: { connected:
     setVideos(data.videos || []);
     setLastFetchedAt(data.lastFetchedAt);
     // The backend still returns the previous cache when a refresh fails
-    setError(data.refreshError ? t('videos.staleError', { error: data.refreshError }) : null);
+    setError(data.refreshError ? t('videos.staleError', { error: syncErrorText(data.refreshErrorCode, data.refreshError) }) : null);
   };
 
   const load = async () => {

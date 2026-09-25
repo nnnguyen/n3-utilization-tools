@@ -16,6 +16,7 @@ import { CreateQuestionDto } from "./dto/create-question.dto";
 import { UpdateQuestionDto } from "./dto/update-question.dto";
 import { ApplySettingsToOthersDto } from "./dto/apply-settings-to-others.dto";
 import { ApplySettingsGroup } from "./dto/apply-settings-to-all.dto";
+import { codedError } from "../common/coded-error";
 
 const APPLY_SETTINGS_FIELDS: (keyof Question)[] = [
   "responseLimit",
@@ -64,7 +65,11 @@ export class QuestionsService {
   ): Promise<Question> {
     const question = await this.prisma.question.findUnique({ where: { id } });
     if (!question) {
-      throw new NotFoundException("Không tìm thấy câu hỏi.");
+      throw codedError(
+        NotFoundException,
+        "QUESTION_NOT_FOUND",
+        "Không tìm thấy câu hỏi.",
+      );
     }
     // Ownership is checked through the parent topic — a Question has no owner of its own.
     await this.topicsService.findOneForUser(question.topicId, ownerId);
@@ -168,7 +173,11 @@ export class QuestionsService {
       orderedIds.length === existingIds.size &&
       orderedIds.every((id) => existingIds.has(id));
     if (!isSameSet) {
-      throw new BadRequestException("Danh sách câu hỏi không khớp với topic.");
+      throw codedError(
+        BadRequestException,
+        "QUESTION_ORDER_MISMATCH",
+        "Danh sách câu hỏi không khớp với topic.",
+      );
     }
 
     // Two-phase update: negative temp orders first, avoids violating the
@@ -273,7 +282,9 @@ export class QuestionsService {
   async revealResults(id: string, ownerId: string): Promise<Question> {
     const question = await this.requireOwnedQuestion(id, ownerId);
     if (question.resultVisibility !== "ON_CLICK") {
-      throw new ConflictException(
+      throw codedError(
+        ConflictException,
+        "RESULT_VISIBILITY_NOT_ON_CLICK",
         "Chỉ áp dụng khi resultVisibility = ON_CLICK.",
       );
     }

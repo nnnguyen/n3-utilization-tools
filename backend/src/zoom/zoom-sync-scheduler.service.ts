@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import {
   YoutubeService,
   MAX_AUTO_RETRIES,
@@ -90,8 +91,9 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
           log.userId,
           log.recordingId,
           log.meeting,
-          "Không thể tự động thử lại vì đã hết quota API hôm nay, vui lòng Re-sync thủ công vào ngày mai",
+          SYNC_ERROR_TEXT.retryQuotaExhausted.vi,
           log.autoRetryCount,
+          "retryQuotaExhausted",
         );
         continue;
       }

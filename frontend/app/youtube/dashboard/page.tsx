@@ -12,7 +12,7 @@ import { YoutubePageTitle } from '../../../components/BrandLogos';
 import Link from 'next/link';
 import MonthlyBarChart from '../../../components/MonthlyBarChart';
 import { apiFetch } from '@/lib/api';
-import { useFormat, useT, type MessageKey } from '@/lib/i18n';
+import { useFormat, useSyncErrorText, useT, type MessageKey } from '@/lib/i18n';
 
 const { Text } = Typography;
 
@@ -56,6 +56,7 @@ interface YoutubeStats {
     attemptCount: number;
     syncStatus: string;
     syncError: string | null;
+    errorCode: string | null;
     syncStartedAt: string | null;
   }[];
 }
@@ -89,6 +90,7 @@ const STATUS_TAG: Record<string, { color: string; label: MessageKey }> = {
 
 export default function YoutubeDashboardPage() {
   const t = useT();
+  const syncErrorText = useSyncErrorText();
   const fmt = useFormat();
   const [status, setStatus] = useState<YoutubeStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
@@ -199,7 +201,11 @@ export default function YoutubeDashboardPage() {
       dataIndex: 'syncError',
       key: 'syncError',
       ellipsis: true,
-      render: (e: string | null) => e ? <Tooltip title={e}><Text type="secondary">{e}</Text></Tooltip> : <Text type="secondary">-</Text>,
+      render: (e: string | null, row: { errorCode: string | null }) => {
+        if (!e) return <Text type="secondary">-</Text>;
+        const text = syncErrorText(row.errorCode, e);
+        return <Tooltip title={text}><Text type="secondary">{text}</Text></Tooltip>;
+      },
     },
   ];
 

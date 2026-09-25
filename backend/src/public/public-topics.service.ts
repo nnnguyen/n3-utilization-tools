@@ -10,6 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { normalizeWord, sanitizeDisplayText } from "../common/normalize-word";
 import { WordCloudGateway } from "../realtime/word-cloud.gateway";
 import { CreateResponseDto } from "./dto/create-response.dto";
+import { codedError } from "../common/coded-error";
 
 export interface PublicQuestionConfig {
   responseLimit: number | null;
@@ -50,7 +51,7 @@ export class PublicTopicsService {
   ): Promise<PublicTopicInfo> {
     const topic = await this.prisma.topic.findUnique({ where: { code } });
     if (!topic) {
-      throw new NotFoundException("Không tìm thấy topic.");
+      throw codedError(NotFoundException, "TOPIC_NOT_FOUND", "Không tìm thấy topic.");
     }
 
     if (!topic.currentQuestionId) {
@@ -104,10 +105,16 @@ export class PublicTopicsService {
       where: { id: questionId },
     });
     if (!question) {
-      throw new NotFoundException("Không tìm thấy câu hỏi.");
+      throw codedError(
+        NotFoundException,
+        "QUESTION_NOT_FOUND",
+        "Không tìm thấy câu hỏi.",
+      );
     }
     if (question.status !== "ACTIVE") {
-      throw new ConflictException(
+      throw codedError(
+        ConflictException,
+        "QUESTION_NOT_ACTIVE",
         "Câu hỏi hiện không được kích hoạt để nhận câu trả lời.",
       );
     }
@@ -120,14 +127,14 @@ export class PublicTopicsService {
       existingCount >= question.responseLimit
     ) {
       throw new HttpException(
-        "Bạn đã gửi đủ số từ cho phép.",
+        { code: "WORD_LIMIT_REACHED", message: "Bạn đã gửi đủ số từ cho phép." },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
     const normalizedText = normalizeWord(dto.text, question.maxWordLength);
     if (!normalizedText) {
-      throw new BadRequestException("Từ không hợp lệ.");
+      throw codedError(BadRequestException, "WORD_INVALID", "Từ không hợp lệ.");
     }
     const displayText = sanitizeDisplayText(dto.text, question.maxWordLength);
 
@@ -140,7 +147,11 @@ export class PublicTopicsService {
         },
       });
       if (duplicate) {
-        throw new ConflictException("Bạn đã gửi từ này rồi.");
+        throw codedError(
+          ConflictException,
+          "WORD_DUPLICATE",
+          "Bạn đã gửi từ này rồi.",
+        );
       }
     }
 

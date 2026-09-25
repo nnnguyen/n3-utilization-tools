@@ -90,7 +90,7 @@ README của `backend/` và `frontend/` trỏ về README chính; `.env.example`
 - Người dùng tạo bot/nhóm Telegram, nhập mã kết nối ở trang Tích hợp; app gửi tin khi video sẵn sàng hoặc sync lỗi (tuỳ chọn như email).
 - **Đã chốt (25/09/2026)**: làm Telegram trong giai đoạn 1 (nhanh, miễn phí, không cần xét duyệt); Zalo OA để sang giai đoạn 2 (P2-6) trên khung kết nối chung.
 
-### P1-9. Dịch thông báo từ backend · Độ khó M
+### P1-9 ✅. Dịch thông báo từ backend · Độ khó M
 
 - **Vấn đề**: nội dung chuông thông báo, email và thông báo lỗi do backend tạo sẵn bằng tiếng Việt.
 - **Cách làm**: backend lưu *loại* thông báo và dữ liệu (tên cuộc họp, link…), giao diện tự dịch theo ngôn ngữ người dùng; email dùng ngôn ngữ đã lưu trong tài khoản. Thông báo cũ vẫn hiển thị như hiện tại.

@@ -22,7 +22,7 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
-      const res = await apiFetch('/auth/register', {
+      await apiFetch('/auth/register', {
         method: 'POST',
         body: JSON.stringify({
           email: values.email,
@@ -30,7 +30,7 @@ export default function RegisterModal({ open, onCancel, onSuccess }: RegisterMod
         }),
       });
 
-      message.success(res.message || t('auth.registerSuccess'));
+      message.success(t('auth.registerSuccess'));
       form.resetFields();
       onSuccess();
     } catch (error: any) {

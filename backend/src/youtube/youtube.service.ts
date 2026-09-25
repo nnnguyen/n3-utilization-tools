@@ -6,12 +6,15 @@ import {
   UnauthorizedException,
   NotFoundException,
   ForbiddenException,
+  HttpException,
 } from "@nestjs/common";
 import { google } from "googleapis";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import * as fs from "fs";
 import { Readable } from "stream";
+import { codedError } from "../common/coded-error";
 
 // Delays before automatic retry 1, 2 and 3 of a sync that failed transiently
 export const AUTO_RETRY_DELAYS_MS = [1 * 60_000, 5 * 60_000, 15 * 60_000];
@@ -143,6 +146,7 @@ export class YoutubeService {
         log.meeting,
         log.syncError || error.message || "Unknown error",
         log.autoRetryCount,
+        log.errorCode,
       );
     } catch (e) {
       this.logger.error(
@@ -158,14 +162,13 @@ export class YoutubeService {
     meeting: string,
     reason: string,
     autoRetryCount = 0,
+    // Known codes (notification-text.ts) are shown in the reader's language
+    errorCode: string | null = null,
   ) {
-    const retried =
-      autoRetryCount > 0 ? ` (đã tự động thử lại ${autoRetryCount} lần)` : "";
     await this.notificationsService.create({
       userId,
       type: "sync_failed",
-      title: "Sync thất bại",
-      message: `Sync "${meeting}" thất bại: ${reason}${retried}`,
+      data: { meeting, errorCode, error: reason, autoRetryCount },
       link: "/youtube/channel-content?tab=zoom-sync",
       recordingId,
     });
@@ -475,7 +478,9 @@ export class YoutubeService {
   ) {
     const quota = await this.getQuotaStatus(userId);
     if (quota.unitsRemaining < this.UPLOAD_COST) {
-      throw new BadRequestException(
+      throw codedError(
+        BadRequestException,
+        "QUOTA_EXHAUSTED",
         "Đã hết quota API hôm nay, vui lòng thử lại vào ngày mai",
       );
     }
@@ -682,7 +687,7 @@ export class YoutubeService {
       (code === 403 && message.includes("uploadLimitExceeded"))
     ) {
       return {
-        errorMessage: "Kênh YouTube đã đạt giới hạn upload trong ngày",
+        errorMessage: SYNC_ERROR_TEXT.uploadLimitExceeded.vi,
         errorCode: "uploadLimitExceeded",
       };
     }
@@ -692,8 +697,7 @@ export class YoutubeService {
       reason === "videoDurationTooLong"
     ) {
       return {
-        errorMessage:
-          "Video quá dài — channel YouTube cần xác minh số điện thoại để upload video dài hơn 15 phút",
+        errorMessage: SYNC_ERROR_TEXT.videoDurationTooLong.vi,
         errorCode: "videoDurationTooLong",
       };
     }
@@ -704,8 +708,7 @@ export class YoutubeService {
       code === 401
     ) {
       return {
-        errorMessage:
-          "Token xác thực YouTube đã hết hạn — cần Authorize lại trong trang Integrations",
+        errorMessage: SYNC_ERROR_TEXT.invalid_grant.vi,
         errorCode: "invalid_grant",
       };
     }
@@ -715,16 +718,14 @@ export class YoutubeService {
       (code === 403 && message.includes("quotaExceeded"))
     ) {
       return {
-        errorMessage:
-          "Đã hết quota API YouTube trong ngày, thử lại vào ngày mai",
+        errorMessage: SYNC_ERROR_TEXT.quotaExceeded.vi,
         errorCode: "quotaExceeded",
       };
     }
 
     if (message.includes("ENOTFOUND") || message.includes("ETIMEDOUT")) {
       return {
-        errorMessage:
-          "Không tải được file từ Zoom (link download có thể đã hết hạn hoặc lỗi mạng)",
+        errorMessage: SYNC_ERROR_TEXT.networkError.vi,
         errorCode: "networkError",
       };
     }
@@ -913,7 +914,7 @@ export class YoutubeService {
   // check that moves the log to FAILED logs and notifies, so the frontend poll
   // and the background job stop quietly afterwards.
   private async markVideoDeleted(recordingId: string, videoId: string) {
-    const syncError = "Video đã bị xoá trên YouTube";
+    const syncError = SYNC_ERROR_TEXT.VIDEO_NOT_FOUND.vi;
     const { count } = await this.prisma.zoomSyncLog.updateMany({
       where: { recordingId, syncStatus: { not: "FAILED" } },
       data: {
@@ -942,8 +943,7 @@ export class YoutubeService {
     await this.notificationsService.create({
       userId: log.userId,
       type: "sync_completed",
-      title: "Video đã sẵn sàng",
-      message: `Video "${log.meeting}" đã sẵn sàng để xem`,
+      data: { meeting: log.meeting, videoId },
       link: `https://www.youtube.com/watch?v=${videoId}`,
       recordingId,
     });
@@ -1351,24 +1351,33 @@ export class YoutubeService {
   }
 
   // Turns playlist API failures into messages the user can act on
-  private playlistError(error: any, fallback: string) {
-    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+  private playlistError(error: any, fallbackCode: string, fallback: string) {
+    if (error instanceof HttpException) {
       return error;
     }
     const status = error.code ?? error.response?.status;
     const reason = error.response?.data?.error?.errors?.[0]?.reason;
     if (status === 404 || reason === "playlistNotFound" || reason === "playlistItemNotFound") {
-      return new NotFoundException(
+      return codedError(
+        NotFoundException,
+        "PLAYLIST_OR_VIDEO_NOT_FOUND",
         "Playlist hoặc video không còn tồn tại (có thể đã bị xoá trong YouTube Studio). Hãy tải lại danh sách.",
       );
     }
     if (status === 403 || reason === "playlistForbidden" || reason === "playlistItemsNotAccessible") {
-      return new ForbiddenException(
+      return codedError(
+        ForbiddenException,
+        "PLAYLIST_FORBIDDEN",
         "Không có quyền thay đổi playlist này — playlist không thuộc kênh YouTube đang kết nối.",
       );
     }
     const mapped = this.mapYoutubeError(error);
-    return new BadRequestException(`${fallback}: ${mapped.errorMessage}`);
+    return codedError(
+      BadRequestException,
+      fallbackCode,
+      `${fallback}: ${mapped.errorMessage}`,
+      { reason: mapped.errorMessage, reasonCode: mapped.errorCode },
+    );
   }
 
   async updatePlaylist(
@@ -1391,7 +1400,9 @@ export class YoutubeService {
       await this.trackQuotaUsage(userId, this.LIST_COST);
       const playlist = current.data.items?.[0];
       if (!playlist) {
-        throw new NotFoundException(
+        throw codedError(
+          NotFoundException,
+          "PLAYLIST_NOT_FOUND",
           "Playlist không còn tồn tại (có thể đã bị xoá trong YouTube Studio). Hãy tải lại danh sách.",
         );
       }
@@ -1421,7 +1432,11 @@ export class YoutubeService {
       if (error instanceof NotFoundException) throw error;
       void this.recordTokenError(userId, error);
       this.logger.error(`Error updating playlist ${playlistId} for user ${userId}`, error.stack);
-      throw this.playlistError(error, "Không cập nhật được playlist");
+      throw this.playlistError(
+        error,
+        "PLAYLIST_UPDATE_FAILED",
+        "Không cập nhật được playlist",
+      );
     }
   }
 
@@ -1435,7 +1450,11 @@ export class YoutubeService {
     } catch (error) {
       void this.recordTokenError(userId, error);
       this.logger.error(`Error deleting playlist ${playlistId} for user ${userId}`, error.stack);
-      throw this.playlistError(error, "Không xoá được playlist");
+      throw this.playlistError(
+        error,
+        "PLAYLIST_DELETE_FAILED",
+        "Không xoá được playlist",
+      );
     }
   }
 
@@ -1473,7 +1492,11 @@ export class YoutubeService {
     } catch (error) {
       void this.recordTokenError(userId, error);
       this.logger.error(`Error listing items of playlist ${playlistId} for user ${userId}`, error.stack);
-      throw this.playlistError(error, "Không tải được danh sách video của playlist");
+      throw this.playlistError(
+        error,
+        "PLAYLIST_ITEMS_LOAD_FAILED",
+        "Không tải được danh sách video của playlist",
+      );
     }
   }
 
@@ -1487,7 +1510,11 @@ export class YoutubeService {
     } catch (error) {
       void this.recordTokenError(userId, error);
       this.logger.error(`Error removing playlist item ${playlistItemId} for user ${userId}`, error.stack);
-      throw this.playlistError(error, "Không gỡ được video khỏi playlist");
+      throw this.playlistError(
+        error,
+        "PLAYLIST_ITEM_REMOVE_FAILED",
+        "Không gỡ được video khỏi playlist",
+      );
     }
   }
 
@@ -1594,6 +1621,7 @@ export class YoutubeService {
       Date.now() - lastFetchedAt.getTime() > CHANNEL_VIDEOS_CACHE_TTL_MS;
 
     let refreshError: string | null = null;
+    let refreshErrorCode: string | null = null;
     if (!cacheOnly && (forceRefresh || stale)) {
       try {
         let refresh = this.channelVideoRefreshes.get(userId);
@@ -1609,9 +1637,16 @@ export class YoutubeService {
         this.logger.error(`Error refreshing channel videos for user ${userId}`, error.stack);
         if (error instanceof UnauthorizedException) throw error;
         // With a cache, keep serving it and report the failure; without one there is nothing to show
-        refreshError = this.mapYoutubeError(error).errorMessage;
+        const mapped = this.mapYoutubeError(error);
+        refreshError = mapped.errorMessage;
+        refreshErrorCode = mapped.errorCode;
         if (!lastFetchedAt) {
-          throw new BadRequestException(`Không tải được danh sách video: ${refreshError}`);
+          throw codedError(
+            BadRequestException,
+            "CHANNEL_VIDEOS_LOAD_FAILED",
+            `Không tải được danh sách video: ${refreshError}`,
+            { reason: refreshError, reasonCode: refreshErrorCode },
+          );
         }
       }
     }
@@ -1640,6 +1675,8 @@ export class YoutubeService {
       stale:
         !fetchedAt || Date.now() - fetchedAt.getTime() > CHANNEL_VIDEOS_CACHE_TTL_MS,
       refreshError,
+      // Known codes are translated by the frontend (syncError.<code>)
+      refreshErrorCode,
       videos: videos.map((v) => {
         const log = byVideo.get(v.videoId);
         return {
