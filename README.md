@@ -25,6 +25,7 @@
 9. [Testing](#testing)
 10. [Deployment](#deployment)
 11. [Troubleshooting](#troubleshooting)
+12. [Roadmap](#roadmap)
 
 ---
 
@@ -270,3 +271,12 @@ After a deploy, check the Railway deployment logs for `All migrations have been 
 - **Zoom recordings missing for long ranges** — Zoom limits a query to one month; the backend splits longer ranges automatically, up to 24 months back.
 - **Signed out in Safari or Firefox** — these browsers block cross-site cookies; the app keeps the session in a bearer token instead, so make sure `NEXT_PUBLIC_API_URL` points at the backend.
 - **Webhook not received** — the Zoom subscription must point at `https://<backend domain>/api/zoom/webhook`, and `ZOOM_WEBHOOK_SECRET_TOKEN` must match the subscription's Secret Token.
+
+## Roadmap
+
+Plans for the hub (in Vietnamese, the AI spec in English) live in [`docs/`](docs/):
+
+- [ROADMAP.md](docs/ROADMAP.md) — proposed features and app integrations (Google Drive, Calendar, Zalo, Facebook, AI, …)
+- [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — the implementation plan for readers: phases, order, risks, decisions to make
+- [IMPLEMENTATION_PLAN.ai.md](docs/IMPLEMENTATION_PLAN.ai.md) — executable task specs for AI agents (same task IDs)
+- [PROMPTS.md](docs/PROMPTS.md) — ready-to-use prompts to run each phase with an AI agent
