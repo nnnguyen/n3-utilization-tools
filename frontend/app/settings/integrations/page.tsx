@@ -1,38 +1,61 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Card, Row, Col, Typography, Form, Input, Button, Tabs, Space, Switch, Divider, message, Spin, Alert, Avatar, Tag, Tooltip } from 'antd';
-import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Typography, Form, Input, Button, Space, Switch, Divider, message, Alert, Avatar, Tag, Tooltip, Drawer, Grid, Popconfirm } from 'antd';
+import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, CalendarOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
 import { AUTH_RETURN_TO_KEY } from '../../../components/YoutubeTokenBanner';
 import { YoutubeLogo, ZoomLogo } from '../../../components/BrandLogos';
-import { useT, useTNode } from '@/lib/i18n';
+import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
+import { canAuthorize, cardState, type CardState, type ConnectionCard } from '@/lib/connection-status';
 
 const { Title, Text } = Typography;
 
+type ProviderId = ConnectionCard['provider'];
+
+const STATE_TAG: Record<CardState, { color: string; label: MessageKey }> = {
+  connected: { color: 'success', label: 'integ.state.connected' },
+  needs_reauth: { color: 'warning', label: 'integ.state.needsReauth' },
+  disabled: { color: 'default', label: 'integ.state.disabled' },
+  not_connected: { color: 'default', label: 'integ.state.notConnected' },
+};
+
+// Apps planned on the connector framework (ROADMAP §2.1): shown, not usable yet
+const COMING_SOON: { key: string; icon: React.ReactNode; name: MessageKey; desc: MessageKey }[] = [
+  { key: 'drive', icon: <CloudOutlined />, name: 'integ.soon.drive', desc: 'integ.soon.driveDesc' },
+  { key: 'calendar', icon: <CalendarOutlined />, name: 'integ.soon.calendar', desc: 'integ.soon.calendarDesc' },
+];
+
 // Send a secret only when the user typed one; empty means "keep the saved value"
-function withoutEmptySecrets(values: Record<string, any>, secretFields: string[]) {
-  const result = { ...values };
-  for (const field of secretFields) {
-    if (!result[field]) delete result[field];
-  }
-  return result;
+function nonEmpty(values: Record<string, string | undefined>) {
+  return Object.fromEntries(Object.entries(values).filter(([, v]) => !!v));
 }
 
 function IntegrationsContent() {
   const t = useT();
   const tNode = useTNode();
-  const [configsLoading, setConfigsLoading] = useState(false);
+  const fmt = useFormat();
+  const screens = Grid.useBreakpoint();
+  const [loading, setLoading] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
-  const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
+  const [cards, setCards] = useState<ConnectionCard[]>([]);
   const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
   const [checkingYoutube, setCheckingYoutube] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [zoomForm] = Form.useForm();
   const [youtubeForm] = Form.useForm();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // ?tab=youtube|zoom (links from other pages, the OAuth return) opens its drawer
+  const tab = searchParams.get('tab');
+  const drawer: ProviderId | null = tab === 'youtube' || tab === 'zoom' ? tab : null;
+  const openDrawer = (provider: ProviderId) => router.replace(`/settings/integrations?tab=${provider}`);
+  const closeDrawer = () => router.replace('/settings/integrations');
+
+  const cardOf = (provider: ProviderId) => cards.find(c => c.provider === provider);
 
   const handleCallback = async (code: string) => {
     try {
@@ -56,7 +79,7 @@ function IntegrationsContent() {
       }
       // Clean up URL
       router.replace('/settings/integrations?tab=youtube');
-      fetchConfigs();
+      fetchCards();
     } catch (error: any) {
       message.error(error.message || t('integ.ytAuthFailed'));
     } finally {
@@ -71,21 +94,36 @@ function IntegrationsContent() {
     }
   }, [searchParams]);
 
-  const fetchConfigs = async () => {
-    setConfigsLoading(true);
+  const fillForms = (list: ConnectionCard[]) => {
+    const youtube = list.find(c => c.provider === 'youtube');
+    const zoom = list.find(c => c.provider === 'zoom');
+    // Secrets are never sent back: their inputs start empty (placeholder says whether one is saved)
+    youtubeForm.setFieldsValue({
+      isActive: youtube?.status === 'active',
+      clientId: youtube?.settings.clientId ?? '',
+      clientSecret: '',
+      refreshToken: '',
+    });
+    zoomForm.setFieldsValue({
+      isActive: zoom?.status === 'active',
+      accountId: zoom?.settings.accountId ?? '',
+      clientId: zoom?.settings.clientId ?? '',
+      clientSecret: '',
+      webhookSecretToken: '',
+    });
+  };
+
+  const fetchCards = async () => {
+    setLoading(true);
     try {
-      const response = await apiFetch('/integrations/config');
-      setConfigs(response);
-      // Secrets are never sent back: their inputs start empty (placeholder says whether one is saved)
-      zoomForm.setFieldsValue({ ...response.zoom, clientSecret: '', webhookSecretToken: '' });
-      youtubeForm.setFieldsValue({ ...response.youtube, clientSecret: '', refreshToken: '' });
-      
-      // Also fetch YouTube status
+      const list: ConnectionCard[] = await apiFetch('/connections');
+      setCards(list);
+      fillForms(list);
       fetchYoutubeStatus();
     } catch (error: any) {
       message.error(t('zoomDash.loadConfigFailed'));
     } finally {
-      setConfigsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -103,70 +141,40 @@ function IntegrationsContent() {
   };
 
   useEffect(() => {
-    fetchConfigs();
+    fetchCards();
   }, []);
 
-  const onUpdateZoom = async (values: any) => {
+  const save = async (provider: ProviderId, values: Record<string, any>) => {
+    const settingsFields = provider === 'zoom' ? ['accountId', 'clientId'] : ['clientId'];
+    const secretFields = provider === 'zoom' ? ['clientSecret', 'webhookSecretToken'] : ['clientSecret', 'refreshToken'];
+    setSaving(true);
     try {
-      await apiFetch('/integrations/zoom', {
+      await apiFetch(`/connections/${provider}`, {
         method: 'PATCH',
-        body: JSON.stringify(withoutEmptySecrets(values, ['clientSecret', 'webhookSecretToken'])),
+        body: JSON.stringify({
+          isActive: !!values.isActive,
+          settings: Object.fromEntries(settingsFields.map(f => [f, values[f] ?? ''])),
+          secrets: nonEmpty(Object.fromEntries(secretFields.map(f => [f, values[f]]))),
+        }),
       });
-      message.success(t('integ.zoomSaved'));
-      fetchConfigs();
+      message.success(t(provider === 'zoom' ? 'integ.zoomSaved' : 'integ.ytSaved'));
+      fetchCards();
     } catch (error: any) {
-      message.error(error.message || t('integ.zoomSaveFailed'));
+      message.error(error.message || t(provider === 'zoom' ? 'integ.zoomSaveFailed' : 'integ.ytSaveFailed'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const onUpdateYoutube = async (values: any) => {
+  const disconnect = async (provider: ProviderId) => {
     try {
-      await apiFetch('/integrations/youtube', {
-        method: 'PATCH',
-        body: JSON.stringify(withoutEmptySecrets(values, ['clientSecret', 'refreshToken'])),
-      });
-      message.success(t('integ.ytSaved'));
-      fetchConfigs();
+      await apiFetch(`/connections/${provider}/disconnect`, { method: 'POST' });
+      message.success(t('integ.disconnected'));
+      fetchCards();
     } catch (error: any) {
-      message.error(error.message || t('integ.ytSaveFailed'));
+      message.error(error.message || t('integ.disconnectFailed'));
     }
   };
-
-  const zoomTabContent = (
-    <>
-      <Form 
-        form={zoomForm} 
-        layout="vertical" 
-        onFinish={onUpdateZoom}
-      >
-        <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
-          <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
-        </Form.Item>
-        <Form.Item label="Account ID" name="accountId">
-          <Input prefix={<LockOutlined />} placeholder="Zoom Account ID" />
-        </Form.Item>
-        <Form.Item label="Client ID" name="clientId">
-          <Input prefix={<LockOutlined />} placeholder="Zoom Client ID" />
-        </Form.Item>
-        <Form.Item label="Client Secret" name="clientSecret">
-          <Input.Password prefix={<LockOutlined />} placeholder={configs.zoom?.hasClientSecret ? t('integ.secretSaved') : 'Zoom Client Secret'} />
-        </Form.Item>
-        <Form.Item label="Webhook Secret Token" name="webhookSecretToken">
-          <Input.Password prefix={<LockOutlined />} placeholder={configs.zoom?.hasWebhookSecretToken ? t('integ.secretSaved') : 'Zoom Webhook Secret Token'} />
-        </Form.Item>
-        <Form.Item>
-          <Button type="primary" htmlType="submit">{t('integ.saveZoom')}</Button>
-        </Form.Item>
-      </Form>
-      
-      <Divider />
-      
-      <Text type="secondary">
-        <strong>{t('integ.webhookEndpoint')}</strong><br/>
-        <code>https://api.n3-utils.com/api/zoom/webhook</code>
-      </Text>
-    </>
-  );
 
   const onAuthorizeYoutube = async () => {
     try {
@@ -177,7 +185,39 @@ function IntegrationsContent() {
     }
   };
 
-  const youtubeTabContent = (
+  const zoomSettings = (
+    <>
+      <Form form={zoomForm} layout="vertical" onFinish={values => save('zoom', values)}>
+        <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
+          <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
+        </Form.Item>
+        <Form.Item label="Account ID" name="accountId">
+          <Input prefix={<LockOutlined />} placeholder="Zoom Account ID" />
+        </Form.Item>
+        <Form.Item label="Client ID" name="clientId">
+          <Input prefix={<LockOutlined />} placeholder="Zoom Client ID" />
+        </Form.Item>
+        <Form.Item label="Client Secret" name="clientSecret">
+          <Input.Password prefix={<LockOutlined />} placeholder={cardOf('zoom')?.secrets.clientSecret ? t('integ.secretSaved') : 'Zoom Client Secret'} />
+        </Form.Item>
+        <Form.Item label="Webhook Secret Token" name="webhookSecretToken">
+          <Input.Password prefix={<LockOutlined />} placeholder={cardOf('zoom')?.secrets.webhookSecretToken ? t('integ.secretSaved') : 'Zoom Webhook Secret Token'} />
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" loading={saving}>{t('integ.saveZoom')}</Button>
+        </Form.Item>
+      </Form>
+
+      <Divider />
+
+      <Text type="secondary">
+        <strong>{t('integ.webhookEndpoint')}</strong><br/>
+        <code>https://api.n3-utils.com/api/zoom/webhook</code>
+      </Text>
+    </>
+  );
+
+  const youtubeSettings = (
     <>
       {authorizing && (
         <Alert
@@ -220,30 +260,14 @@ function IntegrationsContent() {
           type={youtubeStatus.connected ? "success" : "warning"}
           showIcon
           action={
-            <Space orientation="vertical" align="end">
-              <Button size="small" icon={<ReloadOutlined />} onClick={fetchYoutubeStatus} loading={checkingYoutube}>
-                {t('integ.recheck')}
-              </Button>
-              {youtubeStatus.reason !== 'not_configured' && (
-                <Button
-                  size="small"
-                  type={youtubeStatus.connected ? 'default' : 'primary'}
-                  icon={<GoogleOutlined />}
-                  onClick={onAuthorizeYoutube}
-                >
-                  {t('integ.reauthorize')}
-                </Button>
-              )}
-            </Space>
+            <Button size="small" icon={<ReloadOutlined />} onClick={fetchYoutubeStatus} loading={checkingYoutube}>
+              {t('integ.recheck')}
+            </Button>
           }
           style={{ marginBottom: 16 }}
         />
       )}
-      <Form 
-        form={youtubeForm} 
-        layout="vertical" 
-        onFinish={onUpdateYoutube}
-      >
+      <Form form={youtubeForm} layout="vertical" onFinish={values => save('youtube', values)}>
         <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
           <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
         </Form.Item>
@@ -251,20 +275,20 @@ function IntegrationsContent() {
           <Input prefix={<LockOutlined />} placeholder="Google Client ID" />
         </Form.Item>
         <Form.Item label="Client Secret" name="clientSecret">
-          <Input.Password prefix={<LockOutlined />} placeholder={configs.youtube?.hasClientSecret ? t('integ.secretSaved') : 'Google Client Secret'} />
+          <Input.Password prefix={<LockOutlined />} placeholder={cardOf('youtube')?.secrets.clientSecret ? t('integ.secretSaved') : 'Google Client Secret'} />
         </Form.Item>
         <Form.Item label="Refresh Token" name="refreshToken" help={t('integ.refreshTokenHelp')}>
-          <Input.Password prefix={<LockOutlined />} placeholder={configs.youtube?.hasRefreshToken ? t('integ.secretSaved') : 'Google OAuth Refresh Token'} />
+          <Input.Password prefix={<LockOutlined />} placeholder={cardOf('youtube')?.secrets.refreshToken ? t('integ.secretSaved') : 'Google OAuth Refresh Token'} />
         </Form.Item>
         <Form.Item>
           <Space wrap>
-            <Button type="primary" htmlType="submit">{t('integ.saveYoutube')}</Button>
-            <Button 
-              icon={<GoogleOutlined />} 
+            <Button type="primary" htmlType="submit" loading={saving}>{t('integ.saveYoutube')}</Button>
+            <Button
+              icon={<GoogleOutlined />}
               onClick={onAuthorizeYoutube}
-              disabled={!configs.youtube?.clientId || !configs.youtube?.hasClientSecret || youtubeStatus?.connected}
+              disabled={!cardOf('youtube') || !canAuthorize(cardOf('youtube')!)}
             >
-              {youtubeStatus?.connected ? t('integ.ytAuthorized') : t('integ.authorizeYoutube')}
+              {cardOf('youtube')?.connected ? t('integ.reauthorize') : t('integ.authorizeYoutube')}
             </Button>
           </Space>
         </Form.Item>
@@ -272,24 +296,83 @@ function IntegrationsContent() {
     </>
   );
 
-  const items = [
-    {
-      key: 'youtube',
-      // Official logos (they already spell the names; alt text keeps the tab labels readable)
-      label: <YoutubeLogo height={18} />,
-      children: youtubeTabContent,
-      forceRender: true,
-    },
-    {
-      key: 'zoom',
-      label: <ZoomLogo height={14} />,
-      children: zoomTabContent,
-      forceRender: true,
-    },
-  ];
+  const providerCard = (provider: ProviderId) => {
+    const card = cardOf(provider);
+    const state: CardState = card ? cardState(card) : 'not_connected';
+    const tag = STATE_TAG[state];
+    const isYoutube = provider === 'youtube';
+
+    const details: React.ReactNode[] = [];
+    if (isYoutube && state === 'connected' && youtubeStatus?.connected && youtubeStatus.channelTitle) {
+      details.push(
+        <Space key="channel" size={8}>
+          {youtubeStatus.channelThumbnail && <Avatar size={20} src={youtubeStatus.channelThumbnail} />}
+          <Text>{youtubeStatus.channelTitle}</Text>
+        </Space>,
+      );
+    }
+    if (!isYoutube && card?.externalAccountId) {
+      details.push(<Text key="account" type="secondary">{t('integ.card.account', { account: card.externalAccountId })}</Text>);
+    }
+    if (card?.quota && state === 'connected') {
+      details.push(
+        <Text key="quota" type="secondary">
+          {t('integ.card.quota', { used: fmt.number(card.quota.unitsUsed), limit: fmt.number(card.quota.quotaLimit) })}
+        </Text>,
+      );
+    }
+    if (card?.tokenHealth.expiringSoon) {
+      details.push(
+        <Text key="expiry" type="warning">
+          {t('integ.card.expiring', { days: card.tokenHealth.daysRemaining ?? 0 })}
+        </Text>,
+      );
+    }
+
+    const actions: React.ReactNode[] = [];
+    if (isYoutube && card && (state === 'needs_reauth' || (state === 'not_connected' && canAuthorize(card)))) {
+      actions.push(
+        <Button key="auth" type="primary" icon={<GoogleOutlined />} onClick={onAuthorizeYoutube}>
+          {state === 'needs_reauth' ? t('integ.reauthorize') : t('integ.card.connect')}
+        </Button>,
+      );
+    }
+    actions.push(
+      <Button key="settings" icon={<SettingOutlined />} onClick={() => openDrawer(provider)}>
+        {state === 'not_connected' && !(isYoutube && card && canAuthorize(card)) ? t('integ.card.setUp') : t('integ.card.configure')}
+      </Button>,
+    );
+    if (card && (state === 'connected' || state === 'needs_reauth')) {
+      actions.push(
+        <Popconfirm
+          key="disconnect"
+          title={t('integ.card.disconnectConfirm')}
+          description={t(isYoutube ? 'integ.card.disconnectYoutubeHint' : 'integ.card.disconnectZoomHint')}
+          onConfirm={() => disconnect(provider)}
+          okText={t('integ.card.disconnect')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger type="text" icon={<DisconnectOutlined />}>{t('integ.card.disconnect')}</Button>
+        </Popconfirm>,
+      );
+    }
+
+    return (
+      <Card loading={loading && !card} style={{ height: '100%' }} styles={{ body: { display: 'flex', flexDirection: 'column', gap: 12, height: '100%' } }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minHeight: 28 }}>
+          {isYoutube ? <YoutubeLogo height={22} /> : <ZoomLogo height={18} />}
+          <Tag color={tag.color} style={{ marginInlineEnd: 0 }}>{t(tag.label)}</Tag>
+        </div>
+        <Text type="secondary">{t(isYoutube ? 'integ.card.youtubeDesc' : 'integ.card.zoomDesc')}</Text>
+        {details.length > 0 && <Space orientation="vertical" size={4}>{details}</Space>}
+        <Space wrap style={{ marginTop: 'auto' }}>{actions}</Space>
+      </Card>
+    );
+  };
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <Title level={2}>
         <Space>
           <SettingOutlined />
@@ -300,13 +383,33 @@ function IntegrationsContent() {
         {t('integ.subtitle')}
       </Text>
 
-      <Card loading={configsLoading}>
-        <Tabs 
-          activeKey={searchParams.get('tab') || 'youtube'} 
-          onChange={(key) => router.push(`/settings/integrations?tab=${key}`)}
-          items={items} 
-        />
-      </Card>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
+        <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
+        {COMING_SOON.map(app => (
+          <Col key={app.key} xs={24} md={12} lg={8}>
+            <Card style={{ height: '100%' }} styles={{ body: { display: 'flex', flexDirection: 'column', gap: 12 } }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minHeight: 28 }}>
+                <Space><span style={{ fontSize: 20, color: 'var(--color-text-muted)' }}>{app.icon}</span><Text strong>{t(app.name)}</Text></Space>
+                <Tag style={{ marginInlineEnd: 0 }}>{t('integ.state.comingSoon')}</Tag>
+              </div>
+              <Text type="secondary">{t(app.desc)}</Text>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Drawer
+        title={drawer === 'zoom' ? <ZoomLogo height={16} /> : <YoutubeLogo height={20} />}
+        open={drawer !== null}
+        onClose={closeDrawer}
+        size={screens.sm ? 520 : '100%'}
+        forceRender
+      >
+        {/* Both forms stay mounted so setFieldsValue always has a target */}
+        <div style={{ display: drawer === 'youtube' ? 'block' : 'none' }}>{youtubeSettings}</div>
+        <div style={{ display: drawer === 'zoom' ? 'block' : 'none' }}>{zoomSettings}</div>
+      </Drawer>
     </div>
   );
 }
