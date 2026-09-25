@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { YoutubeService } from "./youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { LegacyMirrorService } from "../connections/legacy-mirror.service";
 
 describe("YoutubeService", () => {
   let service: YoutubeService;
@@ -13,6 +14,7 @@ describe("YoutubeService", () => {
         YoutubeService,
         { provide: PrismaService, useValue: {} },
         { provide: NotificationsService, useValue: { create: jest.fn() } },
+        { provide: LegacyMirrorService, useValue: { mirrorYoutube: jest.fn(), mirrorYoutubeQuota: jest.fn() } },
       ],
     }).compile();
 
@@ -61,6 +63,7 @@ describe("YoutubeService", () => {
           YoutubeService,
           { provide: PrismaService, useValue: prisma },
           { provide: NotificationsService, useValue: notifications },
+          { provide: LegacyMirrorService, useValue: { mirrorYoutube: jest.fn(), mirrorYoutubeQuota: jest.fn() } },
         ],
       }).compile();
       deletedService = module.get<YoutubeService>(YoutubeService);

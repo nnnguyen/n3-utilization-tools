@@ -35,6 +35,19 @@ export interface SaveConnectionInput {
   state?: Record<string, unknown>;
 }
 
+/** Every field of a connection, written as-is (legacy mirror, P2-1c). */
+export interface ConnectionSnapshot {
+  status: ConnectionStatus;
+  externalAccountId: string | null;
+  externalAccountName: string | null;
+  settings: Record<string, string>;
+  secrets: Secrets;
+  state: Record<string, unknown>;
+  tokenObtainedAt: Date | null;
+  lastTokenRefreshAt: Date | null;
+  tokenInvalidAt: Date | null;
+}
+
 // API calls refresh the token often: one bookkeeping write per 5 min is enough
 const REFRESH_WRITE_INTERVAL_MS = 5 * 60_000;
 
@@ -105,6 +118,28 @@ export class ConnectionsService {
       create: { ...data, userId, provider },
     });
     return this.toView(row);
+  }
+
+  /** Replaces the whole connection with a snapshot (no merging). */
+  async overwrite(userId: string, provider: ProviderId, snapshot: ConnectionSnapshot) {
+    const data = {
+      status: snapshot.status,
+      externalAccountId: snapshot.externalAccountId,
+      externalAccountName: snapshot.externalAccountName,
+      settings: snapshot.settings,
+      credentials: Object.keys(snapshot.secrets).length
+        ? this.cipher.encrypt(snapshot.secrets, this.context(userId, provider))
+        : null,
+      state: snapshot.state as Prisma.InputJsonObject,
+      tokenObtainedAt: snapshot.tokenObtainedAt,
+      lastTokenRefreshAt: snapshot.lastTokenRefreshAt,
+      tokenInvalidAt: snapshot.tokenInvalidAt,
+    };
+    await this.prisma.connection.upsert({
+      where: { userId_provider: { userId, provider } },
+      update: data,
+      create: { ...data, userId, provider },
+    });
   }
 
   /** Clears the secrets and disables the connection (sync history is kept). */

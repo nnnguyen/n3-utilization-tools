@@ -15,6 +15,7 @@ import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import * as fs from "fs";
 import { Readable } from "stream";
 import { codedError } from "../common/coded-error";
+import { LegacyMirrorService } from "../connections/legacy-mirror.service";
 
 // Delays before automatic retry 1, 2 and 3 of a sync that failed transiently
 export const AUTO_RETRY_DELAYS_MS = [1 * 60_000, 5 * 60_000, 15 * 60_000];
@@ -82,6 +83,8 @@ export class YoutubeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    // Copies writes of YoutubeConfig / YoutubeQuotaUsage to Connection (P2-1c)
+    private readonly legacyMirror: LegacyMirrorService,
   ) {}
 
   async hasQuotaForUpload(userId: string) {
@@ -196,6 +199,7 @@ export class YoutubeService {
         update: { unitsUsed: { increment: units } },
         create: { userId, date, unitsUsed: units },
       });
+      await this.legacyMirror.mirrorYoutubeQuota(userId, date);
     } catch (error) {
       this.logger.error(`Failed to track quota usage for user ${userId}: ${error.message}`);
     }
@@ -263,7 +267,7 @@ export class YoutubeService {
     try {
       const now = new Date();
       // Throttled: API calls refresh the token often, one write per 5 min is enough
-      await this.prisma.youtubeConfig.updateMany({
+      const { count } = await this.prisma.youtubeConfig.updateMany({
         where: {
           userId,
           OR: [
@@ -274,6 +278,7 @@ export class YoutubeService {
         },
         data: { lastTokenRefreshAt: now, tokenInvalidAt: null },
       });
+      if (count > 0) await this.legacyMirror.mirrorYoutube(userId);
     } catch (error) {
       this.logger.warn(`Failed to record token refresh for ${userId}: ${error.message}`);
     }
@@ -282,10 +287,11 @@ export class YoutubeService {
   private async recordTokenError(userId: string | undefined, error: any) {
     if (!userId || userId === "system" || !this.isInvalidGrant(error)) return;
     try {
-      await this.prisma.youtubeConfig.updateMany({
+      const { count } = await this.prisma.youtubeConfig.updateMany({
         where: { userId, tokenInvalidAt: null },
         data: { tokenInvalidAt: new Date() },
       });
+      if (count > 0) await this.legacyMirror.mirrorYoutube(userId);
       this.logger.warn(`YouTube refresh token rejected (invalid_grant) for user ${userId}`);
     } catch (e) {
       this.logger.warn(`Failed to record token error for ${userId}: ${e.message}`);
@@ -386,6 +392,7 @@ export class YoutubeService {
         ...tokenLifecycle,
       },
     });
+    await this.legacyMirror.mirrorYoutube(userId);
 
     return tokens;
   }
@@ -1606,6 +1613,7 @@ export class YoutubeService {
         data: { channelVideosFetchedAt: fetchedAt },
       }),
     ]);
+    await this.legacyMirror.mirrorYoutube(userId);
   }
 
   // cacheOnly: never call YouTube, just report whether the cache is stale

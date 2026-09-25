@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { LegacyMirrorService } from "../connections/legacy-mirror.service";
 import {
   UpdateZoomConfigDto,
   UpdateYoutubeConfigDto,
@@ -15,7 +16,10 @@ import {
 
 @Injectable()
 export class IntegrationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly legacyMirror: LegacyMirrorService,
+  ) {}
 
   async getConfigs(userId: string) {
     const [zoomConfig, youtubeConfig] = await Promise.all([
@@ -36,6 +40,7 @@ export class IntegrationsService {
         userId,
       },
     });
+    await this.legacyMirror.mirrorZoom(userId);
     return toPublicZoomConfig(config);
   }
 
@@ -49,6 +54,7 @@ export class IntegrationsService {
         userId,
       },
     });
+    await this.legacyMirror.mirrorYoutube(userId);
     return toPublicYoutubeConfig(config);
   }
 }
