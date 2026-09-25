@@ -142,7 +142,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-6 — Header shows the current page title
+### P1-6 ✅ — Header shows the current page title
 
 **Context**: `frontend/components/DashboardLayout.tsx` renders `<h2>{t('nav.dashboard')}</h2>` on every page.
 

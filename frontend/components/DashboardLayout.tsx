@@ -25,6 +25,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from './BrandLogos';
 import { N3ConnectLockup, N3ConnectMark } from './N3ConnectLogo';
 import { useT } from '@/lib/i18n';
+import { pageTitleKey } from '@/lib/page-title';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -219,7 +220,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {isCompact ? (
               <Link href="/" aria-label="N3 Connect"><N3ConnectMark size={32} /></Link>
             ) : (
-              <h2 style={{ margin: 0 }}>{t('nav.dashboard')}</h2>
+              <h2 style={{ margin: 0 }}>{t(pageTitleKey(pathname))}</h2>
             )}
           </div>
           <Space size={isCompact ? 'small' : 'middle'}>

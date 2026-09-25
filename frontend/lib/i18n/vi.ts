@@ -13,6 +13,8 @@ export const vi = {
   'nav.dashboard': 'Tổng quan',
   'nav.channelContent': 'Nội dung kênh',
   'nav.analytics': 'Phân tích',
+  'nav.zoom': 'Zoom',
+  'nav.wordCloud': 'Wordcloud',
   'nav.settings': 'Cài đặt',
   'nav.integrations': 'Tích hợp',
   'nav.personalization': 'Cá nhân hóa',

@@ -14,6 +14,8 @@ export const en: Record<MessageKey, string> = {
   'nav.dashboard': 'Dashboard',
   'nav.channelContent': 'Channel Content',
   'nav.analytics': 'Analytics',
+  'nav.zoom': 'Zoom',
+  'nav.wordCloud': 'Wordcloud',
   'nav.settings': 'Settings',
   'nav.integrations': 'Integrations',
   'nav.personalization': 'Personalization',

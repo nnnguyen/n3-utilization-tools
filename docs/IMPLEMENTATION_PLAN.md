@@ -77,7 +77,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 - **Lên lịch công khai**: upload ở chế độ riêng tư, YouTube tự công khai vào giờ chọn (ví dụ "20:00 cùng ngày" hoặc "sau 24 giờ").
 - **Nghiệm thu**: recording có tên khớp quy tắc được đưa vào đúng playlist; video có lịch công khai hiện giờ công khai trên YouTube Studio.
 
-### P1-6. Tiêu đề header đúng từng trang · Độ khó S
+### P1-6 ✅. Tiêu đề header đúng từng trang · Độ khó S
 
 Header đang luôn ghi "Tổng quan". Đổi thành tên trang hiện tại (Trang chủ, Nội dung kênh, Cá nhân hóa…). Nghiệm thu: đi qua từng trang, tiêu đề header khớp mục đang chọn trên menu.
 
