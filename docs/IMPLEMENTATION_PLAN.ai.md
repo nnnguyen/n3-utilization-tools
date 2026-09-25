@@ -204,6 +204,19 @@ For each item, the first task is a **design note** (`docs/design/<id>-<name>.md`
 | P2-5 | Automatic captions | Zoom `TRANSCRIPT` (VTT) → `captions.insert` (≈400 quota units, scope `youtube.force-ssl` already granted) after processing succeeds | default language; on by default? |
 | P2-6 | Zalo OA notifications | on top of P2-1 | verified OA available? |
 
+### P2-1 subtasks (approved 2026-09-25)
+
+Design: [docs/design/P2-1-connector.md](design/P2-1-connector.md) — approved with the proposed answers (env `CREDENTIALS_KEY` + `CREDENTIALS_KEY_PREVIOUS`; gradual expand → dual-write → flag `CONNECTIONS_READ` → contract; one connection per provider per user until P2-2; keep `YOUTUBE_CLIENT_ID/SECRET` as the default OAuth app, drop `YOUTUBE_REFRESH_TOKEN`/`ZOOM_*` at contract; contract after ≥ 1 week stable, separate approval). The full specs (Context / Changes / Tests / Acceptance / Out of scope) are in §8 of the design note; execute them one at a time with the Phase 1 Definition of done.
+
+| ID | Task | Depends on |
+| --- | --- | --- |
+| P2-1a | Credentials cipher (AES-256-GCM, `CREDENTIALS_KEY`, `CREDENTIALS_KEY_PREVIOUS`) | — |
+| P2-1b | `Connection` + `QuotaUsage` schema, provider registry, `ConnectionsService`, `QuotaService` (no callers) | P2-1a |
+| P2-1c | Dual-write from the legacy config/quota writes + idempotent startup backfill | P2-1b |
+| P2-1d | Read through `ConnectionsService` behind `CONNECTIONS_READ`; `/connections` API | P2-1c |
+| P2-1e | Settings → Integrations as provider cards | P2-1d |
+| P2-1f | Contract: remove dual-write, flag, legacy tables and env fallbacks — **destructive, ask before starting** | P2-1e + ≥ 1 week stable |
+
 ## 5. Phase 3 — outline only
 
 Workflow builder (triggers/actions/conditions, run history), Facebook Page publishing (Meta App Review), podcast RSS from M4A, AI meeting summaries and metadata suggestions (opt-in per workspace; state what data leaves the system), polls and Q&A for Word Cloud. Plan these after Phase 2 lands.

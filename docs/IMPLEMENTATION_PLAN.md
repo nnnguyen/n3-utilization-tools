@@ -106,7 +106,7 @@ Các hạng mục này lớn và ảnh hưởng nhiều phần. Mỗi hạng m�
 
 | Mã | Hạng mục | Mục tiêu | Quyết định cần chốt |
 | --- | --- | --- | --- |
-| **P2-1** | Khung kết nối chung (Connector) | Một bảng `Connection` và luồng OAuth dùng chung cho mọi ứng dụng; trang Tích hợp dạng thẻ; mã hoá khoá bí mật khi lưu | Chuyển dữ liệu YouTube/Zoom hiện có sang khung mới một lần hay dần dần; dùng khoá mã hoá nào |
+| **P2-1** | Khung kết nối chung (Connector) | Một bảng `Connection` và luồng OAuth dùng chung cho mọi ứng dụng; trang Tích hợp dạng thẻ; mã hoá khoá bí mật khi lưu | **Đã chốt (25/09/2026)**: chuyển dần có cờ lùi; khoá mã hoá trong env `CREDENTIALS_KEY`. Thiết kế: [docs/design/P2-1-connector.md](design/P2-1-connector.md), task con P2-1a → P2-1f |
 | **P2-2** | Workspace và phân quyền | Kết nối Zoom/YouTube thuộc về một nhóm; vai trò Quản trị / Biên tập / Xem; nhật ký hoạt động | Một người thuộc nhiều workspace không; gộp các tài khoản đang dùng chung Zoom thế nào |
 | **P2-3** | Google Drive | Tự sao lưu MP4/M4A/transcript sau khi sync | Cần thêm quyền Drive → người dùng phải uỷ quyền Google lại; cấu trúc thư mục |
 | **P2-4** | Google Calendar | Xem lịch họp sắp tới, gắn link video vào sự kiện | Lịch nào (cá nhân hay lịch chung của nhóm) |
