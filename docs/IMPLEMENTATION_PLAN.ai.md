@@ -210,7 +210,7 @@ Design: [docs/design/P2-1-connector.md](design/P2-1-connector.md) — approved w
 
 | ID | Task | Depends on |
 | --- | --- | --- |
-| P2-1a | Credentials cipher (AES-256-GCM, `CREDENTIALS_KEY`, `CREDENTIALS_KEY_PREVIOUS`) | — |
+| P2-1a ✅ | Credentials cipher (AES-256-GCM, `CREDENTIALS_KEY`, `CREDENTIALS_KEY_PREVIOUS`) | — |
 | P2-1b | `Connection` + `QuotaUsage` schema, provider registry, `ConnectionsService`, `QuotaService` (no callers) | P2-1a |
 | P2-1c | Dual-write from the legacy config/quota writes + idempotent startup backfill | P2-1b |
 | P2-1d | Read through `ConnectionsService` behind `CONNECTIONS_READ`; `/connections` API | P2-1c |
