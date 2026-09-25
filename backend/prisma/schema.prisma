@@ -36,6 +36,7 @@ model User {
   topics                 Topic[]
   zoomConfig             ZoomConfig?
   zoomWorkflowSettings   ZoomWorkflowSettings?
+  zoomSyncRules          ZoomSyncRule[]
   youtubeConfig          YoutubeConfig?
   youtubeQuotas          YoutubeQuotaUsage[]
   zoomSyncLogs           ZoomSyncLog[]
@@ -69,6 +70,25 @@ model ZoomWorkflowSettings {
   playlistId          String?
   timeZone            String   @default("Asia/Ho_Chi_Minh") // for {date} and {time}
   updatedAt           DateTime @updatedAt
+}
+
+// Per-topic overrides of the workflow settings (first matching rule wins)
+model ZoomSyncRule {
+  id                  String   @id @default(uuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position            Int
+  matchText           String // matched against the meeting topic, ignoring case and accents
+  titleTemplate       String?
+  descriptionTemplate String?
+  playlistId          String?
+  tags                String[] @default([])
+  privacyStatus       String? // 'public' | 'unlisted' | 'private'; ignored when publishDelayMinutes is set
+  publishDelayMinutes Int? // upload private, YouTube publishes at recording end + delay
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId, position])
 }
 
 model YoutubeConfig {
@@ -126,6 +146,7 @@ model ZoomSyncLog {
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
+  publishAt               DateTime? // Scheduled publication (rule with a publish delay), reused by auto-retry
   source                  String     @default("upload") // 'upload' (synced by this app) | 'linked' (a video already on YouTube, linked by the user)
   createdAt               DateTime   @default(now())
 

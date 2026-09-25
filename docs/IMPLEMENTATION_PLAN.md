@@ -70,7 +70,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 - **Giữ tương thích**: tài khoản chưa lưu cài đặt thì chạy như hiện nay (tự upload bật, riêng tư). Mô tả luôn giữ dòng mã recording để tính năng nhận diện video tiếp tục hoạt động.
 - **Nghiệm thu**: đổi mẫu tiêu đề → video upload tiếp theo mang tiêu đề mới; tắt tự upload → recording mới không tự lên YouTube nhưng vẫn sync thủ công được.
 
-### P1-5. Quy tắc theo tên cuộc họp và lên lịch công khai · Độ khó M · Sau P1-4
+### P1-5 ✅. Quy tắc theo tên cuộc họp và lên lịch công khai · Độ khó M · Sau P1-4
 
 - **Quy tắc**: ví dụ *tên cuộc họp chứa "SOH" → playlist "SOH", tiêu đề theo mẫu riêng, thêm tag*. Quy tắc đầu tiên khớp được áp dụng; không khớp thì dùng cài đặt chung của P1-4.
 - **Đã chốt (25/09/2026)**: không tạo sẵn quy tắc nào; người dùng tự thêm trên giao diện.

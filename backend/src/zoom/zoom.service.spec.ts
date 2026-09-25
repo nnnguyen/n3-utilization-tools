@@ -83,6 +83,7 @@ describe("ZoomService", () => {
     beforeEach(async () => {
       prisma = {
         zoomWorkflowSettings: { findUnique: jest.fn().mockResolvedValue(null) },
+        zoomSyncRule: { findMany: jest.fn().mockResolvedValue([]) },
         user: { findUnique: jest.fn().mockResolvedValue({ language: "vi" }) },
       };
       const module: TestingModule = await Test.createTestingModule({
@@ -138,6 +139,8 @@ describe("ZoomService", () => {
         "dl",
         "unlisted",
         "PL1",
+        undefined,
+        null,
       );
     });
 
@@ -156,13 +159,53 @@ describe("ZoomService", () => {
         "dl",
         "private",
         undefined,
+        undefined,
+        null,
       );
       await expect(
         (settingsService as any).renderUploadText("user-1", "SOH", "2026-09-25T10:05:00Z"),
       ).resolves.toEqual({
         title: "Zoom Recording: SOH",
         description: "Recorded on 25/09/2026 17:05",
+        tags: [],
       });
+    });
+
+    it("applies the matching topic rule and its publish delay", async () => {
+      prisma.zoomSyncRule.findMany.mockResolvedValue([
+        {
+          id: "rule-1",
+          position: 0,
+          matchText: "soh",
+          titleTemplate: "SOH {date}",
+          descriptionTemplate: null,
+          playlistId: "PL-soh",
+          tags: ["soh"],
+          privacyStatus: "public",
+          publishDelayMinutes: 120,
+        },
+      ]);
+      const sync = jest
+        .spyOn(settingsService as any, "processRecordingSync")
+        .mockResolvedValue({ id: "vid" });
+
+      await settingsService.handleRecordingCompleted(
+        {
+          ...payload,
+          object: {
+            ...payload.object,
+            recording_files: [{ recording_end: "2026-09-25T11:05:00Z" }],
+          },
+        },
+        "user-1",
+      );
+      const args = sync.mock.calls[0];
+      expect(args[6]).toBe("public");
+      expect(args[7]).toBe("PL-soh");
+      expect((args[9] as Date).toISOString()).toBe("2026-09-25T13:05:00.000Z");
+      await expect(
+        (settingsService as any).renderUploadText("user-1", "SOH", "2026-09-25T10:05:00Z"),
+      ).resolves.toMatchObject({ title: "SOH 25/09/2026", tags: ["soh"] });
     });
 
     it("renders the title from the saved template", async () => {
@@ -179,6 +222,7 @@ describe("ZoomService", () => {
       ).resolves.toEqual({
         title: "[Zoom] SOH - 25/09/2026",
         description: "Buổi SOH",
+        tags: [],
       });
     });
   });

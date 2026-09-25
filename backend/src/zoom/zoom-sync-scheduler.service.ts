@@ -107,6 +107,7 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
           (log.privacyStatus as "public" | "private" | "unlisted") || "private",
           log.playlistId || undefined,
           attempt,
+          log.publishAt,
         )
         .catch((error) =>
           this.handleRetryError(log.recordingId!, claimedAt, error),

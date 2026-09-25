@@ -128,7 +128,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-5 — Topic rules and scheduled publishing (after P1-4) ✅ Decided
+### P1-5 ✅ — Topic rules and scheduled publishing (after P1-4, decided)
 
 **Decision (2026-09-25)**: no seeded rules; users add their own in the UI.
 

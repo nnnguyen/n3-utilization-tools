@@ -7,6 +7,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { ZoomPageTitle } from '../../components/BrandLogos';
 import ZoomRecordingsPanel from '../../components/ZoomRecordingsPanel';
+import ZoomSyncRules from '../../components/ZoomSyncRules';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useT, useFormat } from '@/lib/i18n';
@@ -202,6 +203,10 @@ export default function ZoomUtilities() {
               </Form>
             </Spin>
           </Card>
+        </Col>
+
+        <Col span={24}>
+          <ZoomSyncRules playlists={playlists} />
         </Col>
 
         <Col span={24}>

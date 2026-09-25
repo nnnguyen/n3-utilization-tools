@@ -7,6 +7,12 @@ import {
 } from "./workflow-template";
 import { UpdateWorkflowSettingsDto } from "./workflow-settings.dto";
 import {
+  computePublishAt,
+  resolveSyncOptions,
+  scheduledPrivacy,
+  SyncOptions,
+} from "./sync-rules";
+import {
   Injectable,
   Logger,
   BadRequestException,
@@ -334,8 +340,8 @@ export class ZoomService {
     const downloadToken = payload.download_token;
     const userId = ownerUserId || "system";
 
-    const settings = await this.getWorkflowSettings(userId);
-    if (!settings.autoUpload) {
+    const options = await this.getSyncOptions(userId, topic);
+    if (!options.autoUpload) {
       // Nothing recorded: the recording stays "not synced" for a manual sync
       this.logger.log(
         `Auto-upload is off for user ${userId}; skipping recording ${recordingId}`,
@@ -350,9 +356,26 @@ export class ZoomService {
       start_time,
       userId,
       downloadToken,
-      settings.privacyStatus,
-      settings.playlistId ?? undefined,
+      options.privacyStatus,
+      options.playlistId ?? undefined,
+      undefined,
+      computePublishAt(
+        recording_files,
+        start_time,
+        options.publishDelayMinutes,
+      ),
     );
+  }
+
+  // Workflow settings with the first matching topic rule applied
+  async getSyncOptions(userId: string, topic: string): Promise<SyncOptions> {
+    const [settings, rules] = await Promise.all([
+      this.getWorkflowSettings(userId),
+      userId === "system"
+        ? []
+        : this.prisma.zoomSyncRule.findMany({ where: { userId } }),
+    ]);
+    return resolveSyncOptions(topic, settings, rules);
   }
 
   async syncRecording(
@@ -363,6 +386,7 @@ export class ZoomService {
     privacyStatus?: "public" | "private" | "unlisted",
     playlistId?: string,
     autoRetryAttempt?: number,
+    publishAt?: Date | null,
   ) {
     const token = await this.getAccessToken(userId);
     try {
@@ -400,6 +424,7 @@ export class ZoomService {
         privacyStatus,
         playlistId,
         autoRetryAttempt,
+        publishAt,
       );
     } catch (error) {
       this.logger.error(
@@ -425,6 +450,7 @@ export class ZoomService {
     privacyStatus?: "public" | "private" | "unlisted",
     playlistId?: string,
     autoRetryAttempt?: number,
+    publishAt?: Date | null,
   ) {
     // Find the shared_screen_with_speaker_view MP4 file
     const videoFile = recordingFiles.find(
@@ -491,6 +517,7 @@ export class ZoomService {
             nextRetryAt: null,
             recordingStartTime: startTime,
             privacyStatus: privacyStatus || "private",
+            publishAt: publishAt ?? null,
             attemptCount: { increment: 1 },
             fileSize: fileSize ?? null,
             durationSeconds,
@@ -511,6 +538,7 @@ export class ZoomService {
             event,
             recordingStartTime: startTime,
             privacyStatus: privacyStatus || "private",
+            publishAt: publishAt ?? null,
             attemptCount: 1,
             fileSize: fileSize ?? null,
             durationSeconds,
@@ -536,6 +564,7 @@ export class ZoomService {
         fileSize,
         privacyStatus,
         playlistId,
+        publishAt,
       );
 
       return youtubeResult;
@@ -569,14 +598,15 @@ export class ZoomService {
     }
   }
 
-  // Title/description from the account's workflow templates and language
+  // Title/description/tags from the account's templates (or the matching
+  // topic rule) and language
   private async renderUploadText(
     userId: string,
     topic: string,
     startTime: string,
   ) {
-    const [settings, user] = await Promise.all([
-      this.getWorkflowSettings(userId),
+    const [options, user] = await Promise.all([
+      this.getSyncOptions(userId, topic),
       userId === "system"
         ? null
         : this.prisma.user.findUnique({
@@ -584,11 +614,10 @@ export class ZoomService {
             select: { language: true },
           }),
     ]);
-    return renderUploadText(
-      settings,
-      { topic, startTime },
-      user?.language ?? "vi",
-    );
+    return {
+      ...renderUploadText(options, { topic, startTime }, user?.language ?? "vi"),
+      tags: options.tags,
+    };
   }
 
   private async uploadToYoutubeDirectly(
@@ -601,6 +630,7 @@ export class ZoomService {
     fileSize?: number,
     privacyStatus?: "public" | "private" | "unlisted",
     playlistId?: string,
+    publishAt?: Date | null,
   ) {
     const headers: any = {};
     const params: any = {};
@@ -644,11 +674,13 @@ export class ZoomService {
       }
     };
 
-    const { title, description } = await this.renderUploadText(
+    const { title, description, tags } = await this.renderUploadText(
       userId,
       topic,
       startTime,
     );
+    // A scheduled video is uploaded private; YouTube publishes it at publishAt
+    const schedule = scheduledPrivacy(publishAt, privacyStatus || "private");
 
     return this.youtubeService.uploadVideoFromStream(
       stream,
@@ -658,11 +690,13 @@ export class ZoomService {
       [description, `${RECORDING_ID_PREFIX} ${recordingId}`]
         .filter(Boolean)
         .join("\n\n"),
-      privacyStatus || "private",
+      schedule.privacyStatus,
       userId,
       onProgress,
       recordingId,
       playlistId,
+      tags,
+      schedule.publishAt,
     );
   }
 }

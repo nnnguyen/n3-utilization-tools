@@ -503,6 +503,9 @@ export class YoutubeService {
     onProgress?: (progress: number) => void,
     recordingId?: string,
     playlistId?: string,
+    tags?: string[],
+    // ISO 8601; YouTube publishes the (private) video at this time
+    publishAt?: string,
   ) {
     try {
       if (recordingId) {
@@ -555,9 +558,11 @@ export class YoutubeService {
             snippet: {
               title,
               description,
+              ...(tags?.length ? { tags } : {}),
             },
             status: {
               privacyStatus,
+              ...(publishAt ? { publishAt } : {}),
             },
           },
           media: {
