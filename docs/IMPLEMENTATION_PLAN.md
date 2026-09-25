@@ -56,7 +56,7 @@ P1-9 Dịch thông báo backend ──► P1-8 Thông báo qua Telegram
 - **Cách làm**: khi YouTube trả "không tìm thấy video", đánh dấu lần sync đó **thất bại** với lý do "Video đã bị xoá trên YouTube"; người dùng có thể sync lại.
 - **Nghiệm thu**: log production không còn lặp lại `Video not found on YouTube`; recording tương ứng hiện trạng thái "Thất bại" kèm lý do.
 
-### P1-3. Webhook Zoom gắn đúng tài khoản · Độ khó M · **Điều kiện cho P1-4**
+### P1-3 ✅. Webhook Zoom gắn đúng tài khoản · Độ khó M · **Điều kiện cho P1-4**
 
 - **Vấn đề**: khi Zoom báo có recording mới, backend không biết recording đó thuộc tài khoản nào của app ("system"), nên không áp dụng được cài đặt riêng của ai, không gửi được thông báo, và chỉ dùng khoá YouTube chung trong biến môi trường. Khoá webhook nhập ở trang Tích hợp cũng không được dùng.
 - **Cách làm**: Zoom gửi kèm **Account ID** của tài khoản Zoom. Backend tìm các tài khoản app đã cấu hình Zoom với Account ID đó, kiểm tra chữ ký bằng khoá webhook của chính tài khoản ấy (vẫn chấp nhận khoá chung trong biến môi trường để không gián đoạn).

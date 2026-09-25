@@ -84,7 +84,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 ---
 
-### P1-3 — Route Zoom webhooks to the right account ✅ Decided
+### P1-3 ✅ — Route Zoom webhooks to the right account (decided)
 
 **Decision (2026-09-25)**: when several app accounts configured the same Zoom account, the new recording belongs to the accounts with that `ZoomConfig.accountId`, `isActive = true` and auto-upload enabled (P1-4; until then: all active ones); if more than one, the one with the most recent `ZoomConfig.updatedAt`.
 

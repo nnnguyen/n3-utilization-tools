@@ -1,4 +1,5 @@
 import { RECORDING_ID_PREFIX } from "./youtube-match";
+import { selectWebhookOwner } from "./webhook-owner";
 import {
   Injectable,
   Logger,
@@ -269,11 +270,28 @@ export class ZoomService {
     });
   }
 
-  async handleRecordingCompleted(payload: any) {
+  // App account that owns webhooks of a Zoom account (rule in webhook-owner.ts)
+  async findWebhookOwner(accountId: string | undefined) {
+    if (!accountId) return null;
+    const configs = await this.prisma.zoomConfig.findMany({
+      where: { accountId },
+      select: {
+        userId: true,
+        isActive: true,
+        updatedAt: true,
+        webhookSecretToken: true,
+      },
+    });
+    return selectWebhookOwner(configs);
+  }
+
+  // ownerUserId: the app account resolved from the webhook's Zoom account;
+  // without one the sync runs as "system" (env credentials, no notifications)
+  async handleRecordingCompleted(payload: any, ownerUserId?: string) {
     const { recording_files, topic, start_time, uuid, id } = payload.object;
     const recordingId = uuid || id?.toString();
     const downloadToken = payload.download_token;
-    const userId = payload.userId || "system";
+    const userId = ownerUserId || "system";
 
     return this.processRecordingSync(
       recordingId,
