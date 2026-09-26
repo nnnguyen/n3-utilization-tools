@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, Radio, Segmented, Space, Typography, message } from 'antd';
+import { Card, Radio, Segmented, Space, Switch, Typography, message } from 'antd';
 import { SunOutlined, MoonOutlined, DesktopOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../../components/DashboardLayout';
 import { usePreferences, type Preferences } from '@/lib/preferences';
@@ -17,7 +17,7 @@ const LANGUAGE_OPTIONS = [
 
 export default function PersonalizationPage() {
   const t = useT();
-  const { themeStyle, themeMode, language, resolvedMode, updatePreferences } = usePreferences();
+  const { themeStyle, themeMode, language, analyticsConsent, resolvedMode, updatePreferences } = usePreferences();
 
   // Saved as soon as it changes; reverted (with an error) if the account rejects it
   const save = async (changes: Partial<Preferences>) => {
@@ -89,6 +89,20 @@ export default function PersonalizationPage() {
               options={LANGUAGE_OPTIONS}
               optionType="button"
             />
+          </Card>
+
+          <Card title={t('personalization.analytics.title')}>
+            <Space align="start" size="middle">
+              <Switch
+                id="analytics-consent"
+                checked={analyticsConsent === true}
+                onChange={(checked) => save({ analyticsConsent: checked })}
+              />
+              <div>
+                <label htmlFor="analytics-consent"><Text strong>{t('personalization.analytics.label')}</Text></label>
+                <Paragraph type="secondary" style={{ marginBottom: 0 }}>{t('personalization.analytics.desc')}</Paragraph>
+              </div>
+            </Space>
           </Card>
         </Space>
       </div>

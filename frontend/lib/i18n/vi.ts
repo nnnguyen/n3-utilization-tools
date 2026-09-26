@@ -36,6 +36,13 @@ export const vi = {
   'personalization.mode.systemHint': 'Tự đổi theo cài đặt sáng/tối của máy (hiện đang: {mode}).',
   'personalization.language.title': 'Ngôn ngữ',
   'personalization.saved': 'Đã lưu thiết lập',
+  'personalization.analytics.title': 'Dữ liệu sử dụng',
+  'personalization.analytics.label': 'Chia sẻ dữ liệu sử dụng ẩn danh',
+  'personalization.analytics.desc': 'Giúp cải thiện N3 Connect: ghi lại trang bạn mở và các bước như kết nối, sync — gắn với mã tài khoản nội bộ, không kèm email, tên hay nội dung cuộc họp. Không ghi lại màn hình. Tắt lúc nào cũng được.',
+  'analyticsConsent.title': 'Giúp cải thiện N3 Connect?',
+  'analyticsConsent.body': 'Cho phép gửi dữ liệu sử dụng ẩn danh (trang đã mở, các bước kết nối và sync), không kèm email, tên hay nội dung cuộc họp. Đổi lại được trong Cài đặt → Cá nhân hoá.',
+  'analyticsConsent.accept': 'Đồng ý',
+  'analyticsConsent.decline': 'Không',
   'personalization.saveFailed': 'Không lưu được thiết lập: {error}',
 
   // — youtube: connection badge & token banner —

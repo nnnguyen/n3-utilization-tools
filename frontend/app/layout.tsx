@@ -5,6 +5,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import AppThemeProvider from "@/components/AppThemeProvider";
 import { PreferencesProvider } from "@/lib/preferences";
 import VercelInsights from "@/components/VercelInsights";
+import PostHogAnalytics from "@/components/PostHogAnalytics";
+import AnalyticsConsentPrompt from "@/components/AnalyticsConsentPrompt";
 
 // Broadsheet: Source Serif 4 for headings, body and UI chrome, with the true
 // italic at the body weight (vietnamese subset for the app's Vietnamese copy)
@@ -46,10 +48,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PreferencesProvider>
             <AppThemeProvider>
               {children}
+              <AnalyticsConsentPrompt />
             </AppThemeProvider>
           </PreferencesProvider>
           {/* Under AuthProvider: super admin visits are not counted */}
           <VercelInsights />
+          {/* Only after the account agreed (P2-8) */}
+          <PostHogAnalytics />
         </AuthProvider>
       </body>
     </html>

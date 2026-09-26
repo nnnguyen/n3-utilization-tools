@@ -236,6 +236,22 @@ describe("AuthService", () => {
     });
   });
 
+  describe("updatePreferences", () => {
+    it("saves the analytics consent and returns it with the preferences", async () => {
+      const prefs = await service.updatePreferences("user-1", { analyticsConsent: true });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        data: { analyticsConsent: true },
+      });
+      expect(prefs).toMatchObject({ analyticsConsent: true });
+    });
+
+    it("reports a user never asked as null", () => {
+      const session = service.toSessionUser({ id: "user-1", ...profile, analyticsConsent: null } as any);
+      expect(session.preferences.analyticsConsent).toBeNull();
+    });
+  });
+
   describe("changePassword", () => {
     it("needs the current password, then ends the temp password", async () => {
       prisma.user.findUnique.mockResolvedValue({

@@ -31,6 +31,9 @@ model User {
   themeStyle String @default("broadsheet") // 'broadsheet' | 'organic' | 'classic'
   themeMode  String @default("light") // 'light' | 'dark' | 'system'
   language   String @default("vi") // 'vi' | 'en'
+  // Product analytics (docs/design/P2-8-posthog.md): null = not asked yet;
+  // nothing is tracked until true
+  analyticsConsent Boolean?
 
   // System administration (docs/design/P2-2-workspaces.md §6b)
   platformRole          String    @default("user") // 'user' | 'super_admin'

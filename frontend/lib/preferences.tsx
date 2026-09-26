@@ -12,10 +12,12 @@ export interface Preferences {
   themeStyle: ThemeStyle;
   themeMode: ThemeMode;
   language: Language;
+  // Product analytics (P2-8): null until the account is asked
+  analyticsConsent: boolean | null;
 }
 
 // Match the backend column defaults (User.themeStyle/themeMode/language)
-export const DEFAULT_PREFERENCES: Preferences = { themeStyle: 'broadsheet', themeMode: 'light', language: 'vi' };
+export const DEFAULT_PREFERENCES: Preferences = { themeStyle: 'broadsheet', themeMode: 'light', language: 'vi', analyticsConsent: null };
 
 // Copy of the account's preferences in this browser: lets the first paint (and
 // pages without a session, like login or the audience join page) use them

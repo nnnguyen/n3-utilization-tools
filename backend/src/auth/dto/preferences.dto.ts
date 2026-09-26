@@ -1,4 +1,4 @@
-import { IsIn, IsOptional } from "class-validator";
+import { IsBoolean, IsIn, IsOptional } from "class-validator";
 
 export const THEME_STYLES = ["broadsheet", "organic", "classic"] as const;
 export const THEME_MODES = ["light", "dark", "system"] as const;
@@ -16,4 +16,9 @@ export class UpdatePreferencesDto {
   @IsIn(LANGUAGES)
   @IsOptional()
   language?: (typeof LANGUAGES)[number];
+
+  // Product analytics consent (P2-8); asked once after sign-in
+  @IsBoolean()
+  @IsOptional()
+  analyticsConsent?: boolean;
 }

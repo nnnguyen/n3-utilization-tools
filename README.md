@@ -182,6 +182,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | yes | Backend API base URL, e.g. `http://localhost:3001/api` |
 | `NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL` | no | Vercel Web Analytics dashboard of the `frontend` project (`https://vercel.com/nnnguyen/frontend/analytics`); shows the "Web analytics" button on the Admin page (super admins). Web Analytics and Speed Insights must be enabled in that Vercel project |
+| `NEXT_PUBLIC_POSTHOG_KEY` | no | Project API key (`phc_…`) of a PostHog Cloud **EU** project. Unset = no PostHog at all. Set: each account is asked once whether to share usage data (changeable in Settings → Personalization) and only accounts that agreed load PostHog, through the `/ingest` proxy in `next.config.ts` (page views only, no autocapture or replay, URLs without query strings, never on `/word-cloud/join`) |
 
 ## Connecting YouTube, Zoom and Google login
 

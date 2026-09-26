@@ -21,6 +21,8 @@ interface User {
     themeStyle: 'broadsheet' | 'organic' | 'classic';
     themeMode: 'light' | 'dark' | 'system';
     language: 'vi' | 'en';
+    // Product analytics (P2-8): null until asked
+    analyticsConsent?: boolean | null;
   };
 }
 

@@ -355,13 +355,14 @@ export class AuthService implements OnApplicationBootstrap {
         themeStyle: user.themeStyle,
         themeMode: user.themeMode,
         language: user.language,
+        analyticsConsent: user.analyticsConsent,
       },
     };
   }
 
   async updatePreferences(
     id: string,
-    prefs: { themeStyle?: string; themeMode?: string; language?: string },
+    prefs: { themeStyle?: string; themeMode?: string; language?: string; analyticsConsent?: boolean },
   ) {
     const user = await this.prisma.user.update({ where: { id }, data: prefs });
     return this.toSessionUser(user).preferences;

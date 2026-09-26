@@ -37,6 +37,13 @@ export const en: Record<MessageKey, string> = {
   'personalization.mode.systemHint': 'Follows your device\'s light/dark setting (currently: {mode}).',
   'personalization.language.title': 'Language',
   'personalization.saved': 'Settings saved',
+  'personalization.analytics.title': 'Usage data',
+  'personalization.analytics.label': 'Share anonymous usage data',
+  'personalization.analytics.desc': 'Helps improve N3 Connect: records the pages you open and steps such as connecting and syncing — tied to an internal account ID, never your email, name or meeting content. No screen recording. You can turn it off at any time.',
+  'analyticsConsent.title': 'Help improve N3 Connect?',
+  'analyticsConsent.body': 'Allow anonymous usage data (pages opened, connection and sync steps), without your email, name or meeting content? You can change this in Settings → Personalization.',
+  'analyticsConsent.accept': 'Allow',
+  'analyticsConsent.decline': 'No thanks',
   'personalization.saveFailed': 'Couldn\'t save settings: {error}',
 
   // — youtube: connection badge & token banner —
