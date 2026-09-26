@@ -1,6 +1,7 @@
 // @nestjs/axios v12 is ESM-only and Jest cannot require it
 jest.mock("@nestjs/axios", () => ({ HttpService: class HttpService {} }));
 
+import { UnauthorizedException } from "@nestjs/common";
 import { CaptionService } from "./caption.service";
 
 describe("CaptionService", () => {
@@ -141,5 +142,38 @@ describe("CaptionService", () => {
     youtube.uploadCaptionTrack.mockRejectedValue(Object.assign(new Error("not found"), { code: 404 }));
     await expect(service.tryUpload("rec-1")).resolves.toEqual({ status: "failed", reason: "VIDEO_NOT_FOUND" });
     expect(updates.at(-1)).toMatchObject({ captionErrorCode: "VIDEO_NOT_FOUND", captionError: "Video đã bị xoá trên YouTube" });
+  });
+
+  it("records a missing YouTube connection with a translatable code", async () => {
+    youtube.uploadCaptionTrack.mockRejectedValue(new UnauthorizedException("YouTube not connected"));
+    await expect(service.tryUpload("rec-1")).resolves.toEqual({ status: "failed", reason: "YOUTUBE_NOT_CONNECTED" });
+    expect(updates.at(-1)).toMatchObject({ captionStatus: "failed", captionErrorCode: "YOUTUBE_NOT_CONNECTED" });
+  });
+
+  describe("uploadForUser", () => {
+    it("uploads by hand with captions off and resets the retry count", async () => {
+      zoom.getSyncOptions.mockResolvedValue({ captionsEnabled: false, captionLanguage: "vi" });
+      await expect(service.uploadForUser("user-1", "rec-1")).resolves.toMatchObject({ status: "uploaded" });
+      expect(updates[0]).toEqual({ captionAttempts: 0 });
+    });
+
+    it("refuses a recording of another account", async () => {
+      await expect(service.uploadForUser("user-2", "rec-1")).rejects.toMatchObject({
+        response: { code: "CAPTION_RECORDING_NOT_FOUND" },
+      });
+      prisma.zoomSyncLog.findUnique.mockResolvedValue(null);
+      await expect(service.uploadForUser("user-1", "rec-x")).rejects.toMatchObject({
+        response: { code: "CAPTION_RECORDING_NOT_FOUND" },
+      });
+      expect(youtube.uploadCaptionTrack).not.toHaveBeenCalled();
+    });
+
+    it("refuses a video that is not on YouTube yet", async () => {
+      prisma.zoomSyncLog.findUnique.mockResolvedValue({ ...completedLog, syncStatus: "UPLOADING" });
+      await expect(service.uploadForUser("user-1", "rec-1")).rejects.toMatchObject({
+        response: { code: "CAPTION_VIDEO_NOT_READY" },
+      });
+      expect(updates).toHaveLength(0);
+    });
   });
 });

@@ -11,7 +11,10 @@ jest.mock("@nestjs/axios", () => ({ HttpService: class HttpService {} }));
 
 describe("ZoomController", () => {
   let controller: ZoomController;
-  const captionService = { onTranscriptReady: jest.fn().mockResolvedValue({ status: "uploaded" }) };
+  const captionService = {
+    onTranscriptReady: jest.fn().mockResolvedValue({ status: "uploaded" }),
+    uploadForUser: jest.fn().mockResolvedValue({ status: "uploaded" }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,6 +31,13 @@ describe("ZoomController", () => {
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
+  });
+
+  it("uploads captions of a recording for the signed-in account", async () => {
+    await expect(
+      controller.uploadCaptions({ id: "user-1" } as any, "rec/1=="),
+    ).resolves.toEqual({ status: "uploaded" });
+    expect(captionService.uploadForUser).toHaveBeenCalledWith("user-1", "rec/1==");
   });
 
   describe("handleWebhook", () => {
@@ -58,7 +68,6 @@ describe("ZoomController", () => {
           { provide: ZoomService, useValue: zoomService },
           { provide: ZoomYoutubeMatchService, useValue: {} },
           { provide: CaptionService, useValue: captionService },
-        { provide: CaptionService, useValue: captionService },
         ],
       }).compile();
       webhookController = module.get<ZoomController>(ZoomController);

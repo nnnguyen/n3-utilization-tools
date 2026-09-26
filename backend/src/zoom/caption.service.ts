@@ -1,4 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { codedError } from "../common/coded-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import { YoutubeService } from "../youtube/youtube.service";
@@ -90,6 +98,39 @@ export class CaptionService implements OnModuleInit {
   }
 
   /**
+   * "Upload captions" on one recording (POST /zoom/recordings/:id/captions):
+   * works with captions off and for videos synced before this feature, and
+   * gives the automatic retries a fresh start.
+   */
+  async uploadForUser(userId: string, recordingId: string) {
+    const log = await this.prisma.zoomSyncLog.findUnique({
+      where: { recordingId },
+      select: { userId: true, syncStatus: true, youtubeVideoId: true },
+    });
+    if (!log || log.userId !== userId) {
+      throw codedError(NotFoundException, "CAPTION_RECORDING_NOT_FOUND", "Không tìm thấy recording đã sync");
+    }
+    if (log.syncStatus !== "COMPLETED" || !log.youtubeVideoId) {
+      throw codedError(
+        BadRequestException,
+        "CAPTION_VIDEO_NOT_READY",
+        "Video chưa có trên YouTube — hãy đợi sync xong rồi tải phụ đề",
+      );
+    }
+    await this.prisma.zoomSyncLog.update({
+      where: { recordingId },
+      data: { captionAttempts: 0 },
+    });
+    const result = await this.tryUpload(recordingId, { manual: true });
+    // The stored outcome, for the UI to show without reloading every log
+    const caption = await this.prisma.zoomSyncLog.findUnique({
+      where: { recordingId },
+      select: { captionStatus: true, captionErrorCode: true, captionError: true, captionUpdatedAt: true },
+    });
+    return { ...result, ...caption };
+  }
+
+  /**
    * Uploads the recording's transcript as captions when possible.
    * `manual`: asked by the user ("Upload captions"), even with captions off.
    * Never throws.
@@ -142,6 +183,11 @@ export class CaptionService implements OnModuleInit {
           vtt,
         })
         .catch((error) => {
+          if (error instanceof UnauthorizedException) {
+            throw Object.assign(new Error("Chưa kết nối YouTube — hãy Authorize trong trang Integrations"), {
+              captionCode: "YOUTUBE_NOT_CONNECTED",
+            });
+          }
           // The video was deleted on YouTube: a known, translated code (P1-2/P1-9)
           const status = error?.code ?? error?.response?.status;
           if (status === 404 || status === "404") {

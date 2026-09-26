@@ -5,6 +5,8 @@ import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Se
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, FilterOutlined, PlusOutlined } from '@ant-design/icons';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { usePreferences } from '@/lib/preferences';
+import { captionLanguageLabel, captionLanguageOptions } from '@/lib/captions';
 
 const { Text } = Typography;
 
@@ -18,12 +20,14 @@ interface SyncRule {
   tags: string[];
   privacyStatus: 'public' | 'unlisted' | 'private' | null;
   publishDelayMinutes: number | null;
+  captionLanguage: string | null;
 }
 
 // Topic rules of the Automation Workflow: the first rule whose text appears in
 // the meeting name overrides the workflow settings for that recording
 export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
   const t = useT();
+  const { language } = usePreferences();
   const [rules, setRules] = useState<SyncRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,6 +60,7 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
         ...rule,
         playlistId: rule.playlistId || '',
         privacyStatus: rule.privacyStatus || '',
+        captionLanguage: rule.captionLanguage || '',
         publishDelayHours: rule.publishDelayMinutes === null ? null : rule.publishDelayMinutes / 60,
       });
     }
@@ -70,6 +75,7 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
       playlistId: values.playlistId || null,
       privacyStatus: values.privacyStatus || null,
       tags: values.tags || [],
+      captionLanguage: values.captionLanguage || null,
       publishDelayMinutes:
         values.publishDelayHours === null || values.publishDelayHours === undefined
           ? null
@@ -150,10 +156,13 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
           ) : rule.privacyStatus ? (
             <Text>{t(`privacy.${rule.privacyStatus}` as 'privacy.public')}</Text>
           ) : null}
+          {rule.captionLanguage && (
+            <Text>{t('zoomRules.captionShort', { language: captionLanguageLabel(rule.captionLanguage, language) })}</Text>
+          )}
           {rule.tags.length > 0 && (
             <div>{rule.tags.map(tag => <Tag key={tag}>{tag}</Tag>)}</div>
           )}
-          {!rule.titleTemplate && !rule.playlistId && rule.publishDelayMinutes === null && !rule.privacyStatus && rule.tags.length === 0 && rule.descriptionTemplate === null && (
+          {!rule.titleTemplate && !rule.playlistId && rule.publishDelayMinutes === null && !rule.privacyStatus && rule.tags.length === 0 && rule.descriptionTemplate === null && !rule.captionLanguage && (
             <Text type="secondary">{t('zoomRules.nothingOverridden')}</Text>
           )}
         </Space>
@@ -241,6 +250,12 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
           </Row>
           <Form.Item label={t('zoomRules.publishDelay')} name="publishDelayHours" extra={t('zoomRules.publishDelayHelp')}>
             <InputNumber min={0} max={720} step={0.5} style={{ width: '100%' }} placeholder={t('zoomRules.noSchedule')} suffix={t('zoomRules.hours')} />
+          </Form.Item>
+          <Form.Item label={t('zoomRules.captionLanguage')} name="captionLanguage" initialValue="">
+            <Select showSearch optionFilterProp="label" options={[
+              { value: '', label: t('zoomRules.useDefault') },
+              ...captionLanguageOptions(language, editing && editing !== 'new' ? editing.captionLanguage : null),
+            ]} />
           </Form.Item>
           <Form.Item label={t('zoomRules.tags')} name="tags" initialValue={[]}>
             <Select mode="tags" tokenSeparators={[',']} placeholder={t('zoomRules.tagsPlaceholder')} open={false} suffixIcon={null} />

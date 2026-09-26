@@ -5,6 +5,7 @@ import { Modal, Button, List, Space, Spin, Tag, Typography, message } from 'antd
 import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
 import { useSyncErrorText, useT } from '@/lib/i18n';
+import { CAPTION_STATUS_COLORS, isCaptionStatus, type CaptionStatus } from '@/lib/captions';
 
 const { Text } = Typography;
 
@@ -92,6 +93,21 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
                     >
                       {t('common.viewOnYouTube')}
                     </Button>
+                  )}
+
+                  {isCaptionStatus(log.captionStatus) && (
+                    <Space size={4} wrap>
+                      <Text type="secondary">{t('syncHistory.captions')}</Text>
+                      <Tag color={CAPTION_STATUS_COLORS[log.captionStatus as CaptionStatus]}>
+                        {t(`caption.status.${log.captionStatus}` as 'caption.status.uploaded')}
+                      </Tag>
+                      {log.captionStatus === 'failed' && (
+                        <Text type="danger">{syncErrorText(log.captionErrorCode, log.captionError || '')}</Text>
+                      )}
+                      {log.captionStatus === 'no_transcript' && (
+                        <Text type="secondary">{t('caption.noTranscriptHelp')}</Text>
+                      )}
+                    </Space>
                   )}
 
                   {log.syncStatus === 'FAILED' && log.nextRetryAt && (

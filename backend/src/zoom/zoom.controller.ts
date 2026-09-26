@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Logger,
   Get,
+  Param,
   Put,
   Query,
   UseGuards,
@@ -75,6 +76,16 @@ export class ZoomController {
   @UseGuards(JwtAuthGuard)
   async dismissMatch(@CurrentUser() user: AuthenticatedUser, @Body() body: DismissMatchDto) {
     return this.youtubeMatchService.dismiss(user.id, body.recordingId, body.videoId);
+  }
+
+  // Upload (or re-upload) the Zoom transcript as captions of the synced video
+  @Post("recordings/:recordingId/captions")
+  @UseGuards(JwtAuthGuard)
+  async uploadCaptions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("recordingId") recordingId: string,
+  ) {
+    return this.captionService.uploadForUser(user.id, recordingId);
   }
 
   @Get("workflow-settings")

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions, Spin } from 'antd';
+import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions, Spin, Divider } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
@@ -11,6 +11,8 @@ import ZoomSyncRules from '../../components/ZoomSyncRules';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useT, useFormat } from '@/lib/i18n';
+import { usePreferences } from '@/lib/preferences';
+import { captionLanguageOptions, defaultCaptionTrackName } from '@/lib/captions';
 
 const { Text } = Typography;
 
@@ -26,7 +28,9 @@ const TIME_ZONES: string[] = (() => {
 export default function ZoomUtilities() {
   const t = useT();
   const fmt = useFormat();
+  const { language } = usePreferences();
   const [workflowForm] = Form.useForm();
+  const captionLanguage = Form.useWatch('captionLanguage', workflowForm) || 'vi';
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [savingWorkflow, setSavingWorkflow] = useState(false);
   // Filled by ZoomRecordingsPanel, which already loads the channel's playlists
@@ -193,6 +197,32 @@ export default function ZoomUtilities() {
                   <Col xs={24} md={8}>
                     <Form.Item label={t('zoomDash.timeZone')} name="timeZone">
                       <Select showSearch options={TIME_ZONES.map(zone => ({ value: zone, label: zone }))} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Divider titlePlacement="start" plain>{t('zoomDash.captionsSection')}</Divider>
+                <Form.Item
+                  label={t('zoomDash.captionsEnabled')}
+                  name="captionsEnabled"
+                  valuePropName="checked"
+                  extra={t('zoomDash.captionsHelp')}
+                >
+                  <Switch />
+                </Form.Item>
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
+                    <Form.Item label={t('zoomDash.captionLanguage')} name="captionLanguage" extra={t('zoomDash.captionLanguageHelp')}>
+                      <Select showSearch optionFilterProp="label" options={captionLanguageOptions(language, captionLanguage)} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item label={t('zoomDash.captionName')} name="captionName" rules={[{ max: 100 }]}>
+                      <Input
+                        placeholder={t('zoomDash.captionNamePlaceholder', { name: defaultCaptionTrackName(captionLanguage) })}
+                        maxLength={100}
+                        allowClear
+                      />
                     </Form.Item>
                   </Col>
                 </Row>

@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Alert, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip, Popconfirm } from 'antd';
-import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined, LinkOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined, LinkOutlined, DisconnectOutlined, FileTextOutlined } from '@ant-design/icons';
 import EditVideoModal from './EditVideoModal';
 import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
 import { useFormat, useSyncErrorText, useT } from '@/lib/i18n';
+import { CAPTION_STATUS_COLORS, hasTranscript, isCaptionStatus, type CaptionStatus } from '@/lib/captions';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -70,6 +71,8 @@ export default function ZoomRecordingsPanel({
   const [pickedVideoId, setPickedVideoId] = useState<string | undefined>(undefined);
 
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  // Recordings whose captions are being uploaded by hand
+  const [captionIds, setCaptionIds] = useState<Set<string>>(new Set());
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
   const [quota, setQuota] = useState<any>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
@@ -287,6 +290,44 @@ export default function ZoomRecordingsPanel({
       await fetchAllData();
     });
 
+  // "Upload captions": the Zoom transcript becomes captions of the synced video
+  const uploadCaptions = async (recordingId: string) => {
+    setCaptionIds(prev => new Set(prev).add(recordingId));
+    try {
+      const result = await apiFetch(`/zoom/recordings/${encodeURIComponent(recordingId)}/captions`, { method: 'POST' });
+      if (result.captionStatus === 'uploaded') message.success(t('caption.uploaded'));
+      else if (result.captionStatus === 'waiting_transcript') message.info(t('caption.stillWaiting'));
+      else message.error(t('caption.failed', { reason: syncErrorText(result.captionErrorCode, result.captionError || '') }));
+      // Only this log changes
+      setLogs(prev => prev.map(l => (l.recordingId === recordingId ? { ...l, ...result } : l)));
+    } catch (error: any) {
+      message.error(t('caption.failed', { reason: error.message || '' }));
+    } finally {
+      setCaptionIds(prev => {
+        const next = new Set(prev);
+        next.delete(recordingId);
+        return next;
+      });
+    }
+  };
+
+  // Caption state of a synced video, with the reason on hover
+  const captionTag = (log: any) => {
+    if (!isCaptionStatus(log?.captionStatus)) return null;
+    const status: CaptionStatus = log.captionStatus;
+    const tooltip =
+      status === 'failed' ? syncErrorText(log.captionErrorCode, log.captionError || t('zoomRec.unknownError'))
+      : status === 'waiting_transcript' ? t('caption.waitingHelp')
+      : status === 'no_transcript' ? t('caption.noTranscriptHelp')
+      : null;
+    const tag = (
+      <Tag color={CAPTION_STATUS_COLORS[status]} icon={<FileTextOutlined />} style={tooltip ? { cursor: 'help' } : undefined}>
+        {t(`caption.status.${status}` as 'caption.status.uploaded')}
+      </Tag>
+    );
+    return tooltip ? <Tooltip title={tooltip}>{tag}</Tooltip> : tag;
+  };
+
   const dismissMatch = (record: any) =>
     withLinking(record.uuid || record.id, async () => {
       await apiFetch('/zoom/recordings/dismiss-match', {
@@ -436,7 +477,12 @@ export default function ZoomRecordingsPanel({
         }
         if (!log) return <Tag color="default">{t('zoomRec.notSynced')}</Tag>;
         if (log.source === 'linked') {
-          return <Tag color="success" icon={<LinkOutlined />}>{t('zoomRec.linked')}</Tag>;
+          return (
+            <Space orientation="vertical" size={4}>
+              <Tag color="success" icon={<LinkOutlined />}>{t('zoomRec.linked')}</Tag>
+              {captionTag(log)}
+            </Space>
+          );
         }
 
         const status = log.syncStatus || 'PENDING';
@@ -453,7 +499,12 @@ export default function ZoomRecordingsPanel({
             const duration = log.syncStartedAt ? Math.floor((new Date().getTime() - new Date(log.syncStartedAt).getTime()) / 60000) : 0;
             return <Tag color="warning">{t('zoomRec.processing')} {duration > 0 ? `(${duration}m)` : ''}</Tag>;
           case 'COMPLETED':
-            return <Tag color="success">{t('zoomRec.ready')}</Tag>;
+            return (
+              <Space orientation="vertical" size={4}>
+                <Tag color="success">{t('zoomRec.ready')}</Tag>
+                {captionTag(log)}
+              </Space>
+            );
           case 'FAILED':
             return (
               <Space orientation="vertical" size={0}>
@@ -510,6 +561,8 @@ export default function ZoomRecordingsPanel({
         const isLinked = log?.source === 'linked';
         const match = !log || log.syncStatus === 'PENDING' ? record.youtubeMatch : null;
         const busy = linkingIds.has(recordingId);
+        // Captions can go on any video already on YouTube whose recording has a transcript
+        const canUploadCaptions = isCompleted && !!log.youtubeVideoId && hasTranscript(record.recording_files);
 
         return (
           <Space wrap>
@@ -577,6 +630,20 @@ export default function ZoomRecordingsPanel({
                   disabled={busy}
                 />
               </Tooltip>
+            )}
+
+            {canUploadCaptions && (
+              <Popconfirm
+                title={t('caption.uploadConfirm')}
+                // Closes at once; the row button shows the upload in progress
+                onConfirm={() => { uploadCaptions(recordingId); }}
+                okText={t('caption.upload')}
+                cancelText={t('common.cancel')}
+              >
+                <Button size="small" icon={<FileTextOutlined />} loading={captionIds.has(recordingId)}>
+                  {log.captionStatus === 'uploaded' ? t('caption.reupload') : t('caption.upload')}
+                </Button>
+              </Popconfirm>
             )}
 
             {hasHistory && (

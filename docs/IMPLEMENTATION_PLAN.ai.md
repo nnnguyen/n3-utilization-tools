@@ -203,7 +203,7 @@ For each item, the first task is a **design note** (`docs/design/<id>-<name>.md`
 | P2-2 | Workspaces & roles | `Workspace`, `Membership(role)`, connections owned by workspaces, `ZoomSyncLog.recordingId` uniqueness per workspace, activity log | multi-workspace users; merging accounts that share a Zoom account |
 | P2-3 | Google Drive backup | new scope `drive.file` (re-authorization flow), upload MP4/M4A/VTT after sync, folder layout, retries, storage display | folder structure; which files |
 | P2-4 | Google Calendar | upcoming meetings list, attach video link to events | which calendar |
-| P2-5 | Automatic captions | Zoom `TRANSCRIPT` (VTT) → `captions.insert` (≈400 quota units, scope `youtube.force-ssl` already granted) after processing succeeds | default language; on by default? |
+| P2-5 ✅ | Automatic captions | Zoom `TRANSCRIPT` (VTT) → `captions.insert` (≈400 quota units, scope `youtube.force-ssl` already granted) after processing succeeds | default language; on by default? |
 | P2-6 | Zalo OA notifications | on top of P2-1 | verified OA available? |
 
 ### P2-1 subtasks (approved 2026-09-25)
@@ -262,7 +262,7 @@ Design: [docs/design/P2-5-captions.md](design/P2-5-captions.md) — approved wit
 | --- | --- | --- |
 | P2-5a ✅ | Schema + `CaptionService` (transcript file choice, insert/update track, quota, status) hooked after a sync completes | — |
 | P2-5b ✅ | `recording.transcript_completed` webhook + scheduler sweep, `no_transcript` after 48 h | P2-5a |
-| P2-5c | UI: workflow switch/language/name, rule language, caption status + "Upload captions" button, manual endpoint | P2-5b |
+| P2-5c ✅ | UI: workflow switch/language/name, rule language, caption status + "Upload captions" button, manual endpoint | P2-5b |
 
 ### P2-8 — PostHog product analytics (design first)
 
