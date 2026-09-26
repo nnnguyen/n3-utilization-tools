@@ -27,6 +27,18 @@ import {
 } from "../youtube/youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AnalyticsService } from "../analytics/analytics.service";
+import {
+  isMissingScopeError,
+  predictUpcoming,
+  UPCOMING_DAYS_DEFAULT,
+  UPCOMING_DAYS_MAX,
+  upcomingInWindow,
+  ZoomUpcomingMeeting,
+} from "./upcoming-meetings";
+
+// Zoom's list of upcoming meetings is kept this long per account; what the
+// sync will do with them is worked out again on every request
+const UPCOMING_CACHE_MS = 5 * 60_000;
 import * as fs from "fs";
 import * as path from "path";
 import { firstValueFrom } from "rxjs";
@@ -302,6 +314,75 @@ export class ZoomService {
         autoUpload: autoUpload.get(config.userId),
       })),
     );
+  }
+
+  private readonly upcomingCache = new Map<string, { at: number; meetings: ZoomUpcomingMeeting[] }>();
+
+  /**
+   * Upcoming meetings of the next `days` days with what the sync will do with
+   * each (P2-4a). Only the fields listed in UpcomingMeeting leave the server.
+   */
+  async listUpcomingMeetings(userId: string, days?: number, refresh = false) {
+    const window = Math.min(Math.max(Math.round(days ?? 0) || UPCOMING_DAYS_DEFAULT, 1), UPCOMING_DAYS_MAX);
+    const empty = { days: window, meetings: [] as ReturnType<typeof predictUpcoming>[] };
+    if (!(await this.isZoomConfigured(userId))) {
+      return { ...empty, configured: false, missingScope: false };
+    }
+
+    let listed: ZoomUpcomingMeeting[];
+    try {
+      listed = await this.fetchUpcomingMeetings(userId, refresh);
+    } catch (error) {
+      if (isMissingScopeError(error)) return { ...empty, configured: true, missingScope: true };
+      this.logger.error("Error listing upcoming Zoom meetings", error.response?.data || error.message);
+      throw new BadRequestException(
+        `Failed to list upcoming Zoom meetings: ${error.response?.data?.message || error.message}`,
+      );
+    }
+
+    const [settings, rules, user] = await Promise.all([
+      this.getWorkflowSettings(userId),
+      this.prisma.zoomSyncRule.findMany({ where: { userId } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { language: true } }),
+    ]);
+    const meetings = upcomingInWindow(listed, new Date(), window).map((m) =>
+      predictUpcoming(m, settings, rules, user?.language ?? "vi"),
+    );
+    return { days: window, meetings, configured: true, missingScope: false };
+  }
+
+  private async fetchUpcomingMeetings(userId: string, refresh: boolean) {
+    const cached = this.upcomingCache.get(userId);
+    if (!refresh && cached && Date.now() - cached.at < UPCOMING_CACHE_MS) return cached.meetings;
+
+    const token = await this.getAccessToken(userId);
+    const meetings: ZoomUpcomingMeeting[] = [];
+    let nextPageToken = "";
+    // Zoom lists each occurrence of a recurring meeting; a few pages are plenty
+    for (let page = 0; page < 5; page++) {
+      const params = new URLSearchParams({ type: "upcoming", page_size: "300" });
+      if (nextPageToken) params.set("next_page_token", nextPageToken);
+      const response = await firstValueFrom(
+        this.httpService.get(`https://api.zoom.us/v2/users/me/meetings?${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+      // Only what the predictions need: no join link, passcode or host
+      for (const m of response.data?.meetings ?? []) {
+        meetings.push({
+          id: m.id,
+          topic: m.topic,
+          type: m.type,
+          start_time: m.start_time,
+          duration: m.duration,
+          timezone: m.timezone,
+        });
+      }
+      nextPageToken = response.data?.next_page_token || "";
+      if (!nextPageToken) break;
+    }
+    this.upcomingCache.set(userId, { at: Date.now(), meetings });
+    return meetings;
   }
 
   // Saved Automation Workflow settings, or the defaults (= historical behaviour)

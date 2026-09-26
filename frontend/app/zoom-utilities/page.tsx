@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions, Spin, Divider } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { ZoomPageTitle } from '../../components/BrandLogos';
 import ZoomRecordingsPanel from '../../components/ZoomRecordingsPanel';
-import ZoomSyncRules from '../../components/ZoomSyncRules';
+import ZoomSyncRules, { type ZoomSyncRulesHandle } from '../../components/ZoomSyncRules';
+import ZoomUpcomingMeetings from '../../components/ZoomUpcomingMeetings';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useT, useFormat } from '@/lib/i18n';
@@ -36,6 +37,10 @@ export default function ZoomUtilities() {
   const [savingWorkflow, setSavingWorkflow] = useState(false);
   // Filled by ZoomRecordingsPanel, which already loads the channel's playlists
   const [playlists, setPlaylists] = useState<any[]>([]);
+  const rulesRef = useRef<ZoomSyncRulesHandle>(null);
+  // Saved settings or rules change what the upcoming meetings will get
+  const [predictionKey, setPredictionKey] = useState(0);
+  const refreshPredictions = () => setPredictionKey(key => key + 1);
   const [configsLoading, setConfigsLoading] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
 
@@ -83,6 +88,7 @@ export default function ZoomUtilities() {
       });
       workflowForm.setFieldsValue({ ...settings, playlistId: settings.playlistId || 'none' });
       message.success(t('zoomDash.settingsSaved'));
+      refreshPredictions();
       trackEvent('workflow_saved', {
         auto_upload: settings.autoUpload,
         has_description_template: !!settings.descriptionTemplate?.trim(),
@@ -242,7 +248,15 @@ export default function ZoomUtilities() {
         </Col>
 
         <Col span={24}>
-          <ZoomSyncRules playlists={playlists} />
+          <ZoomSyncRules ref={rulesRef} playlists={playlists} onChanged={refreshPredictions} />
+        </Col>
+
+        <Col span={24}>
+          <ZoomUpcomingMeetings
+            playlists={playlists}
+            refreshKey={predictionKey}
+            onOpenRule={(ruleId) => rulesRef.current?.openRule(ruleId)}
+          />
         </Col>
 
         <Col span={24}>

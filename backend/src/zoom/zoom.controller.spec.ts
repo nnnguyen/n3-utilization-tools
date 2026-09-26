@@ -17,11 +17,13 @@ describe("ZoomController", () => {
     uploadForUser: jest.fn().mockResolvedValue({ status: "uploaded" }),
   };
 
+  const zoomServiceMock = { listUpcomingMeetings: jest.fn().mockResolvedValue({ meetings: [] }) };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ZoomController],
       providers: [
-        { provide: ZoomService, useValue: {} },
+        { provide: ZoomService, useValue: zoomServiceMock },
         { provide: ZoomYoutubeMatchService, useValue: {} },
         { provide: CaptionService, useValue: captionService },
       ],
@@ -32,6 +34,13 @@ describe("ZoomController", () => {
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
+  });
+
+  it("lists upcoming meetings of the signed-in account", async () => {
+    await controller.getUpcomingMeetings({ id: "user-1" } as any, "7", "1");
+    expect(zoomServiceMock.listUpcomingMeetings).toHaveBeenCalledWith("user-1", 7, true);
+    await controller.getUpcomingMeetings({ id: "user-1" } as any);
+    expect(zoomServiceMock.listUpcomingMeetings).toHaveBeenLastCalledWith("user-1", undefined, false);
   });
 
   it("uploads captions of a recording for the signed-in account", async () => {

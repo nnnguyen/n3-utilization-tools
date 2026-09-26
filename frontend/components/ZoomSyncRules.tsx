@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useState } from 'react';
 import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, FilterOutlined, PlusOutlined } from '@ant-design/icons';
 import { apiFetch } from '@/lib/api';
@@ -24,9 +24,23 @@ interface SyncRule {
   captionLanguage: string | null;
 }
 
+export interface ZoomSyncRulesHandle {
+  // Opens the editor of this rule (e.g. from the upcoming meetings)
+  openRule: (ruleId: string) => void;
+}
+
 // Topic rules of the Automation Workflow: the first rule whose text appears in
 // the meeting name overrides the workflow settings for that recording
-export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
+export default function ZoomSyncRules({
+  playlists,
+  onChanged,
+  ref,
+}: {
+  playlists: any[];
+  // After a rule was added, edited, deleted or moved
+  onChanged?: () => void;
+  ref?: React.Ref<ZoomSyncRulesHandle>;
+}) {
   const t = useT();
   const { language } = usePreferences();
   const [rules, setRules] = useState<SyncRule[]>([]);
@@ -67,6 +81,13 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    openRule: (ruleId: string) => {
+      const rule = rules.find(r => r.id === ruleId);
+      if (rule) openEditor(rule);
+    },
+  }), [rules]);
+
   const onSave = async () => {
     const values = await form.validateFields();
     const body = {
@@ -90,6 +111,7 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
         await apiFetch(`/zoom/sync-rules/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) });
       }
       message.success(t('zoomRules.saved'));
+      onChanged?.();
       trackEvent('sync_rule_saved', {
         is_new: editing === 'new',
         has_playlist: !!body.playlistId,
@@ -110,6 +132,7 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
     try {
       await apiFetch(`/zoom/sync-rules/${rule.id}`, { method: 'DELETE' });
       message.success(t('zoomRules.deleted'));
+      onChanged?.();
       fetchRules();
     } catch (error: any) {
       message.error(error.message || t('zoomRules.saveFailed'));
@@ -122,6 +145,7 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
     ids.splice(index + offset, 0, moved);
     try {
       setRules(await apiFetch('/zoom/sync-rules/order', { method: 'PUT', body: JSON.stringify({ ids }) }));
+      onChanged?.();
     } catch (error: any) {
       message.error(error.message || t('zoomRules.saveFailed'));
     }

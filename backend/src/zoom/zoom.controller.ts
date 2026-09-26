@@ -91,6 +91,17 @@ export class ZoomController {
     return this.captionService.uploadForUser(user.id, recordingId);
   }
 
+  // Next meetings and what the sync will do with them (P2-4a)
+  @Get("meetings/upcoming")
+  @UseGuards(JwtAuthGuard)
+  async getUpcomingMeetings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("days") days?: string,
+    @Query("refresh") refresh?: string,
+  ) {
+    return this.zoomService.listUpcomingMeetings(user.id, days ? Number(days) : undefined, refresh === "1");
+  }
+
   @Get("workflow-settings")
   @UseGuards(JwtAuthGuard)
   async getWorkflowSettings(@CurrentUser() user: AuthenticatedUser) {
