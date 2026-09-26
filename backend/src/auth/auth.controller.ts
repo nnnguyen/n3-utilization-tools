@@ -17,6 +17,7 @@ import { AuthService } from "./auth.service";
 import { AuthCodeStore } from "./auth-code.store";
 import { YoutubeService } from "../youtube/youtube.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { GoogleCallbackGuard } from "./guards/google-callback.guard";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import type { GoogleProfile } from "./strategies/google.strategy";
 import type { AuthenticatedUser } from "./strategies/jwt.strategy";
@@ -90,13 +91,13 @@ export class AuthController {
   }
 
   @Get("google/callback")
-  @UseGuards(AuthGuard("google"))
+  @UseGuards(GoogleCallbackGuard)
   async googleAuthCallback(@Req() req: any, @Res() res: Response) {
     try {
       if (!req.user) {
-        return res.redirect(
-          `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
-        );
+        // Cancelled on Google's screen, or a code Google refused
+        const error = req.googleAuthError ? "google_auth_error" : "google_auth_failed";
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=${error}`);
       }
       const user = await this.authService.validateOAuthUser(req.user);
       const token = this.authService.signToken(user);
