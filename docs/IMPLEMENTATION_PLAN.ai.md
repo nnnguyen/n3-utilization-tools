@@ -236,6 +236,30 @@ Design: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md) — approved
 | P2-2g | Contract — **destructive, ask before starting** | all above |
 | P2-2i | Email — **deferred** (Resend with an own domain, or Gmail SMTP on Railway Pro) | — |
 
+### P2-7 — Vercel Web Analytics and Speed Insights (executable, small)
+
+**Goal**: page-level traffic and real-user performance, viewed by the super admin only (in the Vercel dashboard, linked from the Admin page).
+
+**Context**: `frontend/app/layout.tsx` (root layout, `AuthProvider`), `frontend/app/admin/page.tsx`, `frontend/lib/auth-context.tsx`. Two Vercel projects deploy the frontend (`frontend`, `n3-utilization-tools-fe`); **decided 2026-09-26: analytics on `frontend`** (dashboard `https://vercel.com/nnnguyen/frontend/analytics`).
+
+**Changes**
+Docs (read 2026-09-26): [quickstart](https://vercel.com/docs/analytics/quickstart?framework=nextjs), [package reference 2.x](https://vercel.com/docs/analytics/package), [redacting sensitive data](https://vercel.com/docs/analytics/redacting-sensitive-data).
+
+1. Add `@vercel/analytics` (2.x) and `@vercel/speed-insights`; render `<Analytics />` from `@vercel/analytics/next` (route support: reports patterns such as `/word-cloud/join/[code]`, not real join codes) and `<SpeedInsights />` in the root layout. `beforeSend` is a function, so both live in a small `'use client'` component rendered inside `AuthProvider`; keep `mode` automatic (tracks only production builds; debug logs in development).
+2. `beforeSend` (pure helper with a spec): parse `event.url` and **drop the whole query string** (`/login?authCode=…`, `/settings/integrations?code=…` carry one-time sign-in and OAuth codes); return `null` while the signed-in user is a super admin — read the role from a ref updated by the auth context (the callback is registered once, so it must not close over a stale user), as the docs' opt-out pattern does with `localStorage`.
+3. Admin page: an "Analytics" button opening `NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL` (the Vercel project's Analytics tab) in a new tab; hidden when the variable is unset. Document the variable in `frontend` env docs / README.
+4. Human steps: enable Web Analytics and Speed Insights on the right Vercel project; set `NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL` there.
+
+**Tests**: spec for the `beforeSend` filter (query stripped, super admin → null). **Acceptance**: after deploy, page views and Web Vitals appear in Vercel; no URL with a query string; super admin visits absent; the Admin button opens the dashboard.
+
+**Out of scope**: custom events (paid plan), analytics shown inside the app (P2-8).
+
+### P2-8 — PostHog product analytics (design first)
+
+Design note `docs/design/P2-8-posthog.md` (≤ 2 pages), then stop for approval. **Must cover**: the questions to answer (e.g. sign-up → connect YouTube → first sync funnel, feature usage, Zoom rules, Word Cloud sessions); event list, with reliable events sent from the backend (`posthog-node`: sync completed/failed, webhook received, auto-upload skipped) and UI events from `posthog-js`; identity by internal user id (never email); privacy — no capture on the Integrations drawer and the Admin page (secrets, temp passwords), no persons/replay on public Word Cloud audience pages, consent notice (Vietnam Decree 13/2023, GDPR if EU users); region (US/EU, fixed at sign-up); reverse proxy through a Next.js rewrite; feature flags (could replace env switches like `CONNECTIONS_READ`); dashboards embedded in the Admin page for super admins. **Open questions (ask)**: what to learn first; session replay yes/no; consent approach; region.
+
+**Not planned: Upstash.** Shared state (rate limiter, Google login code store, Zoom token cache, socket.io adapter) only matters once the backend runs more than one instance; then prefer a Redis service in the same Railway project. Revisit Upstash if logic moves to Vercel functions/edge (e.g. edge rate limiting of the public join page) or QStash should replace the in-process scheduler.
+
 ## 5. Phase 3 — outline only
 
 Workflow builder (triggers/actions/conditions, run history), Facebook Page publishing (Meta App Review), podcast RSS from M4A, AI meeting summaries and metadata suggestions (opt-in per workspace; state what data leaves the system), polls and Q&A for Word Cloud. Plan these after Phase 2 lands.
