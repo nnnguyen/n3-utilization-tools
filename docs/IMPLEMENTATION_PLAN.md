@@ -111,10 +111,10 @@ Các hạng mục này lớn và ảnh hưởng nhiều phần. Mỗi hạng m�
 | **P2-2** | Workspace và phân quyền | Kết nối Zoom/YouTube thuộc về một nhóm; vai trò Quản trị / Biên tập / Xem; nhật ký hoạt động | **Đã chốt (25/09/2026)**: nhiều workspace/người; không gộp tự động; giữ tự đăng ký + super admin toàn quyền (tạo tài khoản thủ công, mật khẩu tạm hiện một lần để copy); **tạm không dùng email** (26/09/2026), mời bằng link. Thiết kế: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md), task con P2-2a → P2-2i |
 | **P2-3** | Google Drive | Tự sao lưu MP4/M4A/transcript sau khi sync | Cần thêm quyền Drive → người dùng phải uỷ quyền Google lại; cấu trúc thư mục |
 | **P2-4** | Google Calendar | Xem lịch họp sắp tới, gắn link video vào sự kiện | Lịch nào (cá nhân hay lịch chung của nhóm) |
-| **P2-5** | Phụ đề tự động | Transcript của Zoom → phụ đề YouTube | Ngôn ngữ phụ đề mặc định; bật mặc định hay tuỳ chọn (tốn khoảng 400 đơn vị quota mỗi video) |
+| **P2-5** | Phụ đề tự động | Transcript của Zoom → phụ đề YouTube | **Đã chốt (26/09/2026)**: tiếng Việt, tắt mặc định, công khai ngay, làm trước P2-2; video cũ tải bằng nút. Thiết kế: [docs/design/P2-5-captions.md](design/P2-5-captions.md), task P2-5a → P2-5c |
 | **P2-6** | Zalo OA | Thông báo qua Zalo trên khung P2-1 | Có sẵn OA đã xác thực chưa |
 | **P2-7** ✅ | Vercel Web Analytics + Speed Insights | Lượt xem trang và tốc độ thực tế; **chỉ super admin xem** (dashboard Vercel, nút mở từ trang Quản trị); bỏ query string khỏi URL, không tính lượt của super admin | Không cần thiết kế — làm được ngay; bật trên project Vercel **`frontend`** (đã chốt 26/09/2026) |
-| **P2-8** | PostHog | Phân tích sử dụng sản phẩm (funnel, tính năng được dùng), sự kiện từ backend, feature flag, dashboard nhúng trong trang Quản trị | Muốn biết điều gì trước; có ghi lại phiên (session replay) không; cách xin đồng ý; vùng lưu dữ liệu |
+| **P2-8** | PostHog | Phân tích sử dụng sản phẩm (funnel, tính năng được dùng), sự kiện từ backend, feature flag, dashboard nhúng trong trang Quản trị | **Đã chốt (26/09/2026)**: phễu kích hoạt + lỗi sync trước; không ghi phiên; hỏi đồng ý một lần, chưa đồng ý thì không theo dõi; vùng EU; chỉ nút mở từ trang Quản trị. Thiết kế: [docs/design/P2-8-posthog.md](design/P2-8-posthog.md), task P2-8a → P2-8c |
 
 Thứ tự đề xuất: **P2-1 → P2-2 → (P2-3, P2-5 song song) → P2-4 → P2-6**. P2-7 làm được bất cứ lúc nào; P2-8 viết thiết kế khi anh/chị sẵn sàng. **Upstash**: chưa cần (backend chạy một instance); khi cần Redis thì ưu tiên Redis ngay trong project Railway.
 
