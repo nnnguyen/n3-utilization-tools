@@ -1,6 +1,6 @@
 # P2-4 — Buổi họp sắp tới
 
-**Trạng thái**: 📝 Bản nháp — đã sửa theo góp ý 27/09/2026 (bỏ phần tự gắn video vào Google Calendar), chờ duyệt · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4](../IMPLEMENTATION_PLAN.ai.md), [P1-5 Quy tắc theo cuộc họp](../IMPLEMENTATION_PLAN.ai.md)
+**Trạng thái**: ✅ Approved (27/09/2026 — bỏ phần tự gắn video vào Google Calendar; 14 ngày; các câu hỏi khác dùng phương án đề xuất) · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4](../IMPLEMENTATION_PLAN.ai.md), [P1-5 Quy tắc theo cuộc họp](../IMPLEMENTATION_PLAN.ai.md)
 
 ## 1. Mục tiêu
 
@@ -31,7 +31,7 @@ Ngoài phạm vi: tạo/sửa cuộc họp Zoom từ app, nhắc lịch, đồng
 | Thiếu scope Zoom | Hướng dẫn cụ thể trên thẻ; phần còn lại của trang không bị ảnh hưởng |
 | Lộ link/mật khẩu cuộc họp | Backend không trả các trường này |
 
-## 5. Câu hỏi mở (đề xuất in đậm)
+## 5. Câu hỏi mở — đã chốt 27/09/2026: dùng phương án đề xuất (in đậm)
 
 1. **Xem bao xa** — **14 ngày**.
 2. **Ai thấy** — **người có kết nối Zoom đó** (như bảng recording); sau P2-2 là thành viên workspace.

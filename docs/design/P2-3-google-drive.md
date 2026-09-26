@@ -1,6 +1,6 @@
 # P2-3 — Sao lưu recording Zoom vào Google Drive
 
-**Trạng thái**: 📝 Bản nháp — đã sửa theo góp ý 27/09/2026 (người dùng tự chọn có lưu vào Drive hay không), chờ duyệt phần còn lại · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4](../IMPLEMENTATION_PLAN.ai.md), [P2-1 Connector](P2-1-connector.md), [P2-5 Phụ đề](P2-5-captions.md)
+**Trạng thái**: ✅ Approved (27/09/2026 — người dùng tự chọn có lưu vào Drive hay không; các câu hỏi khác dùng phương án đề xuất ở mục 7) · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4](../IMPLEMENTATION_PLAN.ai.md), [P2-1 Connector](P2-1-connector.md), [P2-5 Phụ đề](P2-5-captions.md)
 
 ## 1. Mục tiêu
 
@@ -81,7 +81,7 @@ Một dòng cho mỗi file → biết chính xác file nào đã có trên Drive
 | Chọn nhầm tài khoản Google | Thẻ hiện email tài khoản Drive đã kết nối; ngắt kết nối không xoá file đã sao lưu |
 | Workspace (P2-2) đổi chủ kết nối | `DriveBackup.userId` và kết nối sẽ chuyển theo workspace như các bảng khác ở P2-2c |
 
-## 7. Câu hỏi mở (đề xuất in đậm)
+## 7. Câu hỏi mở — đã chốt 27/09/2026: dùng phương án đề xuất (in đậm)
 
 1. **Kết nối riêng hay dùng chung tài khoản Google với YouTube** — **Riêng** (xem §2); nếu cùng một tài khoản thì chỉ bấm cấp quyền thêm một lần.
 2. **File nào** — **MP4 + M4A + transcript**; chat và các MP4 phụ (chỉ người nói, chỉ màn hình) tắt mặc định.

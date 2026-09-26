@@ -1,6 +1,6 @@
 # P2-6 — Thông báo qua Zalo Official Account
 
-**Trạng thái**: 📝 Bản nháp — đã sửa theo góp ý 27/09/2026 (chỉ super admin duyệt việc chia sẻ), chờ duyệt · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4 và P1-8 (Telegram, tạm dừng)](../IMPLEMENTATION_PLAN.ai.md), [P2-1 Connector](P2-1-connector.md), [P1-9 Thông báo đa ngôn ngữ](../IMPLEMENTATION_PLAN.ai.md)
+**Trạng thái**: ⏸ Tạm chờ (27/09/2026 — chưa có Zalo OA đã xác thực) · bản nháp đã sửa theo góp ý: chỉ super admin duyệt việc chia sẻ · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4 và P1-8 (Telegram, tạm dừng)](../IMPLEMENTATION_PLAN.ai.md), [P2-1 Connector](P2-1-connector.md), [P1-9 Thông báo đa ngôn ngữ](../IMPLEMENTATION_PLAN.ai.md)
 
 ## 1. Mục tiêu và câu hỏi cần chốt trước
 
@@ -47,7 +47,7 @@ Ràng buộc chung của Zalo OA API (cần kiểm tra lại với tài liệu v
 ## 5. Câu hỏi mở (đề xuất in đậm)
 
 1. **Báo cho ai** — **Cộng đồng (B)**; báo lỗi cho người vận hành (A) dùng chuông trong app, hoặc bật lại Telegram (P1-8) nếu cần tin nhắn ngoài app.
-2. **Đã có OA xác thực chưa**, ai là quản trị viên — *cần anh/chị trả lời*; chưa có thì P2-6 chờ.
+2. **Đã có OA xác thực chưa** — **Chưa** (27/09/2026) → P2-6 tạm chờ tới khi có OA đã xác thực.
 3. **Duyệt trước hay gửi tự động** — ✅ **Đã chốt 27/09/2026: super admin duyệt từng tin**, không có gửi tự động.
 4. **Buổi họp nào** — **Theo quy tắc cuộc họp** (bật riêng cho từng quy tắc).
 5. **Ngân sách tin nhắn mỗi tháng** — *cần anh/chị trả lời* sau khi xem bảng giá Zalo.
