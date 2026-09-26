@@ -11,10 +11,13 @@ import {
   MAX_AUTO_RETRIES,
 } from "../youtube/youtube.service";
 import { ZoomService } from "./zoom.service";
+import { CaptionService } from "./caption.service";
 
 const TICK_MS = 30_000;
 // Processing checks cost quota, so they run less often than the retry check
 const PROCESSING_CHECK_EVERY_TICKS = 4; // every 2 minutes
+// Caption retries (transcripts that arrive late, temporary failures)
+const CAPTION_SWEEP_EVERY_TICKS = 10; // every 5 minutes
 // Videos still PROCESSING after this long are left to the manual refresh
 const PROCESSING_CHECK_WINDOW_MS = 24 * 60 * 60_000;
 
@@ -32,6 +35,7 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly youtubeService: YoutubeService,
     private readonly zoomService: ZoomService,
+    private readonly captionService: CaptionService,
   ) {}
 
   onModuleInit() {
@@ -55,6 +59,9 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
       await this.runDueRetries();
       if (this.tickCount % PROCESSING_CHECK_EVERY_TICKS === 0) {
         await this.checkProcessingVideos();
+      }
+      if (this.tickCount % CAPTION_SWEEP_EVERY_TICKS === 0) {
+        await this.captionService.sweep();
       }
     } catch (error) {
       this.logger.error("Sync scheduler tick failed", error.stack);

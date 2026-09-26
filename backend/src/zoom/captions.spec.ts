@@ -1,5 +1,6 @@
 import {
   CAPTION_LANGUAGE,
+  captionSweepDecision,
   captionTrackName,
   isRetryableCaptionError,
   pickTranscriptFile,
@@ -43,5 +44,42 @@ describe("isRetryableCaptionError", () => {
     expect(isRetryableCaptionError("networkError")).toBe(true);
     expect(isRetryableCaptionError("VIDEO_NOT_FOUND")).toBe(false);
     expect(isRetryableCaptionError(null)).toBe(false);
+  });
+});
+
+describe("captionSweepDecision", () => {
+  const now = new Date("2026-09-26T12:00:00Z");
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60_000);
+  const log = (over: object = {}) => ({
+    captionStatus: "waiting_transcript",
+    captionErrorCode: null,
+    captionAttempts: 0,
+    captionUpdatedAt: hoursAgo(1),
+    syncCompletedAt: hoursAgo(2),
+    ...over,
+  });
+
+  it("re-checks a missing transcript every 10 minutes, for 48 hours", () => {
+    expect(captionSweepDecision(log(), now)).toBe("retry");
+    expect(captionSweepDecision(log({ captionUpdatedAt: new Date(now.getTime() - 60_000) }), now)).toBe("wait");
+    expect(captionSweepDecision(log({ syncCompletedAt: hoursAgo(49) }), now)).toBe("give_up");
+  });
+
+  it("retries temporary failures with a growing delay, up to 5 attempts", () => {
+    const failed = (over: object) => log({ captionStatus: "failed", captionErrorCode: "quotaExceeded", ...over });
+    expect(captionSweepDecision(failed({ captionAttempts: 1, captionUpdatedAt: hoursAgo(1) }), now)).toBe("retry");
+    expect(captionSweepDecision(failed({ captionAttempts: 3, captionUpdatedAt: hoursAgo(1) }), now)).toBe("wait");
+    expect(captionSweepDecision(failed({ captionAttempts: 5, captionUpdatedAt: hoursAgo(10) }), now)).toBe("wait");
+  });
+
+  it("never retries permanent failures or finished work", () => {
+    expect(captionSweepDecision(log({ captionStatus: "failed", captionErrorCode: "VIDEO_NOT_FOUND" }), now)).toBe("wait");
+    expect(captionSweepDecision(log({ captionStatus: "uploaded" }), now)).toBe("wait");
+    expect(captionSweepDecision(log({ captionStatus: "no_transcript" }), now)).toBe("wait");
+  });
+
+  it("resumes an upload interrupted in 'pending'", () => {
+    expect(captionSweepDecision(log({ captionStatus: "pending", captionUpdatedAt: hoursAgo(1) }), now)).toBe("retry");
+    expect(captionSweepDecision(log({ captionStatus: "pending", captionUpdatedAt: new Date(now.getTime() - 60_000) }), now)).toBe("wait");
   });
 });

@@ -21,6 +21,7 @@ import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import * as crypto from "crypto";
 import { verifyZoomSignature } from "./webhook-owner";
 import { UpdateWorkflowSettingsDto } from "./workflow-settings.dto";
+import { CaptionService } from "./caption.service";
 
 @Controller("zoom")
 export class ZoomController {
@@ -29,6 +30,7 @@ export class ZoomController {
   constructor(
     private readonly zoomService: ZoomService,
     private readonly youtubeMatchService: ZoomYoutubeMatchService,
+    private readonly captionService: CaptionService,
   ) {}
 
   @Get("recordings")
@@ -206,6 +208,19 @@ export class ZoomController {
         event: "recording.completed",
         payload: payload.payload,
       };
+    }
+
+    if (payload.event === "recording.transcript_completed") {
+      // Captions (P2-5): the sync log already names the account
+      const object = payload.payload?.object ?? {};
+      const recordingId: string | undefined = object.uuid || object.id?.toString();
+      if (!recordingId) return { status: "ignored" };
+      this.captionService
+        .onTranscriptReady(recordingId)
+        .catch((err) =>
+          this.logger.error(`Error uploading captions for ${recordingId}`, err.stack),
+        );
+      return { status: "processing", event: "recording.transcript_completed" };
     }
 
     return { status: "ignored" };

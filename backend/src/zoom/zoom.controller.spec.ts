@@ -3,6 +3,7 @@ import { ZoomController } from "./zoom.controller";
 import { ZoomService } from "./zoom.service";
 import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import { zoomSignature } from "./webhook-owner";
+import { CaptionService } from "./caption.service";
 
 // @nestjs/axios v12 is ESM-only and Jest cannot require it; these tests never
 // call Zoom, so a stand-in HttpService class is enough.
@@ -10,6 +11,7 @@ jest.mock("@nestjs/axios", () => ({ HttpService: class HttpService {} }));
 
 describe("ZoomController", () => {
   let controller: ZoomController;
+  const captionService = { onTranscriptReady: jest.fn().mockResolvedValue({ status: "uploaded" }) };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -17,6 +19,7 @@ describe("ZoomController", () => {
       providers: [
         { provide: ZoomService, useValue: {} },
         { provide: ZoomYoutubeMatchService, useValue: {} },
+        { provide: CaptionService, useValue: captionService },
       ],
     }).compile();
 
@@ -54,6 +57,8 @@ describe("ZoomController", () => {
         providers: [
           { provide: ZoomService, useValue: zoomService },
           { provide: ZoomYoutubeMatchService, useValue: {} },
+          { provide: CaptionService, useValue: captionService },
+        { provide: CaptionService, useValue: captionService },
         ],
       }).compile();
       webhookController = module.get<ZoomController>(ZoomController);
@@ -123,6 +128,21 @@ describe("ZoomController", () => {
       );
       expect(result.status).toBe("skipped");
       expect(zoomService.handleRecordingCompleted).not.toHaveBeenCalled();
+    });
+
+    it("uploads captions when Zoom finishes a transcript", async () => {
+      const transcript = {
+        event: "recording.transcript_completed",
+        payload: { account_id: "zoom-acc", object: { uuid: "rec-9" } },
+      };
+      const signature = zoomSignature("owner-token", timestamp, transcript);
+      const result = await webhookController.handleWebhook(transcript, signature, timestamp);
+      expect(result.status).toBe("processing");
+      expect(captionService.onTranscriptReady).toHaveBeenCalledWith("rec-9");
+      // An unsigned or badly signed one is refused like any webhook
+      captionService.onTranscriptReady.mockClear();
+      await webhookController.handleWebhook(transcript, zoomSignature("wrong", timestamp, transcript), timestamp);
+      expect(captionService.onTranscriptReady).not.toHaveBeenCalled();
     });
 
     it("answers URL validation with the env token when no account is known", async () => {

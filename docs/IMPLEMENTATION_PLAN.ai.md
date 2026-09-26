@@ -261,7 +261,7 @@ Design: [docs/design/P2-5-captions.md](design/P2-5-captions.md) — approved wit
 | ID | Task | Depends on |
 | --- | --- | --- |
 | P2-5a ✅ | Schema + `CaptionService` (transcript file choice, insert/update track, quota, status) hooked after a sync completes | — |
-| P2-5b | `recording.transcript_completed` webhook + scheduler sweep, `no_transcript` after 48 h | P2-5a |
+| P2-5b ✅ | `recording.transcript_completed` webhook + scheduler sweep, `no_transcript` after 48 h | P2-5a |
 | P2-5c | UI: workflow switch/language/name, rule language, caption status + "Upload captions" button, manual endpoint | P2-5b |
 
 ### P2-8 — PostHog product analytics (design first)

@@ -48,3 +48,46 @@ const RETRYABLE_CODES = new Set(["quotaExceeded", "networkError", "TRANSCRIPT_DO
 export function isRetryableCaptionError(code: string | null | undefined): boolean {
   return !!code && RETRYABLE_CODES.has(code);
 }
+
+// How long to keep looking for a transcript after the video is done
+export const CAPTION_WAIT_MS = 48 * 60 * 60_000;
+// Retryable failures: at most this many attempts, spaced by 30 min × attempts
+export const CAPTION_MAX_ATTEMPTS = 5;
+const RETRY_BACKOFF_MS = 30 * 60_000;
+// A transcript is re-checked at most this often while waiting
+const WAIT_RECHECK_MS = 10 * 60_000;
+// A 'pending' upload older than this was interrupted (e.g. a restart)
+const PENDING_STUCK_MS = 30 * 60_000;
+
+export interface CaptionSweepCandidate {
+  captionStatus: string | null;
+  captionErrorCode: string | null;
+  captionAttempts: number;
+  captionUpdatedAt: Date | null;
+  syncCompletedAt: Date | null;
+}
+
+/** What the scheduler does with a recording in the caption workflow. */
+export function captionSweepDecision(
+  log: CaptionSweepCandidate,
+  now = new Date(),
+): "retry" | "give_up" | "wait" {
+  const since = (d: Date | null) => (d ? now.getTime() - d.getTime() : Infinity);
+  const age = since(log.syncCompletedAt ?? log.captionUpdatedAt);
+  const idle = since(log.captionUpdatedAt);
+
+  switch (log.captionStatus) {
+    case "waiting_transcript":
+      if (age > CAPTION_WAIT_MS) return "give_up";
+      return idle >= WAIT_RECHECK_MS ? "retry" : "wait";
+    case "pending":
+      if (age > CAPTION_WAIT_MS) return "give_up";
+      return idle >= PENDING_STUCK_MS ? "retry" : "wait";
+    case "failed":
+      if (!isRetryableCaptionError(log.captionErrorCode)) return "wait";
+      if (log.captionAttempts >= CAPTION_MAX_ATTEMPTS || age > CAPTION_WAIT_MS) return "wait";
+      return idle >= RETRY_BACKOFF_MS * Math.max(1, log.captionAttempts) ? "retry" : "wait";
+    default:
+      return "wait";
+  }
+}

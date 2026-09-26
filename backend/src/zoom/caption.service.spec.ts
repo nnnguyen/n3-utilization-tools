@@ -104,4 +104,42 @@ describe("CaptionService", () => {
     await expect(service.tryUpload("rec-1")).resolves.toMatchObject({ reason: "quotaExceeded" });
     expect(zoom.fetchRecordingFiles).not.toHaveBeenCalled();
   });
+
+  it("continues a recording already in the caption workflow when its transcript arrives", async () => {
+    prisma.zoomSyncLog.findUnique
+      .mockResolvedValueOnce({ captionStatus: "waiting_transcript" })
+      .mockResolvedValue(completedLog);
+    zoom.getSyncOptions.mockResolvedValue({ captionsEnabled: false, captionLanguage: "vi" });
+    await expect(service.onTranscriptReady("rec-1")).resolves.toEqual({ status: "uploaded" });
+  });
+
+  it("sweeps: retries due recordings, gives up after 48 h, caps uploads", async () => {
+    const now = new Date("2026-09-26T12:00:00Z");
+    const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000);
+    const waiting = (id: string, completedHoursAgo: number) => ({
+      recordingId: id,
+      captionStatus: "waiting_transcript",
+      captionErrorCode: null,
+      captionAttempts: 0,
+      captionUpdatedAt: hoursAgo(1),
+      syncCompletedAt: hoursAgo(completedHoursAgo),
+    });
+    prisma.zoomSyncLog.findMany = jest.fn().mockResolvedValue([
+      waiting("old", 50),
+      ...Array.from({ length: 7 }, (_, i) => waiting(`r${i}`, 2)),
+    ]);
+    const tryUpload = jest.spyOn(service, "tryUpload").mockResolvedValue({ status: "uploaded" });
+
+    await service.sweep(now);
+
+    expect(updates).toContainEqual(expect.objectContaining({ captionStatus: "no_transcript" }));
+    expect(tryUpload).toHaveBeenCalledTimes(5);
+    expect(tryUpload).toHaveBeenCalledWith("r0", { manual: true });
+  });
+
+  it("records a deleted video as VIDEO_NOT_FOUND (not retried)", async () => {
+    youtube.uploadCaptionTrack.mockRejectedValue(Object.assign(new Error("not found"), { code: 404 }));
+    await expect(service.tryUpload("rec-1")).resolves.toEqual({ status: "failed", reason: "VIDEO_NOT_FOUND" });
+    expect(updates.at(-1)).toMatchObject({ captionErrorCode: "VIDEO_NOT_FOUND", captionError: "Video đã bị xoá trên YouTube" });
+  });
 });

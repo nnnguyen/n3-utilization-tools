@@ -1,8 +1,18 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import { YoutubeService } from "../youtube/youtube.service";
 import { ZoomService } from "./zoom.service";
-import { CaptionStatus, captionTrackName, pickTranscriptFile } from "./captions";
+import {
+  CAPTION_WAIT_MS,
+  CaptionStatus,
+  captionSweepDecision,
+  captionTrackName,
+  pickTranscriptFile,
+} from "./captions";
+
+// Caption uploads per scheduler sweep (each may cost up to 500 quota units)
+const SWEEP_UPLOAD_LIMIT = 5;
 
 export interface CaptionResult {
   status: CaptionStatus | "skipped";
@@ -28,6 +38,55 @@ export class CaptionService implements OnModuleInit {
 
   private async onSyncCompleted(recordingId: string) {
     await this.tryUpload(recordingId);
+  }
+
+  /**
+   * Zoom finished the transcript (webhook recording.transcript_completed).
+   * A recording already in the caption workflow (captions on, or asked by
+   * hand) continues even if captions were switched off since.
+   */
+  async onTranscriptReady(recordingId: string): Promise<CaptionResult> {
+    const log = await this.prisma.zoomSyncLog.findUnique({
+      where: { recordingId },
+      select: { captionStatus: true },
+    });
+    return this.tryUpload(recordingId, { manual: !!log?.captionStatus });
+  }
+
+  /**
+   * Scheduler fallback: retries recordings waiting for a transcript (missed
+   * webhook), interrupted uploads and temporary failures; gives up after 48 h.
+   */
+  async sweep(now = new Date()) {
+    const candidates = await this.prisma.zoomSyncLog.findMany({
+      where: {
+        captionStatus: { in: ["waiting_transcript", "pending", "failed"] },
+        captionUpdatedAt: { gte: new Date(now.getTime() - 2 * CAPTION_WAIT_MS) },
+      },
+      orderBy: { captionUpdatedAt: "asc" },
+      take: 50,
+      select: {
+        recordingId: true,
+        captionStatus: true,
+        captionErrorCode: true,
+        captionAttempts: true,
+        captionUpdatedAt: true,
+        syncCompletedAt: true,
+      },
+    });
+    let uploads = 0;
+    for (const log of candidates) {
+      if (!log.recordingId) continue;
+      const decision = captionSweepDecision(log, now);
+      if (decision === "give_up") {
+        await this.setStatus(log.recordingId, "no_transcript");
+        this.logger.log(`No transcript for recording ${log.recordingId} after 48 hours`);
+      } else if (decision === "retry" && uploads < SWEEP_UPLOAD_LIMIT) {
+        uploads++;
+        // Already in the caption workflow: continue regardless of the switch
+        await this.tryUpload(log.recordingId, { manual: true });
+      }
+    }
   }
 
   /**
@@ -83,6 +142,13 @@ export class CaptionService implements OnModuleInit {
           vtt,
         })
         .catch((error) => {
+          // The video was deleted on YouTube: a known, translated code (P1-2/P1-9)
+          const status = error?.code ?? error?.response?.status;
+          if (status === 404 || status === "404") {
+            throw Object.assign(new Error(SYNC_ERROR_TEXT.VIDEO_NOT_FOUND.vi), {
+              captionCode: "VIDEO_NOT_FOUND",
+            });
+          }
           const { errorCode, errorMessage } = this.youtubeService.describeYoutubeError(error);
           throw Object.assign(new Error(errorMessage), { captionCode: errorCode ?? "YOUTUBE_ERROR" });
         });
