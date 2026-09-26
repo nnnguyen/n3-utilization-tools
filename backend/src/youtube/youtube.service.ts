@@ -73,6 +73,13 @@ export class YoutubeService {
   private readonly QUOTA_LIMIT = parseInt(process.env.YOUTUBE_QUOTA_LIMIT || "10000", 10);
   private readonly UPLOAD_COST = 1650; // Buffer included (1600 official)
   private readonly LIST_COST = 5;
+  // captions.list / insert / update (YouTube Data API costs)
+  private readonly CAPTION_LIST_COST = 50;
+  private readonly CAPTION_INSERT_COST = 400;
+  private readonly CAPTION_UPDATE_COST = 450;
+  // Run after a sync reaches COMPLETED (e.g. captions, P2-5); registered by
+  // other modules so this service does not depend on them
+  private readonly syncCompletedListeners: ((recordingId: string, videoId: string) => Promise<void>)[] = [];
   private readonly PLAYLIST_INSERT_COST = 50;
   // playlists.update/delete and playlistItems.delete: 50 units each (YouTube docs)
   private readonly PLAYLIST_WRITE_COST = 50;
@@ -89,6 +96,20 @@ export class YoutubeService {
     // Reads YouTube config and quota (Connection when CONNECTIONS_READ, P2-1d)
     private readonly connectionReader: ConnectionReader,
   ) {}
+
+  onSyncCompleted(listener: (recordingId: string, videoId: string) => Promise<void>) {
+    this.syncCompletedListeners.push(listener);
+  }
+
+  async hasQuotaFor(userId: string, units: number) {
+    const quota = await this.getQuotaStatus(userId);
+    return quota.unitsRemaining >= units;
+  }
+
+  /** Units a caption upload may cost (list + update, the dearer path). */
+  get captionUploadCost() {
+    return this.CAPTION_LIST_COST + this.CAPTION_UPDATE_COST;
+  }
 
   async hasQuotaForUpload(userId: string) {
     const quota = await this.getQuotaStatus(userId);
@@ -878,6 +899,7 @@ export class YoutubeService {
           if (count > 0) {
             if (newSyncStatus === "COMPLETED") {
               await this.notifySyncCompleted(recordingId, videoId);
+              await this.runSyncCompletedListeners(recordingId, videoId);
             } else {
               await this.handleSyncFailure(recordingId, processingError);
             }
@@ -923,6 +945,67 @@ export class YoutubeService {
       `Video ${videoId} of recording ${recordingId} was deleted on YouTube; sync marked as failed`,
     );
     await this.handleSyncFailure(recordingId, new Error(syncError));
+  }
+
+  // Never throws: follow-up work must not undo a completed sync
+  private async runSyncCompletedListeners(recordingId: string, videoId: string) {
+    for (const listener of this.syncCompletedListeners) {
+      try {
+        await listener(recordingId, videoId);
+      } catch (error) {
+        this.logger.error(
+          `Sync-completed follow-up failed for ${recordingId}: ${error.message}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Uploads a WebVTT caption track to a video; replaces the existing track with
+   * the same language and name instead of adding a duplicate. Returns its id.
+   * Throws the YouTube error (see describeYoutubeError).
+   */
+  async uploadCaptionTrack(
+    userId: string,
+    videoId: string,
+    track: { language: string; name: string; vtt: string },
+  ): Promise<string> {
+    try {
+      const youtube = await this.getYoutubeClient(userId);
+      const list = await youtube.captions.list({ part: ["snippet"], videoId });
+      await this.trackQuotaUsage(userId, this.CAPTION_LIST_COST);
+      const existing = list.data.items?.find(
+        (c) => c.snippet?.language === track.language && c.snippet?.name === track.name,
+      );
+      const media = { mimeType: "text/vtt", body: Readable.from([track.vtt]) };
+
+      if (existing?.id) {
+        const res = await youtube.captions.update({
+          part: ["snippet"],
+          requestBody: { id: existing.id, snippet: { isDraft: false } },
+          media,
+        });
+        await this.trackQuotaUsage(userId, this.CAPTION_UPDATE_COST);
+        return res.data.id ?? existing.id;
+      }
+      const res = await youtube.captions.insert({
+        part: ["snippet"],
+        requestBody: {
+          snippet: { videoId, language: track.language, name: track.name, isDraft: false },
+        },
+        media,
+      });
+      await this.trackQuotaUsage(userId, this.CAPTION_INSERT_COST);
+      return res.data.id ?? "";
+    } catch (error) {
+      void this.recordTokenError(userId, error);
+      throw error;
+    }
+  }
+
+  /** Stable code + Vietnamese message of a YouTube error (codes translated by the frontend). */
+  describeYoutubeError(error: any) {
+    return this.mapYoutubeError(error);
   }
 
   private async notifySyncCompleted(recordingId: string, videoId: string) {

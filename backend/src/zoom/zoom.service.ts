@@ -317,11 +317,18 @@ export class ZoomService {
       privacyStatus: saved.privacyStatus as WorkflowSettings["privacyStatus"],
       playlistId: saved.playlistId,
       timeZone: saved.timeZone,
+      captionsEnabled: saved.captionsEnabled,
+      captionLanguage: saved.captionLanguage,
+      captionName: saved.captionName,
     };
   }
 
   async updateWorkflowSettings(userId: string, dto: UpdateWorkflowSettingsDto) {
-    const data = { ...dto, playlistId: dto.playlistId || null };
+    const data = {
+      ...dto,
+      playlistId: dto.playlistId || null,
+      ...(dto.captionName !== undefined ? { captionName: dto.captionName?.trim() || null } : {}),
+    };
     await this.prisma.zoomWorkflowSettings.upsert({
       where: { userId },
       update: data,
@@ -386,28 +393,9 @@ export class ZoomService {
     autoRetryAttempt?: number,
     publishAt?: Date | null,
   ) {
-    const token = await this.getAccessToken(userId);
     try {
-      const encodedRecordingId =
-        recordingId.includes("/") || recordingId.includes("//")
-          ? encodeURIComponent(encodeURIComponent(recordingId))
-          : recordingId;
-
-      this.logger.log(
-        `Fetching recording details for sync: ${recordingId} (encoded: ${encodedRecordingId})`,
-      );
-      const response = await firstValueFrom(
-        this.httpService.get(
-          `https://api.zoom.us/v2/meetings/${encodedRecordingId}/recordings`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        ),
-      );
-
-      const { recording_files } = response.data;
+      this.logger.log(`Fetching recording details for sync: ${recordingId}`);
+      const recording_files = await this.fetchRecordingFiles(userId, recordingId);
       if (!recording_files || recording_files.length === 0) {
         throw new Error("No recording files found for this meeting.");
       }
@@ -436,6 +424,36 @@ export class ZoomService {
         { cause: error },
       );
     }
+  }
+
+  /** The files of a Zoom recording (MP4, TRANSCRIPT, CC…), with the account's token. */
+  async fetchRecordingFiles(userId: string, recordingId: string): Promise<any[]> {
+    const token = await this.getAccessToken(userId);
+    // UUIDs with "/" must be double-encoded (Zoom API)
+    const encodedRecordingId =
+      recordingId.includes("/") || recordingId.includes("//")
+        ? encodeURIComponent(encodeURIComponent(recordingId))
+        : recordingId;
+    const response = await firstValueFrom(
+      this.httpService.get(
+        `https://api.zoom.us/v2/meetings/${encodedRecordingId}/recordings`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      ),
+    );
+    return response.data?.recording_files ?? [];
+  }
+
+  /** A small text file of a recording (e.g. the WebVTT transcript). */
+  async downloadRecordingText(userId: string, downloadUrl: string): Promise<string> {
+    const token = await this.getAccessToken(userId);
+    const response = await firstValueFrom(
+      this.httpService.get(downloadUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: "text",
+        maxContentLength: 20 * 1024 * 1024,
+      }),
+    );
+    return String(response.data ?? "");
   }
 
   private async processRecordingSync(

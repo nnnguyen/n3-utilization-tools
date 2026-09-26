@@ -3,12 +3,14 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Validate,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from "class-validator";
 import { isValidTimeZone } from "./workflow-template";
+import { CAPTION_LANGUAGE } from "./captions";
 
 @ValidatorConstraint({ name: "timeZone" })
 class TimeZoneConstraint implements ValidatorConstraintInterface {
@@ -42,4 +44,18 @@ export class UpdateWorkflowSettingsDto {
 
   @Validate(TimeZoneConstraint)
   timeZone: string;
+
+  // Captions (P2-5); optional so older clients keep working
+  @IsBoolean()
+  @IsOptional()
+  captionsEnabled?: boolean;
+
+  @Matches(CAPTION_LANGUAGE)
+  @IsOptional()
+  captionLanguage?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  captionName?: string | null;
 }

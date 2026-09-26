@@ -13,6 +13,7 @@ export interface SyncRule {
   tags: string[];
   privacyStatus: string | null;
   publishDelayMinutes: number | null;
+  captionLanguage?: string | null;
 }
 
 export interface SyncOptions extends WorkflowSettings {
@@ -57,6 +58,7 @@ export function resolveSyncOptions(
     privacyStatus: (rule.privacyStatus as Privacy) || settings.privacyStatus,
     tags: rule.tags,
     publishDelayMinutes: rule.publishDelayMinutes ?? null,
+    captionLanguage: rule.captionLanguage || settings.captionLanguage,
   };
 }
 

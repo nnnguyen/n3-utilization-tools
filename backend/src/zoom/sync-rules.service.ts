@@ -91,6 +91,8 @@ export class ZoomSyncRulesService {
       data.privacyStatus = dto.privacyStatus || null;
     if (dto.publishDelayMinutes !== undefined)
       data.publishDelayMinutes = dto.publishDelayMinutes ?? null;
+    if (dto.captionLanguage !== undefined)
+      data.captionLanguage = dto.captionLanguage || null;
     if (dto.tags !== undefined)
       data.tags = [...new Set(dto.tags.map((t) => t.trim()).filter(Boolean))];
     return data;

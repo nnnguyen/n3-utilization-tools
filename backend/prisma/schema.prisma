@@ -78,6 +78,10 @@ model ZoomWorkflowSettings {
   privacyStatus       String   @default("private") // 'public' | 'unlisted' | 'private'
   playlistId          String?
   timeZone            String   @default("Asia/Ho_Chi_Minh") // for {date} and {time}
+  // Captions from the Zoom transcript (docs/design/P2-5-captions.md)
+  captionsEnabled     Boolean  @default(false)
+  captionLanguage     String   @default("vi") // BCP-47, e.g. 'vi', 'en'
+  captionName         String? // track name shown on YouTube
   updatedAt           DateTime @updatedAt
 }
 
@@ -94,6 +98,7 @@ model ZoomSyncRule {
   tags                String[] @default([])
   privacyStatus       String? // 'public' | 'unlisted' | 'private'; ignored when publishDelayMinutes is set
   publishDelayMinutes Int? // upload private, YouTube publishes at recording end + delay
+  captionLanguage     String? // overrides the workflow caption language
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -207,6 +212,14 @@ model ZoomSyncLog {
   recordingId             String?    @unique
   syncStartedAt           DateTime?
   syncCompletedAt         DateTime?
+  // Captions from the Zoom transcript (P2-5): 'waiting_transcript' | 'pending' |
+  // 'uploaded' | 'failed' | 'no_transcript'; never changes syncStatus
+  captionStatus           String?
+  captionTrackId          String?
+  captionError            String?
+  captionErrorCode        String?
+  captionAttempts         Int        @default(0)
+  captionUpdatedAt        DateTime?
   publishAt               DateTime? // Scheduled publication (rule with a publish delay), reused by auto-retry
   source                  String     @default("upload") // 'upload' (synced by this app) | 'linked' (a video already on YouTube, linked by the user)
   createdAt               DateTime   @default(now())

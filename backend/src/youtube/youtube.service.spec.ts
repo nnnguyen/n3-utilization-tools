@@ -126,4 +126,45 @@ describe("YoutubeService", () => {
       expect(prisma.zoomSyncLog.updateMany).not.toHaveBeenCalled();
     });
   });
+
+  describe("uploadCaptionTrack", () => {
+    let captions: any;
+    let captionService: YoutubeService;
+
+    beforeEach(() => {
+      captions = {
+        list: jest.fn().mockResolvedValue({ data: { items: [] } }),
+        insert: jest.fn().mockResolvedValue({ data: { id: "new-track" } }),
+        update: jest.fn().mockResolvedValue({ data: { id: "old-track" } }),
+      };
+      captionService = new YoutubeService({} as any, {} as any, {} as any, {} as any);
+      jest.spyOn(captionService as any, "getYoutubeClient").mockResolvedValue({ captions });
+      jest.spyOn(captionService as any, "trackQuotaUsage").mockResolvedValue(undefined);
+    });
+
+    const track = { language: "vi", name: "Tiếng Việt (Zoom)", vtt: "WEBVTT" };
+
+    it("adds a new track and counts list + insert quota", async () => {
+      await expect(captionService.uploadCaptionTrack("user-1", "vid-1", track)).resolves.toBe("new-track");
+      expect(captions.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestBody: {
+            snippet: { videoId: "vid-1", language: "vi", name: "Tiếng Việt (Zoom)", isDraft: false },
+          },
+        }),
+      );
+      expect((captionService as any).trackQuotaUsage.mock.calls.map((c: any) => c[1])).toEqual([50, 400]);
+    });
+
+    it("replaces the track with the same language and name instead of duplicating it", async () => {
+      captions.list.mockResolvedValue({
+        data: { items: [{ id: "old-track", snippet: { language: "vi", name: "Tiếng Việt (Zoom)" } }] },
+      });
+      await expect(captionService.uploadCaptionTrack("user-1", "vid-1", track)).resolves.toBe("old-track");
+      expect(captions.insert).not.toHaveBeenCalled();
+      expect(captions.update).toHaveBeenCalledWith(
+        expect.objectContaining({ requestBody: { id: "old-track", snippet: { isDraft: false } } }),
+      );
+    });
+  });
 });

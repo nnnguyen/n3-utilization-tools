@@ -85,6 +85,11 @@ describe("resolveSyncOptions", () => {
     ).toBe("");
   });
 
+  it("overrides the caption language only when the rule sets one", () => {
+    expect(resolveSyncOptions("SOH", settings, [rule({ captionLanguage: "en" })]).captionLanguage).toBe("en");
+    expect(resolveSyncOptions("SOH", settings, [rule()]).captionLanguage).toBe("vi");
+  });
+
   it("carries the publish delay and privacy of the rule", () => {
     expect(
       resolveSyncOptions("SOH", settings, [

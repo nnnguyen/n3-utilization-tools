@@ -7,9 +7,11 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   MaxLength,
   Min,
 } from "class-validator";
+import { CAPTION_LANGUAGE } from "./captions";
 
 export class CreateSyncRuleDto {
   @IsString()
@@ -48,6 +50,11 @@ export class CreateSyncRuleDto {
   @Max(30 * 24 * 60)
   @IsOptional()
   publishDelayMinutes?: number | null;
+
+  // Overrides the workflow caption language (P2-5)
+  @Matches(CAPTION_LANGUAGE)
+  @IsOptional()
+  captionLanguage?: string | null;
 }
 
 // Every field optional; the rest is validated like CreateSyncRuleDto

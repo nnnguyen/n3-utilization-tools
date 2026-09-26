@@ -4,6 +4,7 @@ import { ZoomController } from "./zoom.controller";
 import { ZoomSyncSchedulerService } from "./zoom-sync-scheduler.service";
 import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import { ZoomSyncRulesService } from "./sync-rules.service";
+import { CaptionService } from "./caption.service";
 import { ZoomSyncRulesController } from "./sync-rules.controller";
 import { HttpModule } from "@nestjs/axios";
 import { YoutubeModule } from "../youtube/youtube.module";
@@ -17,6 +18,7 @@ import { ConnectionsModule } from "../connections/connections.module";
     ZoomSyncSchedulerService,
     ZoomYoutubeMatchService,
     ZoomSyncRulesService,
+    CaptionService,
   ],
   controllers: [ZoomController, ZoomSyncRulesController],
 })

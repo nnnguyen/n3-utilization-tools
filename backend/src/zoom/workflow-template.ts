@@ -11,6 +11,10 @@ export const DEFAULT_WORKFLOW_SETTINGS = {
   privacyStatus: "private" as "public" | "unlisted" | "private",
   playlistId: null as string | null,
   timeZone: "Asia/Ho_Chi_Minh",
+  // Captions from the Zoom transcript (P2-5): off by default, Vietnamese
+  captionsEnabled: false,
+  captionLanguage: "vi",
+  captionName: null as string | null,
 };
 
 export type WorkflowSettings = typeof DEFAULT_WORKFLOW_SETTINGS;
