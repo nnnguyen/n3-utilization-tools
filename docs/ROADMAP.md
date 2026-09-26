@@ -64,7 +64,7 @@ Cho phép hệ thống khác nhận sự kiện (video sẵn sàng, sync lỗi�
 | Ứng dụng | Tính năng đề xuất | Giá trị | Độ khó | Ghi chú |
 | --- | --- | --- | --- | --- |
 | **Google Drive** | Tự sao lưu MP4/M4A/transcript của Zoom vào một thư mục Drive; xem dung lượng | Recording của Zoom có hạn lưu trữ; Drive là kho lâu dài | M | Cùng Google OAuth với YouTube (thêm scope `drive.file`) |
-| **Google Calendar** | Hiện lịch buổi họp sắp tới; tự gắn video YouTube vào sự kiện sau khi sync | Một nơi xem lịch và bản ghi | M | Scope `calendar.events` |
+| **Buổi họp sắp tới** (thay cho Google Calendar) | Hiện các buổi họp Zoom sắp tới và quy tắc sẽ áp dụng. *Không* tự gắn video vào lịch: chia sẻ video/recording do super admin quyết định (27/09/2026) | Biết trước video sẽ lên YouTube thế nào | S | Zoom API (scope đọc cuộc họp), không cần quyền Google |
 | **Gmail / Email** | Gửi link video cho người tham dự sau buổi họp; bản tin hằng tuần các video mới | Người tham gia nhận ngay bản ghi | S–M | Đã có `mail.service` (SMTP); có thể dùng Gmail API để gửi từ chính tài khoản người dùng |
 | **Facebook Page** | Đăng video/bài viết kèm link YouTube lên Fanpage; lên lịch đăng | Mở rộng khán giả ngoài YouTube | L | Graph API, cần App Review của Meta cho quyền đăng lên Page |
 | **Zalo OA** | Gửi thông báo "video đã sẵn sàng" cho người theo dõi Official Account | Kênh nhắn tin phổ biến nhất ở Việt Nam | M | Zalo Official Account API, cần OA đã xác thực |
@@ -128,7 +128,7 @@ Word Cloud đã có sẵn nền tảng quan trọng: realtime (socket.io), ngư�
 - Bot thông báo Telegram hoặc Zalo (mục 3) — nhanh, giá trị thấy ngay.
 
 **Giai đoạn 2 — Nền tảng hub (1–2 tháng)**
-- Khung Connector chung (2.1), rồi Google Drive và Google Calendar trên khung đó.
+- Khung Connector chung (2.1), rồi Google Drive trên khung đó; buổi họp sắp tới lấy từ Zoom.
 - Workspace và phân quyền (2.3).
 - Phụ đề tự động từ transcript (mục 4).
 

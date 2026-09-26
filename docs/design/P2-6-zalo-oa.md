@@ -1,6 +1,6 @@
 # P2-6 — Thông báo qua Zalo Official Account
 
-**Trạng thái**: 📝 Bản nháp — chờ duyệt (26/09/2026) · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4 và P1-8 (Telegram, tạm dừng)](../IMPLEMENTATION_PLAN.ai.md), [P2-1 Connector](P2-1-connector.md), [P1-9 Thông báo đa ngôn ngữ](../IMPLEMENTATION_PLAN.ai.md)
+**Trạng thái**: 📝 Bản nháp — đã sửa theo góp ý 27/09/2026 (chỉ super admin duyệt việc chia sẻ), chờ duyệt · Liên quan: [ROADMAP §3](../ROADMAP.md), [IMPLEMENTATION_PLAN.ai.md §4 và P1-8 (Telegram, tạm dừng)](../IMPLEMENTATION_PLAN.ai.md), [P2-1 Connector](P2-1-connector.md), [P1-9 Thông báo đa ngôn ngữ](../IMPLEMENTATION_PLAN.ai.md)
 
 ## 1. Mục tiêu và câu hỏi cần chốt trước
 
@@ -31,7 +31,7 @@ Ràng buộc chung của Zalo OA API (cần kiểm tra lại với tài liệu v
 1. **Khi nào**: sync `COMPLETED` **và** video **công khai** (video lên lịch công khai ở P1-5 → khi tới giờ công khai). Video riêng tư/không công khai không bao giờ được thông báo.
 2. **Chọn buổi nào**: bật theo **quy tắc cuộc họp** (P1-5) — ví dụ chỉ buổi "SOH" — vì không phải buổi nào cũng dành cho cộng đồng.
 3. **Nội dung**: mẫu có biến như P1-4 (`{title}`, `{date}`, `{link}`), mặc định "🎬 {title} ({date}) đã có bản ghi: {link}", ảnh thumbnail YouTube.
-4. **Duyệt trước khi gửi** (đề xuất mặc định): tạo **bản nháp** → chuông báo người quản lý → bấm "Gửi lên Zalo" (hoặc sửa nội dung) → gửi. Tuỳ chọn "gửi tự động" cho quy tắc đã tin cậy.
+4. **Chỉ super admin quyết định gửi** (góp ý 27/09/2026 — chia sẻ video/recording hay không, và cho ai, do super admin quyết định): app chỉ tạo **bản nháp** → chuông báo **super admin** → super admin xem, sửa nội dung, chọn gửi hoặc huỷ. **Không có chế độ gửi tự động**; người dùng thường không gửi được.
 5. **Ghi nhận**: `ZaloAnnouncement { id, userId, recordingId, ruleId, message, status: draft|sent|failed|discarded, zaloMessageId, error, sentAt }`; lỗi hết lượt gửi tháng → `failed` có mã (dịch được, P1-9), không thử lại tự động.
 
 ## 4. Rủi ro
@@ -39,7 +39,7 @@ Ràng buộc chung của Zalo OA API (cần kiểm tra lại với tài liệu v
 | Rủi ro | Giảm thiểu |
 | --- | --- |
 | Chi phí/hạn mức của Zalo thay đổi | Duyệt trước khi gửi; đếm số tin đã gửi trong tháng, hiện trên thẻ; tra bảng giá hiện hành trước khi làm |
-| Gửi nhầm video không dành cho cộng đồng | Chỉ video công khai + chỉ quy tắc được bật + duyệt trước (mặc định) |
+| Gửi nhầm video không dành cho cộng đồng | Chỉ video công khai + chỉ quy tắc được bật + super admin duyệt từng tin |
 | Token hết hạn âm thầm → không gửi được | Làm mới chủ động, cảnh báo trên thẻ và chuông khi làm mới thất bại |
 | OA chưa xác thực | Kiểm tra khi kết nối, báo rõ lý do thay vì lỗi chung |
 | Lộ secret của app Zalo | Mã hoá như mọi khoá (P2-1), không bao giờ trả về trình duyệt |
@@ -48,7 +48,7 @@ Ràng buộc chung của Zalo OA API (cần kiểm tra lại với tài liệu v
 
 1. **Báo cho ai** — **Cộng đồng (B)**; báo lỗi cho người vận hành (A) dùng chuông trong app, hoặc bật lại Telegram (P1-8) nếu cần tin nhắn ngoài app.
 2. **Đã có OA xác thực chưa**, ai là quản trị viên — *cần anh/chị trả lời*; chưa có thì P2-6 chờ.
-3. **Duyệt trước hay gửi tự động** — **Duyệt trước** mặc định; tự động là tuỳ chọn theo từng quy tắc.
+3. **Duyệt trước hay gửi tự động** — ✅ **Đã chốt 27/09/2026: super admin duyệt từng tin**, không có gửi tự động.
 4. **Buổi họp nào** — **Theo quy tắc cuộc họp** (bật riêng cho từng quy tắc).
 5. **Ngân sách tin nhắn mỗi tháng** — *cần anh/chị trả lời* sau khi xem bảng giá Zalo.
 
@@ -56,6 +56,6 @@ Ràng buộc chung của Zalo OA API (cần kiểm tra lại với tài liệu v
 
 **P2-6a — Kết nối Zalo OA.** Provider `zalo_oa`, OAuth OA, làm mới token trong scheduler (test: lưu refresh token mới, thất bại → trạng thái cần kết nối lại), webhook có kiểm tra chữ ký, thẻ Tích hợp. *Acceptance*: kết nối OA thật, token tự làm mới qua đêm.
 
-**P2-6b — Thông báo cộng đồng.** Cột bật/mẫu trên `ZoomSyncRule`, model `ZaloAnnouncement`, tạo bản nháp khi video công khai, gửi qua API, đếm lượt tháng, lỗi có mã. *Tests*: chỉ video công khai; chỉ quy tắc bật; video lên lịch chỉ thông báo khi tới giờ. *Acceptance*: một buổi SOH công khai tạo bản nháp, bấm gửi → người theo dõi OA nhận được.
+**P2-6b — Thông báo cộng đồng.** Cột bật/mẫu trên `ZoomSyncRule`, model `ZaloAnnouncement`, tạo bản nháp khi video công khai, chỉ super admin gửi được (API kiểm tra `platformRole`), gửi qua API, đếm lượt tháng, lỗi có mã. *Tests*: chỉ video công khai; chỉ quy tắc bật; video lên lịch chỉ thông báo khi tới giờ; người không phải super admin bị từ chối. *Acceptance*: một buổi SOH công khai tạo bản nháp, bấm gửi → người theo dõi OA nhận được.
 
-**P2-6c — Giao diện.** Thiết lập trong quy tắc, danh sách bản nháp/đã gửi, nút duyệt/sửa/huỷ, i18n vi/en.
+**P2-6c — Giao diện.** Thiết lập trong quy tắc, danh sách bản nháp/đã gửi trong trang Quản trị (chỉ super admin), nút duyệt/sửa/huỷ, nhật ký hoạt động (ai gửi, lúc nào), i18n vi/en.
