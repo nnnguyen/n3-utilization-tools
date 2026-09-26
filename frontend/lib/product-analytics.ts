@@ -59,3 +59,66 @@ export function cleanCapture<T extends { properties: Properties; $set?: Properti
     ...(event.$set_once ? { $set_once: cleanUrls(event.$set_once) } : {}),
   };
 }
+
+// Events sent on purpose from the UI (P2-8c; the backend sends the rest).
+// Only these names and, for each, only these properties with plain values.
+export const FRONTEND_EVENTS = {
+  workflow_saved: ['auto_upload', 'has_description_template', 'captions_enabled'],
+  sync_rule_saved: ['is_new', 'has_playlist', 'has_publish_delay', 'has_tags', 'has_caption_language'],
+  manual_sync_opened: [],
+  admin_page_viewed: [],
+} as const satisfies Record<string, readonly string[]>;
+
+export type FrontendEvent = keyof typeof FRONTEND_EVENTS;
+type PlainValue = string | number | boolean | null;
+
+export function sanitizeEventProperties(event: FrontendEvent, properties: Record<string, unknown> = {}) {
+  const clean: Record<string, PlainValue> = {};
+  for (const key of FRONTEND_EVENTS[event] as readonly string[]) {
+    const value = properties[key];
+    if (value === null || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
+      clean[key] = value;
+    } else if (typeof value === 'string') {
+      clean[key] = value.slice(0, 64);
+    }
+  }
+  return clean;
+}
+
+interface AnalyticsClient {
+  capture(event: string, properties?: Record<string, unknown>): unknown;
+}
+
+// Set by PostHogAnalytics once PostHog is loaded for an account that agreed
+let client: AnalyticsClient | null = null;
+// Events of the first moments, while PostHog loads (consent already given)
+let pending: { event: FrontendEvent; properties: Record<string, PlainValue> }[] | null = null;
+const MAX_PENDING = 20;
+
+/** PostHog is being loaded for an account that agreed: keep early events. */
+export function beginAnalyticsLoad() {
+  if (!client) pending = pending ?? [];
+}
+
+/** The loaded client, or null when consent is withdrawn or on sign-out. */
+export function setAnalyticsClient(next: AnalyticsClient | null) {
+  client = next;
+  const queued = pending;
+  pending = null;
+  if (next) for (const { event, properties } of queued ?? []) send(event, properties);
+}
+
+/** Sends a listed UI event, or nothing at all without consent. Never throws. */
+export function trackEvent(event: FrontendEvent, properties: Record<string, unknown> = {}) {
+  const clean = sanitizeEventProperties(event, properties);
+  if (client) send(event, clean);
+  else if (pending && pending.length < MAX_PENDING) pending.push({ event, properties: clean });
+}
+
+function send(event: FrontendEvent, properties: Record<string, PlainValue>) {
+  try {
+    client?.capture(event, properties);
+  } catch {
+    // Analytics must never break the page
+  }
+}

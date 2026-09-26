@@ -13,6 +13,7 @@ import { apiFetch } from '@/lib/api';
 import { useT, useFormat } from '@/lib/i18n';
 import { usePreferences } from '@/lib/preferences';
 import { captionLanguageOptions, defaultCaptionTrackName } from '@/lib/captions';
+import { trackEvent } from '@/lib/product-analytics';
 
 const { Text } = Typography;
 
@@ -82,6 +83,11 @@ export default function ZoomUtilities() {
       });
       workflowForm.setFieldsValue({ ...settings, playlistId: settings.playlistId || 'none' });
       message.success(t('zoomDash.settingsSaved'));
+      trackEvent('workflow_saved', {
+        auto_upload: settings.autoUpload,
+        has_description_template: !!settings.descriptionTemplate?.trim(),
+        captions_enabled: settings.captionsEnabled,
+      });
     } catch (error: any) {
       message.error(error.message || t('zoomDash.saveWorkflowFailed'));
     } finally {

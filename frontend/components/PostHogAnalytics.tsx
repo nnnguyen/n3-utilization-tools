@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import type { PostHog } from 'posthog-js';
 import { useAuth } from '@/lib/auth-context';
-import { cleanCapture, POSTHOG_API_HOST, POSTHOG_UI_HOST, shouldTrack } from '@/lib/product-analytics';
+import {
+  beginAnalyticsLoad,
+  cleanCapture,
+  POSTHOG_API_HOST,
+  POSTHOG_UI_HOST,
+  setAnalyticsClient,
+  shouldTrack,
+} from '@/lib/product-analytics';
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
 // Product analytics (P2-8, docs/design/P2-8-posthog.md). posthog-js is only
 // downloaded once the signed-in account has agreed; identified by the
-// internal user id, never the email. Page views only: other events are sent
-// on purpose (P2-8b/P2-8c).
+// internal user id, never the email. Page views, plus the events sent on
+// purpose with trackEvent() (P2-8c) and from the backend (P2-8b).
 export default function PostHogAnalytics() {
   const { user } = useAuth();
   const pathname = usePathname();
@@ -20,11 +27,18 @@ export default function PostHogAnalytics() {
   const identified = useRef('');
   const consent = user?.preferences?.analyticsConsent;
 
+  // Before any page's own effects: a page tracking an event as it opens (e.g.
+  // admin_page_viewed) must find the queue ready while PostHog loads
+  useLayoutEffect(() => {
+    if (!posthog.current && user && shouldTrack({ key: POSTHOG_KEY, consent, pathname })) beginAnalyticsLoad();
+  }, [user?.id, consent, pathname]);
+
   useEffect(() => {
     const client = posthog.current;
     // Signed out or consent withdrawn: forget this browser's identity, then
     // stop (reset() clears the opt-out, so it comes first)
     if (client && (!user || consent !== true)) {
+      setAnalyticsClient(null);
       client.reset();
       client.opt_out_capturing();
       identified.current = '';
@@ -36,6 +50,7 @@ export default function PostHogAnalytics() {
     (async () => {
       let instance = posthog.current;
       if (!instance) {
+        beginAnalyticsLoad();
         const { default: loaded } = await import('posthog-js');
         if (cancelled) return;
         loaded.init(POSTHOG_KEY!, {
@@ -69,6 +84,7 @@ export default function PostHogAnalytics() {
         identified.current = identity;
         instance.identify(user.id, properties);
       }
+      setAnalyticsClient(instance);
     })();
     return () => {
       cancelled = true;

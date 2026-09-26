@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanCapture, isUntrackedPath, shouldTrack } from './product-analytics.ts';
+import {
+  beginAnalyticsLoad,
+  cleanCapture,
+  isUntrackedPath,
+  setAnalyticsClient,
+  shouldTrack,
+  trackEvent,
+} from './product-analytics.ts';
 
 test('shouldTrack: needs a key and an explicit yes', () => {
   assert.equal(shouldTrack({ key: 'phc_x', consent: true, pathname: '/' }), true);
@@ -55,4 +62,46 @@ test('cleanCapture drops events from audience pages', () => {
   assert.equal(cleanCapture({ properties: { $pathname: '/word-cloud/join/ABC' } }), null);
   assert.equal(cleanCapture({ properties: { $current_url: 'https://app.example/word-cloud/join/ABC?x=1' } }), null);
   assert.equal(cleanCapture(null), null);
+});
+
+test('trackEvent sends nothing without a loaded client, and never queues before consent', () => {
+  const sent: unknown[] = [];
+  setAnalyticsClient(null);
+  trackEvent('workflow_saved', { auto_upload: true });
+  setAnalyticsClient({ capture: (...args) => sent.push(args) });
+  assert.deepEqual(sent, []);
+  setAnalyticsClient(null);
+});
+
+test('trackEvent sends listed properties only', () => {
+  const sent: unknown[] = [];
+  setAnalyticsClient({ capture: (...args) => sent.push(args) });
+  trackEvent('sync_rule_saved', { is_new: true, has_tags: false, matchText: 'SOH', email: 'a@b.c' });
+  trackEvent('admin_page_viewed', { tempPassword: 'x' });
+  assert.deepEqual(sent, [
+    ['sync_rule_saved', { is_new: true, has_tags: false }],
+    ['admin_page_viewed', {}],
+  ]);
+  setAnalyticsClient(null);
+});
+
+test('events of the first moments wait while PostHog loads', () => {
+  const sent: unknown[] = [];
+  beginAnalyticsLoad();
+  trackEvent('admin_page_viewed');
+  assert.deepEqual(sent, []);
+  setAnalyticsClient({ capture: (...args) => sent.push(args) });
+  assert.deepEqual(sent, [['admin_page_viewed', {}]]);
+  setAnalyticsClient(null);
+  // Withdrawn: nothing is kept any more
+  trackEvent('admin_page_viewed');
+  setAnalyticsClient({ capture: (...args) => sent.push(args) });
+  assert.equal(sent.length, 1);
+  setAnalyticsClient(null);
+});
+
+test('a failing client never breaks the page', () => {
+  setAnalyticsClient({ capture: () => { throw new Error('blocked'); } });
+  assert.doesNotThrow(() => trackEvent('manual_sync_opened'));
+  setAnalyticsClient(null);
 });

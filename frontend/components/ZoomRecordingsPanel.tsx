@@ -8,6 +8,7 @@ import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
 import { useFormat, useSyncErrorText, useT } from '@/lib/i18n';
 import { CAPTION_STATUS_COLORS, hasTranscript, isCaptionStatus, type CaptionStatus } from '@/lib/captions';
+import { trackEvent } from '@/lib/product-analytics';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -210,6 +211,7 @@ export default function ZoomRecordingsPanel({
     setSyncPrivacyStatus(workflowDefaults.privacyStatus);
     setSyncPlaylistId(workflowDefaults.playlistId);
     setSyncModalVisible(true);
+    trackEvent('manual_sync_opened');
     // Settings may have changed on the Zoom page since the panel loaded
     const settings = await fetchWorkflowDefaults();
     if (settings) {

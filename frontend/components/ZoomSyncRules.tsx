@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePreferences } from '@/lib/preferences';
 import { captionLanguageLabel, captionLanguageOptions } from '@/lib/captions';
+import { trackEvent } from '@/lib/product-analytics';
 
 const { Text } = Typography;
 
@@ -89,6 +90,13 @@ export default function ZoomSyncRules({ playlists }: { playlists: any[] }) {
         await apiFetch(`/zoom/sync-rules/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) });
       }
       message.success(t('zoomRules.saved'));
+      trackEvent('sync_rule_saved', {
+        is_new: editing === 'new',
+        has_playlist: !!body.playlistId,
+        has_publish_delay: body.publishDelayMinutes !== null,
+        has_tags: body.tags.length > 0,
+        has_caption_language: !!body.captionLanguage,
+      });
       setEditing(null);
       fetchRules();
     } catch (error: any) {

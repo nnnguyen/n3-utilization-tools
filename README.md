@@ -20,6 +20,7 @@
 4. [Getting started (local development)](#getting-started-local-development)
 5. [Environment variables](#environment-variables)
 6. [Connecting YouTube, Zoom and Google login](#connecting-youtube-zoom-and-google-login)
+   - [Product analytics (PostHog)](#product-analytics-posthog)
 7. [User guide](#user-guide)
 8. [Development guidelines](#development-guidelines)
 9. [Testing](#testing)
@@ -185,6 +186,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | `NEXT_PUBLIC_API_URL` | yes | Backend API base URL, e.g. `http://localhost:3001/api` |
 | `NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL` | no | Vercel Web Analytics dashboard of the `frontend` project (`https://vercel.com/nnnguyen/frontend/analytics`); shows the "Web analytics" button on the Admin page (super admins). Web Analytics and Speed Insights must be enabled in that Vercel project |
 | `NEXT_PUBLIC_POSTHOG_KEY` | no | Project API key (`phc_…`) of a PostHog Cloud **EU** project. Unset = no PostHog at all. Set: each account is asked once whether to share usage data (changeable in Settings → Personalization) and only accounts that agreed load PostHog, through the `/ingest` proxy in `next.config.ts` (page views only, no autocapture or replay, URLs without query strings, never on `/word-cloud/join`) |
+| `NEXT_PUBLIC_POSTHOG_DASHBOARD_URL` | no | Link of the PostHog dashboard (see below); shows the "Product analytics (PostHog)" button on the Admin page (super admins) |
 
 ## Connecting YouTube, Zoom and Google login
 
@@ -205,6 +207,23 @@ Credentials are entered per account in **Settings → Integrations**; the enviro
 
 ### Google sign-in (optional)
 Create another OAuth client ID with the redirect URI `<backend URL>/api/auth/google/callback` and set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_CALLBACK_URL`.
+
+### Product analytics (PostHog)
+
+Design: [docs/design/P2-8-posthog.md](docs/design/P2-8-posthog.md). Nothing is tracked for an account until it agrees (asked once after sign-in, changeable in Settings → Personalization).
+
+1. Create a project on **PostHog Cloud EU** (eu.posthog.com; the region cannot be changed later) and set a billing limit.
+2. Copy the **project token** (`phc_…`, Settings → General) into `NEXT_PUBLIC_POSTHOG_KEY` (Vercel `frontend`) and `POSTHOG_API_KEY` (Railway backend), with `POSTHOG_HOST=https://eu.i.posthog.com`. Never use a personal API key (`phx_…`).
+3. Build the starter dashboard (Dashboards → New dashboard), then put its link in `NEXT_PUBLIC_POSTHOG_DASHBOARD_URL`:
+
+| Insight | Type | Setup |
+| --- | --- | --- |
+| Activation | Funnel, 30-day window | `user_signed_up` → `connection_saved` (provider = zoom, active = true) → `youtube_authorized` → `sync_completed` |
+| Sync failures by code | Trend, weekly | `sync_failed`, breakdown by `error_code`; filter `will_retry = false` for the ones users see |
+| Syncs by trigger | Trend, weekly | `sync_completed`, breakdown by `trigger` (webhook / manual / retry) |
+| Feature usage | Trend, weekly | `workflow_saved`, `sync_rule_saved`, `recording_linked`, `captions_uploaded`, `wordcloud_session_ended` |
+
+Filter out your own use with the person property `platform_role ≠ super_admin`. Events come from the backend (`backend/src/analytics/analytics-events.ts`) and the UI (`FRONTEND_EVENTS` in `frontend/lib/product-analytics.ts`); each lists the only properties it may carry — never an email, name, meeting title or URL query.
 
 ## User guide
 

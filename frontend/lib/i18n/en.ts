@@ -782,6 +782,7 @@ export const en: Record<MessageKey, string> = {
   'changePassword.failed': 'Could not change the password',
   'admin.title': 'System administration',
   'admin.analytics': 'Web analytics (Vercel)',
+  'admin.productAnalytics': 'Product analytics (PostHog)',
   'admin.subtitle': 'Manage the accounts of the whole app. Every action is logged.',
   'admin.tab.accounts': 'Accounts',
   'admin.tab.activity': 'Activity',

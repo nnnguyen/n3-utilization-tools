@@ -2,16 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { Alert, Avatar, Button, Checkbox, Dropdown, Form, Input, Modal, Popconfirm, Result, Space, Table, Tabs, Tag, Typography, message } from 'antd';
-import { BarChartOutlined, MoreOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import { BarChartOutlined, FundOutlined, MoreOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useFormat, useT, type MessageKey } from '@/lib/i18n';
+import { trackEvent } from '@/lib/product-analytics';
 
 const { Title, Text, Paragraph } = Typography;
 
 // Inlined at build time; the button stays hidden until it is set on Vercel
 const ANALYTICS_DASHBOARD_URL = process.env.NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL;
+// PostHog dashboard of product analytics (P2-8c), same rule
+const POSTHOG_DASHBOARD_URL = process.env.NEXT_PUBLIC_POSTHOG_DASHBOARD_URL;
 
 interface Account {
   id: string;
@@ -345,6 +348,11 @@ function ActivityTab() {
 export default function AdminPage() {
   const t = useT();
   const { user } = useAuth();
+  const isSuperAdmin = user?.platformRole === 'super_admin';
+
+  useEffect(() => {
+    if (isSuperAdmin) trackEvent('admin_page_viewed');
+  }, [isSuperAdmin]);
 
   return (
     <DashboardLayout>
@@ -356,12 +364,19 @@ export default function AdminPage() {
             <Title level={2} style={{ margin: 0 }}>
               <Space><SafetyCertificateOutlined /><span>{t('admin.title')}</span></Space>
             </Title>
-            {/* Vercel Web Analytics lives in the Vercel dashboard (P2-7) */}
-            {ANALYTICS_DASHBOARD_URL && (
-              <Button icon={<BarChartOutlined />} href={ANALYTICS_DASHBOARD_URL} target="_blank" rel="noreferrer">
-                {t('admin.analytics')}
-              </Button>
-            )}
+            {/* Vercel Web Analytics (P2-7) and PostHog (P2-8) live in their own dashboards */}
+            <Space wrap>
+              {ANALYTICS_DASHBOARD_URL && (
+                <Button icon={<BarChartOutlined />} href={ANALYTICS_DASHBOARD_URL} target="_blank" rel="noreferrer">
+                  {t('admin.analytics')}
+                </Button>
+              )}
+              {POSTHOG_DASHBOARD_URL && (
+                <Button icon={<FundOutlined />} href={POSTHOG_DASHBOARD_URL} target="_blank" rel="noreferrer">
+                  {t('admin.productAnalytics')}
+                </Button>
+              )}
+            </Space>
           </div>
           <Text type="secondary" style={{ display: 'block', margin: '8px 0 16px' }}>{t('admin.subtitle')}</Text>
           <Tabs
