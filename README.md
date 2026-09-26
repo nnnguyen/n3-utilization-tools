@@ -181,6 +181,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | yes | Backend API base URL, e.g. `http://localhost:3001/api` |
+| `NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL` | no | Vercel Web Analytics dashboard of the `frontend` project (`https://vercel.com/nnnguyen/frontend/analytics`); shows the "Web analytics" button on the Admin page (super admins). Web Analytics and Speed Insights must be enabled in that Vercel project |
 
 ## Connecting YouTube, Zoom and Google login
 

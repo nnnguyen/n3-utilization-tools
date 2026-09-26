@@ -2,13 +2,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { Alert, Avatar, Button, Checkbox, Dropdown, Form, Input, Modal, Popconfirm, Result, Space, Table, Tabs, Tag, Typography, message } from 'antd';
-import { MoreOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import { BarChartOutlined, MoreOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useFormat, useT, type MessageKey } from '@/lib/i18n';
 
 const { Title, Text, Paragraph } = Typography;
+
+// Inlined at build time; the button stays hidden until it is set on Vercel
+const ANALYTICS_DASHBOARD_URL = process.env.NEXT_PUBLIC_ANALYTICS_DASHBOARD_URL;
 
 interface Account {
   id: string;
@@ -349,10 +352,18 @@ export default function AdminPage() {
         <Result status="403" title="403" subTitle={t('apiError.ADMIN_ONLY')} />
       ) : (
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Title level={2}>
-            <Space><SafetyCertificateOutlined /><span>{t('admin.title')}</span></Space>
-          </Title>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{t('admin.subtitle')}</Text>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+            <Title level={2} style={{ margin: 0 }}>
+              <Space><SafetyCertificateOutlined /><span>{t('admin.title')}</span></Space>
+            </Title>
+            {/* Vercel Web Analytics lives in the Vercel dashboard (P2-7) */}
+            {ANALYTICS_DASHBOARD_URL && (
+              <Button icon={<BarChartOutlined />} href={ANALYTICS_DASHBOARD_URL} target="_blank" rel="noreferrer">
+                {t('admin.analytics')}
+              </Button>
+            )}
+          </div>
+          <Text type="secondary" style={{ display: 'block', margin: '8px 0 16px' }}>{t('admin.subtitle')}</Text>
           <Tabs
             items={[
               { key: 'accounts', label: t('admin.tab.accounts'), children: <AccountsTab currentUserId={user.id} /> },

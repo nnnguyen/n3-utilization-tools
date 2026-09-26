@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import AppThemeProvider from "@/components/AppThemeProvider";
 import { PreferencesProvider } from "@/lib/preferences";
+import VercelInsights from "@/components/VercelInsights";
 
 // Broadsheet: Source Serif 4 for headings, body and UI chrome, with the true
 // italic at the body weight (vietnamese subset for the app's Vietnamese copy)
@@ -47,6 +48,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
             </AppThemeProvider>
           </PreferencesProvider>
+          {/* Under AuthProvider: super admin visits are not counted */}
+          <VercelInsights />
         </AuthProvider>
       </body>
     </html>

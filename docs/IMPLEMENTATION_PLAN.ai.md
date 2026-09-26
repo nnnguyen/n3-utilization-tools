@@ -236,7 +236,7 @@ Design: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md) — approved
 | P2-2g | Contract — **destructive, ask before starting** | all above |
 | P2-2i | Email — **deferred** (Resend with an own domain, or Gmail SMTP on Railway Pro) | — |
 
-### P2-7 — Vercel Web Analytics and Speed Insights (executable, small)
+### P2-7 ✅ — Vercel Web Analytics and Speed Insights (executable, small)
 
 **Goal**: page-level traffic and real-user performance, viewed by the super admin only (in the Vercel dashboard, linked from the Admin page).
 

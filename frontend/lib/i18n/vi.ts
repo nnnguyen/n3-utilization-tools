@@ -746,6 +746,7 @@ export const vi = {
   'changePassword.done': 'Đã đổi mật khẩu',
   'changePassword.failed': 'Không đổi được mật khẩu',
   'admin.title': 'Quản trị hệ thống',
+  'admin.analytics': 'Phân tích truy cập (Vercel)',
   'admin.subtitle': 'Quản lý tài khoản của toàn bộ ứng dụng. Mọi thao tác được ghi vào nhật ký.',
   'admin.tab.accounts': 'Tài khoản',
   'admin.tab.activity': 'Nhật ký',
