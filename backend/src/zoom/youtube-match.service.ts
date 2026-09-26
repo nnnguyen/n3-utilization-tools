@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { AnalyticsService } from "../analytics/analytics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { YoutubeService } from "../youtube/youtube.service";
 import { findMatches, mp4Durations, MatchRecording } from "./youtube-match";
@@ -16,6 +17,7 @@ export class ZoomYoutubeMatchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly youtubeService: YoutubeService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   // Adds `youtubeMatch` to the Zoom meetings (as listed by the Zoom API) that
@@ -90,7 +92,10 @@ export class ZoomYoutubeMatchService {
     });
   }
 
-  async link(userId: string, dto: { recordingId: string; videoId: string; topic: string; startTime: string }) {
+  async link(
+    userId: string,
+    dto: { recordingId: string; videoId: string; topic: string; startTime: string; source?: string },
+  ) {
     const existing = await this.prisma.zoomSyncLog.findUnique({
       where: { recordingId: dto.recordingId },
     });
@@ -135,7 +140,7 @@ export class ZoomYoutubeMatchService {
       nextRetryAt: null,
       autoRetryCount: 0,
     };
-    return this.prisma.zoomSyncLog.upsert({
+    const log = await this.prisma.zoomSyncLog.upsert({
       where: { recordingId: dto.recordingId },
       update: linked,
       create: {
@@ -146,6 +151,8 @@ export class ZoomYoutubeMatchService {
         syncStartedAt: now,
       },
     });
+    this.analytics?.capture(userId, "recording_linked", { source: dto.source ?? null });
+    return log;
   }
 
   // Undo a link (only links: an upload made by the app stays)

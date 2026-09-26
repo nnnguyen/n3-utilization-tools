@@ -4,6 +4,7 @@ import { ZoomService } from "./zoom.service";
 import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import { zoomSignature } from "./webhook-owner";
 import { CaptionService } from "./caption.service";
+import { AnalyticsService } from "../analytics/analytics.service";
 
 // @nestjs/axios v12 is ESM-only and Jest cannot require it; these tests never
 // call Zoom, so a stand-in HttpService class is enough.
@@ -51,6 +52,7 @@ describe("ZoomController", () => {
       handleRecordingCompleted: jest.Mock;
     };
     let webhookController: ZoomController;
+    let analytics: { capture: jest.Mock };
     const envToken = process.env.ZOOM_WEBHOOK_SECRET_TOKEN;
 
     beforeEach(async () => {
@@ -68,6 +70,7 @@ describe("ZoomController", () => {
           { provide: ZoomService, useValue: zoomService },
           { provide: ZoomYoutubeMatchService, useValue: {} },
           { provide: CaptionService, useValue: captionService },
+          { provide: AnalyticsService, useValue: (analytics = { capture: jest.fn() }) },
         ],
       }).compile();
       webhookController = module.get<ZoomController>(ZoomController);
@@ -137,6 +140,31 @@ describe("ZoomController", () => {
       );
       expect(result.status).toBe("skipped");
       expect(zoomService.handleRecordingCompleted).not.toHaveBeenCalled();
+      expect(analytics.capture).toHaveBeenCalledWith("owner-1", "zoom_webhook_received", {
+        event: "recording.completed",
+        owner_found: false,
+        skipped_reason: "auto_upload_off",
+      });
+    });
+
+    it("tracks a received recording for its owner, but not a refused one", async () => {
+      await webhookController.handleWebhook(
+        recordingPayload,
+        zoomSignature("owner-token", timestamp, recordingPayload),
+        timestamp,
+      );
+      expect(analytics.capture).toHaveBeenCalledWith("owner-1", "zoom_webhook_received", {
+        event: "recording.completed",
+        owner_found: true,
+        skipped_reason: null,
+      });
+      analytics.capture.mockClear();
+      await webhookController.handleWebhook(
+        recordingPayload,
+        zoomSignature("wrong", timestamp, recordingPayload),
+        timestamp,
+      );
+      expect(analytics.capture).not.toHaveBeenCalled();
     });
 
     it("uploads captions when Zoom finishes a transcript", async () => {

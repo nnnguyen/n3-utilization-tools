@@ -4,9 +4,11 @@ import {
   Logger,
   NotFoundException,
   OnModuleInit,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { codedError } from "../common/coded-error";
+import { AnalyticsService } from "../analytics/analytics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import { YoutubeService } from "../youtube/youtube.service";
@@ -38,6 +40,7 @@ export class CaptionService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly zoomService: ZoomService,
     private readonly youtubeService: YoutubeService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   onModuleInit() {
@@ -75,6 +78,8 @@ export class CaptionService implements OnModuleInit {
       take: 50,
       select: {
         recordingId: true,
+        userId: true,
+        meeting: true,
         captionStatus: true,
         captionErrorCode: true,
         captionAttempts: true,
@@ -88,6 +93,7 @@ export class CaptionService implements OnModuleInit {
       const decision = captionSweepDecision(log, now);
       if (decision === "give_up") {
         await this.setStatus(log.recordingId, "no_transcript");
+        this.trackFailure(log.userId, log.meeting, "NO_TRANSCRIPT", false);
         this.logger.log(`No transcript for recording ${log.recordingId} after 48 hours`);
       } else if (decision === "retry" && uploads < SWEEP_UPLOAD_LIMIT) {
         uploads++;
@@ -149,7 +155,7 @@ export class CaptionService implements OnModuleInit {
       }
 
       if (!(await this.youtubeService.hasQuotaFor(log.userId, this.youtubeService.captionUploadCost))) {
-        return this.fail(recordingId, "quotaExceeded", "Đã hết quota API YouTube trong ngày, thử lại vào ngày mai");
+        return this.fail(recordingId, "quotaExceeded", "Đã hết quota API YouTube trong ngày, thử lại vào ngày mai", options.manual);
       }
 
       await this.setStatus(recordingId, "pending");
@@ -168,6 +174,7 @@ export class CaptionService implements OnModuleInit {
           recordingId,
           "TRANSCRIPT_DOWNLOAD_FAILED",
           `Không tải được transcript từ Zoom: ${error.message}`,
+          options.manual,
         );
       }
       if (!vtt.trim()) {
@@ -211,10 +218,20 @@ export class CaptionService implements OnModuleInit {
         },
       });
       this.logger.log(`Captions (${language}) uploaded for recording ${recordingId}`);
+      this.analytics?.capture(log.userId, "captions_uploaded", { language, manual: !!options.manual });
       return { status: "uploaded" };
     } catch (error) {
-      return this.fail(recordingId, error.captionCode ?? "UNKNOWN", error.message);
+      return this.fail(recordingId, error.captionCode ?? "UNKNOWN", error.message, options.manual);
     }
+  }
+
+  // Product analytics (P2-8b): the language comes from the account's settings
+  private trackFailure(userId: string, meeting: string, code: string, manual: boolean) {
+    this.analytics?.capture(userId, "captions_failed", async () => ({
+      error_code: code,
+      language: (await this.zoomService.getSyncOptions(userId, meeting)).captionLanguage,
+      manual,
+    }));
   }
 
   private async setStatus(recordingId: string, status: CaptionStatus) {
@@ -224,10 +241,15 @@ export class CaptionService implements OnModuleInit {
     });
   }
 
-  private async fail(recordingId: string, code: string, message: string): Promise<CaptionResult> {
+  private async fail(
+    recordingId: string,
+    code: string,
+    message: string,
+    manual = false,
+  ): Promise<CaptionResult> {
     this.logger.warn(`Captions failed for recording ${recordingId}: ${code} ${message}`);
     try {
-      await this.prisma.zoomSyncLog.update({
+      const log = await this.prisma.zoomSyncLog.update({
         where: { recordingId },
         data: {
           captionStatus: "failed",
@@ -237,6 +259,7 @@ export class CaptionService implements OnModuleInit {
           captionUpdatedAt: new Date(),
         },
       });
+      this.trackFailure(log.userId, log.meeting, code, manual);
     } catch (dbError) {
       this.logger.error(`Could not record the caption failure of ${recordingId}: ${dbError.message}`);
     }

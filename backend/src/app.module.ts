@@ -14,10 +14,12 @@ import { IntegrationsModule } from "./integrations/integrations.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConnectionsModule } from "./connections/connections.module";
 import { AdminModule } from "./admin/admin.module";
+import { AnalyticsModule } from "./analytics/analytics.module";
 
 @Module({
   imports: [
     PrismaModule,
+    AnalyticsModule,
     AuthModule,
     TopicsModule,
     QuestionsModule,

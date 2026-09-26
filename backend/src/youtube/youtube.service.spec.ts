@@ -167,4 +167,46 @@ describe("YoutubeService", () => {
       );
     });
   });
+
+  describe("handleSyncFailure analytics", () => {
+    const failedLog = {
+      userId: "user-1",
+      meeting: "SOH",
+      event: "Manual Sync (Webhook)",
+      autoRetryCount: 0,
+      errorCode: null,
+      syncError: "boom",
+    };
+    let analytics: { capture: jest.Mock };
+    let notifications: { create: jest.Mock };
+    let failing: YoutubeService;
+
+    beforeEach(() => {
+      analytics = { capture: jest.fn() };
+      notifications = { create: jest.fn() };
+      const prisma = { zoomSyncLog: { update: jest.fn().mockResolvedValue(failedLog) } };
+      failing = new YoutubeService(prisma as any, notifications as any, {} as any, {} as any, analytics as any);
+    });
+
+    it("tracks a transient failure as retried", async () => {
+      await failing.handleSyncFailure("rec-1", Object.assign(new Error("reset"), { code: "ECONNRESET" }));
+      expect(analytics.capture).toHaveBeenCalledWith("user-1", "sync_failed", {
+        trigger: "webhook",
+        error_code: "ECONNRESET",
+        will_retry: true,
+      });
+      expect(notifications.create).not.toHaveBeenCalled();
+    });
+
+    it("tracks a permanent failure with its code, not retried", async () => {
+      const quota = { response: { data: { error: { errors: [{ reason: "quotaExceeded" }] } } }, message: "quota" };
+      await failing.handleSyncFailure("rec-1", quota);
+      expect(analytics.capture).toHaveBeenCalledWith(
+        "user-1",
+        "sync_failed",
+        expect.objectContaining({ error_code: "quotaExceeded", will_retry: false }),
+      );
+      expect(notifications.create).toHaveBeenCalled();
+    });
+  });
 });

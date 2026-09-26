@@ -7,6 +7,7 @@ import {
   NotFoundException,
   ForbiddenException,
   HttpException,
+  Optional,
 } from "@nestjs/common";
 import { google } from "googleapis";
 import { PrismaService } from "../prisma/prisma.service";
@@ -17,6 +18,8 @@ import { Readable } from "stream";
 import { codedError } from "../common/coded-error";
 import { LegacyMirrorService } from "../connections/legacy-mirror.service";
 import { ConnectionReader } from "../connections/connection-reader.service";
+import { AnalyticsService } from "../analytics/analytics.service";
+import { durationBucket, sizeBucket, syncTriggerOf } from "../analytics/analytics-events";
 
 // Delays before automatic retry 1, 2 and 3 of a sync that failed transiently
 export const AUTO_RETRY_DELAYS_MS = [1 * 60_000, 5 * 60_000, 15 * 60_000];
@@ -95,6 +98,7 @@ export class YoutubeService {
     private readonly legacyMirror: LegacyMirrorService,
     // Reads YouTube config and quota (Connection when CONNECTIONS_READ, P2-1d)
     private readonly connectionReader: ConnectionReader,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   onSyncCompleted(listener: (recordingId: string, videoId: string) => Promise<void>) {
@@ -161,12 +165,14 @@ export class YoutubeService {
           where: { recordingId },
           data: { nextRetryAt },
         });
+        this.trackSyncFailed(log, error, true);
         this.logger.log(
           `Scheduled auto-retry ${log.autoRetryCount + 1}/${MAX_AUTO_RETRIES} for recording ${recordingId} at ${nextRetryAt.toISOString()}`,
         );
         return;
       }
 
+      this.trackSyncFailed(log, error, false);
       await this.notifySyncFailed(
         log.userId,
         recordingId,
@@ -402,6 +408,7 @@ export class YoutubeService {
       },
     });
     await this.legacyMirror.mirrorYoutube(userId);
+    this.analytics?.capture(userId, "youtube_authorized");
 
     return tokens;
   }
@@ -899,6 +906,7 @@ export class YoutubeService {
           if (count > 0) {
             if (newSyncStatus === "COMPLETED") {
               await this.notifySyncCompleted(recordingId, videoId);
+              void this.trackSyncCompleted(recordingId);
               await this.runSyncCompletedListeners(recordingId, videoId);
             } else {
               await this.handleSyncFailure(recordingId, processingError);
@@ -945,6 +953,39 @@ export class YoutubeService {
       `Video ${videoId} of recording ${recordingId} was deleted on YouTube; sync marked as failed`,
     );
     await this.handleSyncFailure(recordingId, new Error(syncError));
+  }
+
+  // Product analytics (P2-8b); never throws
+  private trackSyncFailed(
+    log: { userId: string; event: string | null; autoRetryCount: number; errorCode: string | null },
+    error: any,
+    willRetry: boolean,
+  ) {
+    try {
+      this.analytics?.capture(log.userId, "sync_failed", {
+        trigger: syncTriggerOf(log),
+        error_code: log.errorCode ?? this.mapYoutubeError(error).errorCode ?? "UNKNOWN",
+        will_retry: willRetry,
+      });
+    } catch (e) {
+      this.logger.warn(`Could not track the sync failure: ${e.message}`);
+    }
+  }
+
+  private async trackSyncCompleted(recordingId: string) {
+    if (!this.analytics?.enabled) return;
+    try {
+      const log = await this.prisma.zoomSyncLog.findUnique({ where: { recordingId } });
+      if (!log) return;
+      this.analytics.capture(log.userId, "sync_completed", {
+        trigger: syncTriggerOf(log),
+        duration_bucket: durationBucket(log.durationSeconds),
+        size_bucket: sizeBucket(log.fileSize),
+        scheduled: !!log.publishAt,
+      });
+    } catch (e) {
+      this.logger.warn(`Could not track the completed sync of ${recordingId}: ${e.message}`);
+    }
   }
 
   // Never throws: follow-up work must not undo a completed sync

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from "class-validator";
+import { IsIn, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 // Link a Zoom recording to a video already on the user's channel
 export class LinkRecordingDto {
@@ -17,6 +17,11 @@ export class LinkRecordingDto {
   @IsString()
   @IsNotEmpty()
   startTime: string;
+
+  // Which UI linked it, for product analytics (P2-8b)
+  @IsIn(["suggestion", "picker"])
+  @IsOptional()
+  source?: "suggestion" | "picker";
 }
 
 export class UnlinkRecordingDto {

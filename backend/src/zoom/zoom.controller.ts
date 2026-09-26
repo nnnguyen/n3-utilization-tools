@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Logger,
   Get,
+  Optional,
   Param,
   Put,
   Query,
@@ -23,6 +24,7 @@ import * as crypto from "crypto";
 import { verifyZoomSignature } from "./webhook-owner";
 import { UpdateWorkflowSettingsDto } from "./workflow-settings.dto";
 import { CaptionService } from "./caption.service";
+import { AnalyticsService } from "../analytics/analytics.service";
 
 @Controller("zoom")
 export class ZoomController {
@@ -32,6 +34,7 @@ export class ZoomController {
     private readonly zoomService: ZoomService,
     private readonly youtubeMatchService: ZoomYoutubeMatchService,
     private readonly captionService: CaptionService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   @Get("recordings")
@@ -189,6 +192,15 @@ export class ZoomController {
         plainToken: plainToken,
         encryptedToken: hashForValidate,
       };
+    }
+
+    // Product analytics (P2-8b): for the account the event belongs to
+    if (payload.event === "recording.completed" || payload.event === "recording.transcript_completed") {
+      this.analytics?.capture(owner?.userId ?? account?.userId, "zoom_webhook_received", {
+        event: payload.event,
+        owner_found: !!owner,
+        skipped_reason: payload.event === "recording.completed" && !owner && account ? "auto_upload_off" : null,
+      });
     }
 
     if (payload.event === "recording.completed") {

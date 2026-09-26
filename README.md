@@ -175,6 +175,8 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | `SYNC_SCHEDULER_ENABLED` | no | `false` turns off automatic retries and processing checks |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_SECURE`, `MAIL_USER`, `MAIL_PASS` | no | SMTP for account emails (verification, password reset) |
 | `IP_RATE_LIMIT_WINDOW_MS`, `IP_RATE_LIMIT_MAX_PER_WINDOW` | no | Rate limit of the public Word Cloud endpoints (default 20 requests / 60 s per IP) |
+| `POSTHOG_API_KEY` | no | PostHog **project token** (`phc_…`, the same one as `NEXT_PUBLIC_POSTHOG_KEY`). Unset = no backend analytics. Set: the events of `src/analytics/analytics-events.ts` are sent, batched in the background, only for accounts that agreed (Settings → Personalization); identified by the internal user id, never the email |
+| `POSTHOG_HOST` | no | PostHog ingestion host, default `https://eu.i.posthog.com` (EU Cloud) |
 
 ### Frontend (`frontend/.env.local`, or the Vercel project variables)
 

@@ -18,6 +18,7 @@ import {
   Logger,
   BadRequestException,
   UnauthorizedException,
+  Optional,
 } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import {
@@ -25,6 +26,7 @@ import {
   MAX_AUTO_RETRIES,
 } from "../youtube/youtube.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AnalyticsService } from "../analytics/analytics.service";
 import * as fs from "fs";
 import * as path from "path";
 import { firstValueFrom } from "rxjs";
@@ -46,6 +48,7 @@ export class ZoomService {
     private readonly prisma: PrismaService,
     // Reads Zoom configs (Connection when CONNECTIONS_READ, P2-1d)
     private readonly connectionReader: ConnectionReader,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   private async isZoomConfigured(userId: string): Promise<boolean> {
@@ -567,6 +570,10 @@ export class ZoomService {
             syncStartedAt: new Date(),
           },
         });
+        this.analytics?.capture(userId, "sync_started", async () => ({
+          trigger: autoRetryAttempt ? "retry" : downloadToken ? "webhook" : "manual",
+          rule_matched: !!(await this.getSyncOptions(userId, topic)).ruleId,
+        }));
       }
 
       // Upload to YouTube by streaming directly from Zoom

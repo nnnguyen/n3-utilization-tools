@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { AnalyticsService } from "../analytics/analytics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { LegacyMirrorService } from "../connections/legacy-mirror.service";
 import { ConnectionReader } from "../connections/connection-reader.service";
@@ -30,6 +31,7 @@ export class IntegrationsService {
     private readonly prisma: PrismaService,
     private readonly legacyMirror: LegacyMirrorService,
     private readonly connectionReader: ConnectionReader,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   async getConfigs(userId: string) {
@@ -52,6 +54,7 @@ export class IntegrationsService {
       },
     });
     await this.legacyMirror.mirrorZoom(userId);
+    this.analytics?.capture(userId, "connection_saved", { provider: "zoom", active: config.isActive });
     return toPublicZoomConfig(config);
   }
 
@@ -66,6 +69,7 @@ export class IntegrationsService {
       },
     });
     await this.legacyMirror.mirrorYoutube(userId);
+    this.analytics?.capture(userId, "connection_saved", { provider: "youtube", active: config.isActive });
     return toPublicYoutubeConfig(config);
   }
 
@@ -128,6 +132,7 @@ export class IntegrationsService {
       });
       await this.legacyMirror.mirrorYoutube(userId);
     }
+    this.analytics?.capture(userId, "connection_disconnected", { provider: provider.id });
     return this.connectionCardOf(userId, provider);
   }
 

@@ -4,7 +4,9 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
+import { AnalyticsService } from "../analytics/analytics.service";
 import { randomInt } from "crypto";
 import * as QRCode from "qrcode";
 import { Topic } from "@prisma/client";
@@ -23,6 +25,7 @@ export class TopicsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wordCloudGateway: WordCloudGateway,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   private async generateUniqueCode(): Promise<string> {
@@ -82,8 +85,21 @@ export class TopicsService {
     ownerId: string,
     dto: UpdateTopicDto,
   ): Promise<Topic> {
-    await this.findOneForUser(id, ownerId);
-    return this.prisma.topic.update({ where: { id }, data: dto });
+    const before = await this.findOneForUser(id, ownerId);
+    const topic = await this.prisma.topic.update({ where: { id }, data: dto });
+    // A live session ends when the topic is closed: totals only (P2-8b)
+    if (before.status === "ACTIVE" && topic.status === "CLOSED") {
+      this.analytics?.capture(ownerId, "wordcloud_session_ended", async () => {
+        const where = { question: { topicId: id } };
+        const [questions, responses, participants] = await Promise.all([
+          this.prisma.question.count({ where: { topicId: id } }),
+          this.prisma.response.count({ where }),
+          this.prisma.response.groupBy({ by: ["participantSessionId"], where }),
+        ]);
+        return { questions, responses, participants: participants.length };
+      });
+    }
+    return topic;
   }
 
   async remove(id: string, ownerId: string): Promise<Topic> {

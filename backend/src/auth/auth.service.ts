@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   OnApplicationBootstrap,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -18,6 +19,7 @@ import { codedError } from "../common/coded-error";
 import { ActivityService } from "../activity/activity.service";
 import { passwordSignInBlock, SUPER_ADMIN } from "../admin/account-rules";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import { AnalyticsService } from "../analytics/analytics.service";
 
 const SIGN_IN_BLOCK_MESSAGES = {
   AUTH_ACCOUNT_LOCKED: "Tài khoản đã bị khoá, vui lòng liên hệ quản trị viên",
@@ -34,6 +36,7 @@ export class AuthService implements OnApplicationBootstrap {
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
     private readonly activity: ActivityService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -365,6 +368,7 @@ export class AuthService implements OnApplicationBootstrap {
     prefs: { themeStyle?: string; themeMode?: string; language?: string; analyticsConsent?: boolean },
   ) {
     const user = await this.prisma.user.update({ where: { id }, data: prefs });
+    if (prefs.analyticsConsent !== undefined) this.analytics?.consentChanged(user);
     return this.toSessionUser(user).preferences;
   }
 }

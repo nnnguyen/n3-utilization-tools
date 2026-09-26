@@ -264,7 +264,7 @@ export default function ZoomRecordingsPanel({
   };
 
   // The recording counts as synced from now on (a COMPLETED record pointing at the video)
-  const linkRecording = (record: any, videoId: string) =>
+  const linkRecording = (record: any, videoId: string, source: 'suggestion' | 'picker') =>
     withLinking(record.uuid || record.id, async () => {
       await apiFetch('/zoom/recordings/link', {
         method: 'POST',
@@ -273,6 +273,7 @@ export default function ZoomRecordingsPanel({
           videoId,
           topic: record.topic,
           startTime: record.start_time,
+          source,
         }),
       });
       message.success(t('zoomRec.linkSuccess'));
@@ -570,7 +571,7 @@ export default function ZoomRecordingsPanel({
               <>
                 <Popconfirm
                   title={t('zoomRec.linkConfirm', { title: match.title })}
-                  onConfirm={() => linkRecording(record, match.videoId)}
+                  onConfirm={() => linkRecording(record, match.videoId, 'suggestion')}
                   okText={t('zoomRec.link')}
                   cancelText={t('common.cancel')}
                 >
@@ -893,7 +894,7 @@ export default function ZoomRecordingsPanel({
         title={t('zoomRec.linkPickerTitle')}
         open={!!pickerRecord}
         onCancel={() => setPickerRecord(null)}
-        onOk={() => pickerRecord && pickedVideoId && linkRecording(pickerRecord, pickedVideoId)}
+        onOk={() => pickerRecord && pickedVideoId && linkRecording(pickerRecord, pickedVideoId, 'picker')}
         okText={t('zoomRec.link')}
         cancelText={t('common.cancel')}
         okButtonProps={{
