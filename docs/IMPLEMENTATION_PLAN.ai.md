@@ -201,10 +201,10 @@ For each item, the first task is a **design note** (`docs/design/<id>-<name>.md`
 | --- | --- | --- | --- |
 | P2-1 | Connector framework | `Connection` model (provider, owner, encrypted credentials, token expiry, status), shared OAuth/refresh/expiry logic generalised from `YoutubeService.getTokenStatus`, per-provider quota, migration from `ZoomConfig`/`YoutubeConfig` without downtime | encryption key management (env `CREDENTIALS_KEY`?); one-shot vs gradual migration |
 | P2-2 | Workspaces & roles | `Workspace`, `Membership(role)`, connections owned by workspaces, `ZoomSyncLog.recordingId` uniqueness per workspace, activity log | multi-workspace users; merging accounts that share a Zoom account |
-| P2-3 | Google Drive backup | new scope `drive.file` (re-authorization flow), upload MP4/M4A/VTT after sync, folder layout, retries, storage display | folder structure; which files |
-| P2-4 | Google Calendar | upcoming meetings list, attach video link to events | which calendar |
+| P2-3 | Google Drive backup | new scope `drive.file` (re-authorization flow), upload MP4/M4A/VTT after sync, folder layout, retries, storage display | folder structure; which files — **design draft (2026-09-26, awaiting approval)**: [P2-3-google-drive.md](design/P2-3-google-drive.md), tasks P2-3a → P2-3c |
+| P2-4 | Google Calendar | upcoming meetings list, attach video link to events | which calendar — **design draft (2026-09-26, awaiting approval)**: [P2-4-google-calendar.md](design/P2-4-google-calendar.md); P2-4a (upcoming meetings from the Zoom API) needs no Google scope |
 | P2-5 ✅ | Automatic captions | Zoom `TRANSCRIPT` (VTT) → `captions.insert` (≈400 quota units, scope `youtube.force-ssl` already granted) after processing succeeds | default language; on by default? |
-| P2-6 | Zalo OA notifications | on top of P2-1 | verified OA available? |
+| P2-6 | Zalo OA notifications | on top of P2-1 | verified OA available? — **design draft (2026-09-26, awaiting approval)**: [P2-6-zalo-oa.md](design/P2-6-zalo-oa.md); audience (team vs community) must be decided first |
 
 ### P2-1 subtasks (approved 2026-09-25)
 
