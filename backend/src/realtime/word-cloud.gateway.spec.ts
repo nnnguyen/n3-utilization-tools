@@ -117,7 +117,7 @@ describe("WordCloudGateway", () => {
       const client = fakeSocket(`${ACCESS_TOKEN_COOKIE}=good-token`);
       gateway.handleConnection(client as never);
       expect(client.disconnect).not.toHaveBeenCalled();
-      expect(client.data.user).toEqual(user);
+      expect(client.data.user).toEqual({ ...user, platformRole: "user" });
     });
   });
 

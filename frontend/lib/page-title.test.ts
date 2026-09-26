@@ -11,6 +11,7 @@ test('pageTitleKey maps each menu route to its title', () => {
   assert.equal(pageTitleKey('/word-cloud/dashboard'), 'nav.wordCloud');
   assert.equal(pageTitleKey('/settings/integrations'), 'nav.integrations');
   assert.equal(pageTitleKey('/settings/personalization'), 'nav.personalization');
+  assert.equal(pageTitleKey('/admin'), 'nav.admin');
 });
 
 test('pageTitleKey matches nested routes by prefix', () => {

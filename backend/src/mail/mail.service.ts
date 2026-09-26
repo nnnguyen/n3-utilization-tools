@@ -31,9 +31,9 @@ export class MailService {
 
   async sendMail(to: string, subject: string, html: string) {
     if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-      console.warn("Mail credentials missing. Skipping email send to:", to);
-      console.log("Mail Subject:", subject);
-      console.log("Mail Content:", html);
+      // Never the body: it carries verification/reset links (and could carry
+      // passwords); email is off in production for now
+      console.warn(`Mail not configured, not sent: "${subject}" to ${to}`);
       return;
     }
 

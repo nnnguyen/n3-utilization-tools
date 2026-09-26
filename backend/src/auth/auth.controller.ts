@@ -32,6 +32,7 @@ import {
   ResetPasswordDto,
 } from "./dto/auth-email.dto";
 import { UpdatePreferencesDto } from "./dto/preferences.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 import { codedError } from "../common/coded-error";
 
 @Controller("auth")
@@ -113,6 +114,9 @@ export class AuthController {
         `${process.env.FRONTEND_URL}/login?authCode=${encodeURIComponent(code)}`,
       );
     } catch (error) {
+      if (error?.getResponse?.()?.code === "AUTH_ACCOUNT_LOCKED") {
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=account_locked`);
+      }
       console.error("Google Auth Error:", error);
       res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_error`);
     }
@@ -140,6 +144,16 @@ export class AuthController {
       throw new UnauthorizedException();
     }
     return this.authService.toSessionUser(user);
+  }
+
+  @Post("change-password")
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(currentUser.id, dto);
   }
 
   @Patch("preferences")

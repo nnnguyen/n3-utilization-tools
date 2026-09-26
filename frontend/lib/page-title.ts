@@ -9,6 +9,7 @@ const PAGE_TITLES: [prefix: string, key: MessageKey][] = [
   ['/word-cloud', 'nav.wordCloud'],
   ['/settings/integrations', 'nav.integrations'],
   ['/settings/personalization', 'nav.personalization'],
+  ['/admin', 'nav.admin'],
 ];
 
 /** i18n key of the page title: longest matching route prefix, `nav.home` otherwise. */

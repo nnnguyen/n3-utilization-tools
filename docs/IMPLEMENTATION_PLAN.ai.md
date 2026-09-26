@@ -225,10 +225,11 @@ Design: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md) — approved
 
 | ID | Task | Depends on |
 | --- | --- | --- |
+| P2-2h1 ✅ | Super admin early (account level, 2026-09-26): `User.platformRole/isLocked/mustChangePassword/tempPasswordExpiresAt`, `ActivityLog` (nullable `workspaceId`), bootstrap from `BOOTSTRAP_SUPER_ADMIN_EMAIL`, JWT checks the account on every request (lock, pending password change), `POST /auth/change-password`, `/admin` accounts + activity pages, mail bodies no longer logged | — |
 | P2-2a | Schema + personal workspaces backfill | P2-1f |
 | P2-2b | Workspace context, guard and roles; `/workspaces` | P2-2a |
 | P2-2c | Scope data by workspace; fix the shared `recordingId` overwrite | P2-2b |
-| P2-2h | Super admin, system admin pages, manual accounts (temp password shown once), stop logging mail bodies | P2-2b |
+| P2-2h | Workspace part of the admin pages (list/create/rename/delete any workspace, its members); the account part shipped as P2-2h1 | P2-2b |
 | P2-2d | Members and invite links, Settings → Workspace, header switcher | P2-2c |
 | P2-2e | Activity log | P2-2c |
 | P2-2f | Shared Zoom account suggestion | P2-2d |

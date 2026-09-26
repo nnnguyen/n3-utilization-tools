@@ -56,6 +56,8 @@ function LoginErrorHandler({ router }: { router: ReturnType<typeof useRouter> })
         message.error(translateNow('auth.googleFailed'));
       } else if (error === 'google_auth_error') {
         message.error(translateNow('auth.googleError'));
+      } else if (error === 'account_locked') {
+        message.error(translateNow('apiError.AUTH_ACCOUNT_LOCKED'));
       }
       // Clear URL params
       router.replace('/login');
@@ -96,7 +98,8 @@ export default function LoginPage() {
 
       completeLogin(userData, login);
       message.success(t('auth.loginSuccess'));
-      router.push('/');
+      // A temp password must be replaced before anything else works
+      router.push(userData.mustChangePassword ? '/change-password' : '/');
     } catch (error: any) {
       message.error(error.message);
     } finally {

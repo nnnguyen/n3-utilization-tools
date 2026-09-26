@@ -13,6 +13,7 @@ import { ZoomModule } from "./zoom/zoom.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ConnectionsModule } from "./connections/connections.module";
+import { AdminModule } from "./admin/admin.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ConnectionsModule } from "./connections/connections.module";
     IntegrationsModule,
     NotificationsModule,
     ConnectionsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

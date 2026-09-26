@@ -16,6 +16,8 @@ import {
   BarChartOutlined,
   ApiOutlined,
   SkinOutlined,
+  SafetyCertificateOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -48,6 +50,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
+    } else if (user?.mustChangePassword) {
+      // A temp password must be replaced before any page works
+      router.replace('/change-password');
     }
   }, [user, loading, router]);
 
@@ -100,6 +105,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         },
       ]
     },
+    ...(user?.platformRole === 'super_admin'
+      ? [{
+          key: '/admin',
+          icon: <SafetyCertificateOutlined />,
+          label: <Link href="/admin">{t('nav.admin')}</Link>,
+        }]
+      : []),
     {
       key: 'settings',
       icon: <SettingOutlined />,
@@ -133,6 +145,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       onClick: () => router.push('/settings/integrations'),
     },
     {
+      key: 'change-password',
+      icon: <KeyOutlined />,
+      label: t('nav.changePassword'),
+      onClick: () => router.push('/change-password'),
+    },
+    {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: t('nav.logout'),
@@ -140,7 +158,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
   ];
 
-  if (loading || !user) {
+  if (loading || !user || user.mustChangePassword) {
     return null;
   }
 

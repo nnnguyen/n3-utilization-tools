@@ -85,6 +85,8 @@ export class WordCloudGateway implements OnGatewayConnection {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
+        // Not used here: the presenter only joins topics it owns
+        platformRole: "user",
       };
       client.data.user = user;
     } catch {

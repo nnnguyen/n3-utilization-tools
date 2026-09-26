@@ -10,6 +10,12 @@ interface User {
   email: string;
   name?: string;
   avatarUrl?: string;
+  // 'super_admin' sees the system administration (docs/design/P2-2-workspaces.md §6b)
+  platformRole?: 'user' | 'super_admin';
+  // Set with a temp password: only the change-password screen works until changed
+  mustChangePassword?: boolean;
+  // Google-only accounts have no current password to type
+  hasPassword?: boolean;
   // Personalization saved on the account (see lib/preferences.tsx)
   preferences?: {
     themeStyle: 'broadsheet' | 'organic' | 'classic';

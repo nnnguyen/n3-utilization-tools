@@ -32,6 +32,12 @@ model User {
   themeMode  String @default("light") // 'light' | 'dark' | 'system'
   language   String @default("vi") // 'vi' | 'en'
 
+  // System administration (docs/design/P2-2-workspaces.md §6b)
+  platformRole          String    @default("user") // 'user' | 'super_admin'
+  isLocked              Boolean   @default(false) // locked accounts cannot sign in or call the API
+  mustChangePassword    Boolean   @default(false) // only the change-password screen works until changed
+  tempPasswordExpiresAt DateTime? // set with a temp password; cleared when the user sets their own
+
   createdAt              DateTime                    @default(now())
   topics                 Topic[]
   zoomConfig             ZoomConfig?
@@ -128,6 +134,22 @@ model QuotaUsage {
   lastUpdated DateTime @updatedAt
 
   @@unique([userId, provider, date])
+}
+
+// Who did what. workspaceId stays null for system-level (super admin) actions
+// until workspaces exist (P2-2a).
+model ActivityLog {
+  id          String   @id @default(uuid())
+  workspaceId String?
+  actorId     String? // null = the system (webhook, retries, bootstrap)
+  action      String // e.g. 'admin.user.created', 'admin.user.locked'
+  targetType  String?
+  targetId    String?
+  data        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([createdAt])
 }
 
 model YoutubeConfig {

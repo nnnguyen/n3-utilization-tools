@@ -8,12 +8,14 @@ import { GoogleStrategy } from "./strategies/google.strategy";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { MailModule } from "../mail/mail.module";
 import { YoutubeModule } from "../youtube/youtube.module";
+import { ActivityModule } from "../activity/activity.module";
 
 @Module({
   imports: [
     PassportModule,
     MailModule,
     YoutubeModule,
+    ActivityModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: {
@@ -24,5 +26,6 @@ import { YoutubeModule } from "../youtube/youtube.module";
   ],
   controllers: [AuthController],
   providers: [AuthService, GoogleStrategy, JwtStrategy, AuthCodeStore],
+  exports: [AuthService],
 })
 export class AuthModule {}
