@@ -11,6 +11,8 @@ import {
 } from "../connections/providers";
 import { quotaDate, tokenHealth } from "../connections/token-health";
 import { connectionCard, ConnectionCard } from "./connection-card";
+import { ConnectionsService } from "../connections/connections.service";
+import { GoogleDriveService } from "../google-drive/google-drive.service";
 import { UpdateConnectionDto } from "./dto/update-connection.dto";
 import {
   UpdateZoomConfigDto,
@@ -31,6 +33,8 @@ export class IntegrationsService {
     private readonly prisma: PrismaService,
     private readonly legacyMirror: LegacyMirrorService,
     private readonly connectionReader: ConnectionReader,
+    private readonly connections: ConnectionsService,
+    private readonly googleDrive: GoogleDriveService,
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
@@ -88,6 +92,10 @@ export class IntegrationsService {
 
   async updateConnection(userId: string, providerId: string, dto: UpdateConnectionDto) {
     const provider = this.provider(providerId);
+    // Nothing to type in: connected only by authorizing with Google
+    if (provider.id === "google_drive") {
+      throw new BadRequestException("Google Drive is connected by authorizing with Google");
+    }
     const fields: Record<string, string | boolean> = {};
     if (dto.isActive !== undefined) fields.isActive = dto.isActive;
     for (const [group, allowed, values] of [
@@ -112,7 +120,10 @@ export class IntegrationsService {
   /** Turns the connection off and forgets its token (sync history is kept). */
   async disconnect(userId: string, providerId: string) {
     const provider = this.provider(providerId);
-    if (provider.id === "zoom") {
+    if (provider.id === "google_drive") {
+      // Files already backed up stay in the Drive
+      await this.googleDrive.disconnect(userId);
+    } else if (provider.id === "zoom") {
       await this.prisma.zoomConfig.updateMany({
         where: { userId },
         data: { isActive: false, clientSecret: null, webhookSecretToken: null },
@@ -145,6 +156,7 @@ export class IntegrationsService {
     userId: string,
     provider: ProviderDefinition,
   ): Promise<ConnectionCard> {
+    if (provider.id === "google_drive") return this.driveCard(userId, provider);
     const config =
       provider.id === "zoom"
         ? await this.connectionReader.zoomConfig(userId)
@@ -173,5 +185,30 @@ export class IntegrationsService {
       };
     }
     return connectionCard(provider, fields, health, quota);
+  }
+
+  // Google Drive lives only in Connection (no legacy table)
+  private async driveCard(userId: string, provider: ProviderDefinition): Promise<ConnectionCard> {
+    const view = await this.connections.find(userId, "google_drive");
+    const fields = view
+      ? { isActive: view.status === "active", ...view.settings, ...view.secrets }
+      : null;
+    const health = tokenHealth(
+      {
+        active: view?.status === "active",
+        hasToken: !!view?.secrets.refreshToken,
+        tokenObtainedAt: view?.tokenObtainedAt ?? null,
+        lastTokenRefreshAt: view?.lastTokenRefreshAt ?? null,
+        tokenInvalidAt: view?.tokenInvalidAt ?? null,
+      },
+      provider.tokenPolicy,
+    );
+    const card = connectionCard(provider, fields, health, null);
+    return {
+      ...card,
+      externalAccountId: view?.externalAccountId ?? null,
+      externalAccountName: view?.externalAccountName ?? null,
+      storage: card.connected && !health.tokenInvalid ? await this.googleDrive.storage(userId) : null,
+    };
   }
 }

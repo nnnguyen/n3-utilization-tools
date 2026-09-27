@@ -2,7 +2,7 @@
 // Values read from the environment are functions so they follow runtime env.
 // Design: docs/design/P2-1-connector.md
 
-export type ProviderId = "youtube" | "zoom";
+export type ProviderId = "youtube" | "zoom" | "google_drive";
 
 export interface TokenPolicy {
   // Google expires refresh tokens after this many days while the OAuth consent
@@ -61,6 +61,25 @@ export const PROVIDERS: Record<ProviderId, ProviderDefinition> = {
       // Google resets the YouTube quota at midnight Pacific Time
       resetTimeZone: "America/Los_Angeles",
     },
+  },
+  // Drive backups of Zoom files (docs/design/P2-3-google-drive.md). Its own
+  // Google account, authorized with the YouTube OAuth client; stored only in
+  // Connection (no legacy table)
+  google_drive: {
+    id: "google_drive",
+    authType: "oauth2",
+    settingsFields: [],
+    secretFields: ["refreshToken"],
+    connectedWhen: "refreshToken",
+    // Only files the app creates: nothing else in the Drive is visible
+    scopes: ["https://www.googleapis.com/auth/drive.file"],
+    tokenPolicy: {
+      // Same Google OAuth app as YouTube, so the same publishing status
+      testingMode: () => process.env.YOUTUBE_OAUTH_TESTING_MODE !== "false",
+      testingLifetimeDays: 7,
+      warnAfterDays: () => intFromEnv("YOUTUBE_TOKEN_WARN_AFTER_DAYS", 5),
+    },
+    quota: null,
   },
   zoom: {
     id: "zoom",

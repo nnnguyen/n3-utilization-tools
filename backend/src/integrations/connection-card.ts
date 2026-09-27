@@ -19,10 +19,14 @@ export interface ConnectionCard {
   // Usable right now: active, and its "connected" secret is stored
   connected: boolean;
   externalAccountId: string | null;
+  // Display name of the connected account (Google Drive: the account's name)
+  externalAccountName: string | null;
   settings: Record<string, string | null>;
   secrets: Record<string, boolean>;
   tokenHealth: TokenHealth;
   quota: QuotaStatus | null;
+  // Google Drive: space of the connected Drive, in bytes (limit null = unlimited)
+  storage: { limit: number | null; usage: number } | null;
 }
 
 export function connectionCard(
@@ -41,9 +45,11 @@ export function connectionCard(
     status: !config ? "not_configured" : config.isActive ? "active" : "disabled",
     connected: !!config?.isActive && !!value(provider.connectedWhen),
     externalAccountId: provider.id === "zoom" ? value("accountId") : null,
+    externalAccountName: null,
     settings: Object.fromEntries(provider.settingsFields.map((f) => [f, value(f)])),
     secrets: Object.fromEntries(provider.secretFields.map((f) => [f, !!value(f)])),
     tokenHealth,
     quota,
+    storage: null,
   };
 }

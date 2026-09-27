@@ -177,6 +177,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_SECURE`, `MAIL_USER`, `MAIL_PASS` | no | SMTP for account emails (verification, password reset) |
 | `IP_RATE_LIMIT_WINDOW_MS`, `IP_RATE_LIMIT_MAX_PER_WINDOW` | no | Rate limit of the public Word Cloud endpoints (default 20 requests / 60 s per IP) |
 | `POSTHOG_API_KEY` | no | PostHog **project token** (`phc_…`, the same one as `NEXT_PUBLIC_POSTHOG_KEY`). Unset = no backend analytics. Set: the events of `src/analytics/analytics-events.ts` are sent, batched in the background, only for accounts that agreed (Settings → Personalization); identified by the internal user id, never the email |
+| `GOOGLE_DRIVE_CALLBACK_URL` | no | Where Google returns after authorizing Google Drive. Default: `https://$RAILWAY_PUBLIC_DOMAIN/api/connections/google_drive/callback` on Railway, `http://localhost:3001/api/connections/google_drive/callback` locally |
 | `POSTHOG_HOST` | no | PostHog ingestion host, default `https://eu.i.posthog.com` (EU Cloud) |
 
 ### Frontend (`frontend/.env.local`, or the Vercel project variables)
@@ -204,6 +205,12 @@ Credentials are entered per account in **Settings → Integrations**; the enviro
 1. In the [Zoom App Marketplace](https://marketplace.zoom.us/), create a **Server-to-Server OAuth** app with the recording read scopes.
 2. Under **Feature → Event Subscriptions**, add the endpoint `https://<backend domain>/api/zoom/webhook` and the event **Recording → All Recordings have completed**. Copy the **Secret Token** into `ZOOM_WEBHOOK_SECRET_TOKEN`.
 3. In the app: **Settings → Integrations → Zoom**, enter the Account ID, Client ID, Client Secret and Webhook Secret Token, and switch **Activation** on.
+
+### Google Drive (optional)
+Backups of Zoom files ([docs/design/P2-3-google-drive.md](docs/design/P2-3-google-drive.md)) use the **same Google Cloud project and OAuth client as the YouTube card**, with a separate Google account if you like:
+1. In that project, enable the **Google Drive API** and add the scope `.../auth/drive.file` to the OAuth consent screen (only files the app creates are visible to it).
+2. Add the redirect URI `<backend URL>/api/connections/google_drive/callback` to the OAuth client.
+3. In **Settings → Integrations**, press **Connect Google Drive** and choose the Google account whose Drive should hold the files. Nothing is saved to Drive until you turn it on (all recordings or one at a time).
 
 ### Google sign-in (optional)
 Create another OAuth client ID with the redirect URI `<backend URL>/api/auth/google/callback` and set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_CALLBACK_URL`.

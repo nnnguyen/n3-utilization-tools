@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { Card, Row, Col, Typography, Form, Input, Button, Space, Switch, Divider, message, Alert, Avatar, Tag, Tooltip, Drawer, Grid, Popconfirm } from 'antd';
-import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, CalendarOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../../components/DashboardLayout';
 import { API_URL, apiFetch } from '@/lib/api';
 import { AUTH_RETURN_TO_KEY } from '../../../components/YoutubeTokenBanner';
 import { YoutubeLogo, ZoomLogo } from '../../../components/BrandLogos';
 import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
-import { canAuthorize, cardState, type CardState, type ConnectionCard } from '@/lib/connection-status';
+import { canAuthorize, cardState, formatBytes, type CardState, type ConnectionCard } from '@/lib/connection-status';
 
 const { Title, Text } = Typography;
 
@@ -21,12 +21,6 @@ const STATE_TAG: Record<CardState, { color: string; label: MessageKey }> = {
   disabled: { color: 'default', label: 'integ.state.disabled' },
   not_connected: { color: 'default', label: 'integ.state.notConnected' },
 };
-
-// Apps planned on the connector framework (ROADMAP §2.1): shown, not usable yet
-const COMING_SOON: { key: string; icon: React.ReactNode; name: MessageKey; desc: MessageKey }[] = [
-  { key: 'drive', icon: <CloudOutlined />, name: 'integ.soon.drive', desc: 'integ.soon.driveDesc' },
-  { key: 'calendar', icon: <CalendarOutlined />, name: 'integ.soon.calendar', desc: 'integ.soon.calendarDesc' },
-];
 
 // Send a secret only when the user typed one; empty means "keep the saved value"
 function nonEmpty(values: Record<string, string | undefined>) {
@@ -92,6 +86,16 @@ function IntegrationsContent() {
     if (code) {
       handleCallback(code);
     }
+  }, [searchParams]);
+
+  // Back from Google's Drive consent screen (the backend handled the code)
+  useEffect(() => {
+    const drive = searchParams.get('drive');
+    if (!drive) return;
+    if (drive === 'connected') message.success(t('integ.driveConnected'));
+    else if (drive === 'cancelled') message.info(t('integ.driveCancelled'));
+    else message.error(t('integ.driveError'));
+    router.replace('/settings/integrations');
   }, [searchParams]);
 
   const fillForms = (list: ConnectionCard[]) => {
@@ -183,6 +187,85 @@ function IntegrationsContent() {
     } catch (error: any) {
       message.error(error.message || t('integ.authUrlFailed'));
     }
+  };
+
+  const onConnectDrive = async () => {
+    try {
+      const { url } = await apiFetch('/connections/google_drive/auth-url');
+      window.location.href = url;
+    } catch (error: any) {
+      message.error(error.message || t('integ.authUrlFailed'));
+    }
+  };
+
+  // Google Drive (P2-3): connected only by authorizing, with the YouTube card's Google app
+  const driveCard = () => {
+    const card = cardOf('google_drive');
+    const youtube = cardOf('youtube');
+    const state: CardState = card ? cardState(card) : 'not_connected';
+    const tag = STATE_TAG[state];
+    const googleAppReady = !!youtube && canAuthorize(youtube);
+
+    const details: React.ReactNode[] = [];
+    if (card?.externalAccountId && state !== 'not_connected') {
+      details.push(
+        <Text key="account">{card.externalAccountName ? `${card.externalAccountName} · ` : ''}{card.externalAccountId}</Text>,
+      );
+    }
+    if (card?.storage && state === 'connected') {
+      const used = formatBytes(card.storage.usage, fmt.locale);
+      details.push(
+        <Text key="storage" type="secondary">
+          {card.storage.limit
+            ? t('integ.card.storage', { used, limit: formatBytes(card.storage.limit, fmt.locale) })
+            : t('integ.card.storageUnlimited', { used })}
+        </Text>,
+      );
+    }
+    if (card?.tokenHealth.expiringSoon) {
+      details.push(
+        <Text key="expiry" type="warning">{t('integ.card.expiring', { days: card.tokenHealth.daysRemaining ?? 0 })}</Text>,
+      );
+    }
+    if (state !== 'connected' && !googleAppReady) {
+      details.push(<Text key="needs" type="warning">{t('integ.card.driveNeedsYoutube')}</Text>);
+    }
+
+    const actions: React.ReactNode[] = [];
+    if (state !== 'connected') {
+      actions.push(
+        <Button key="auth" type="primary" icon={<GoogleOutlined />} onClick={onConnectDrive} disabled={!googleAppReady}>
+          {state === 'needs_reauth' ? t('integ.reauthorize') : t('integ.card.driveConnect')}
+        </Button>,
+      );
+    }
+    if (card && (state === 'connected' || state === 'needs_reauth')) {
+      actions.push(
+        <Popconfirm
+          key="disconnect"
+          title={t('integ.card.disconnectConfirm')}
+          description={t('integ.card.disconnectDriveHint')}
+          onConfirm={() => disconnect('google_drive')}
+          okText={t('integ.card.disconnect')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger type="text" icon={<DisconnectOutlined />}>{t('integ.card.disconnect')}</Button>
+        </Popconfirm>,
+      );
+    }
+
+    return (
+      <Card loading={loading && !card} style={{ height: '100%' }} styles={{ body: { display: 'flex', flexDirection: 'column', gap: 12, height: '100%' } }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minHeight: 28 }}>
+          <Space><CloudOutlined style={{ fontSize: 20 }} /><Text strong>{t('integ.card.driveName')}</Text></Space>
+          <Tag color={tag.color} style={{ marginInlineEnd: 0 }}>{t(tag.label)}</Tag>
+        </div>
+        <Text type="secondary">{t('integ.card.driveDesc')}</Text>
+        {details.length > 0 && <Space orientation="vertical" size={4}>{details}</Space>}
+        {actions.length > 0 && <Space wrap style={{ marginTop: 'auto' }}>{actions}</Space>}
+      </Card>
+    );
   };
 
   const zoomSettings = (
@@ -387,17 +470,7 @@ function IntegrationsContent() {
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
         <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
-        {COMING_SOON.map(app => (
-          <Col key={app.key} xs={24} md={12} lg={8}>
-            <Card style={{ height: '100%' }} styles={{ body: { display: 'flex', flexDirection: 'column', gap: 12 } }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minHeight: 28 }}>
-                <Space><span style={{ fontSize: 20, color: 'var(--color-text-muted)' }}>{app.icon}</span><Text strong>{t(app.name)}</Text></Space>
-                <Tag style={{ marginInlineEnd: 0 }}>{t('integ.state.comingSoon')}</Tag>
-              </div>
-              <Text type="secondary">{t(app.desc)}</Text>
-            </Card>
-          </Col>
-        ))}
+        <Col xs={24} md={12} lg={8}>{driveCard()}</Col>
       </Row>
 
       <Drawer

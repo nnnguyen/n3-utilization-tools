@@ -1,10 +1,11 @@
 // Card of GET /connections (backend integrations/connection-card.ts)
 export interface ConnectionCard {
-  provider: 'youtube' | 'zoom';
+  provider: 'youtube' | 'zoom' | 'google_drive';
   authType: 'oauth2' | 'server_to_server';
   status: 'not_configured' | 'active' | 'disabled';
   connected: boolean;
   externalAccountId: string | null;
+  externalAccountName: string | null;
   settings: Record<string, string | null>;
   secrets: Record<string, boolean>;
   tokenHealth: {
@@ -14,6 +15,8 @@ export interface ConnectionCard {
     daysRemaining?: number | null;
   };
   quota: { unitsUsed: number; unitsRemaining: number; quotaLimit: number; date: string } | null;
+  // Google Drive: space of the connected Drive in bytes (limit null = unlimited)
+  storage: { limit: number | null; usage: number } | null;
 }
 
 export type CardState = 'connected' | 'needs_reauth' | 'disabled' | 'not_connected';
@@ -30,4 +33,16 @@ export function cardState(card: ConnectionCard): CardState {
 /** OAuth apps can be authorized once their client id and secret are saved. */
 export function canAuthorize(card: ConnectionCard): boolean {
   return card.authType === 'oauth2' && !!card.settings.clientId && !!card.secrets.clientSecret;
+}
+
+/** 1073741824 -> "1 GB", 1610612736 -> "1,5 GB" (vi-VN) — binary units, like Google Drive. */
+export function formatBytes(bytes: number, locale: string): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = Math.max(0, bytes);
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toLocaleString(locale, { maximumFractionDigits: value < 10 && unit > 0 ? 1 : 0 })} ${units[unit]}`;
 }
