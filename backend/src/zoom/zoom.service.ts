@@ -404,6 +404,8 @@ export class ZoomService {
       captionsEnabled: saved.captionsEnabled,
       captionLanguage: saved.captionLanguage,
       captionName: saved.captionName,
+      driveBackupEnabled: saved.driveBackupEnabled,
+      driveFileTypes: saved.driveFileTypes,
     };
   }
 
@@ -525,6 +527,26 @@ export class ZoomService {
       ),
     );
     return response.data?.recording_files ?? [];
+  }
+
+  /**
+   * A recording file as a stream, with the account's token. `start` > 0 asks
+   * for the rest of the file only (HTTP Range), to resume an upload; `partial`
+   * says whether Zoom honoured it. Errors are tagged `source: "zoom"`.
+   */
+  async openRecordingFile(userId: string, downloadUrl: string, start = 0) {
+    const token = await this.getAccessToken(userId);
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(downloadUrl, {
+          headers: { Authorization: `Bearer ${token}`, ...(start > 0 ? { Range: `bytes=${start}-` } : {}) },
+          responseType: "stream",
+        }),
+      );
+      return { stream: response.data as NodeJS.ReadableStream, partial: response.status === 206 };
+    } catch (error) {
+      throw Object.assign(error, { source: "zoom" });
+    }
   }
 
   /** A small text file of a recording (e.g. the WebVTT transcript). */

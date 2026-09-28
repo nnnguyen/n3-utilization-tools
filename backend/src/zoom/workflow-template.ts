@@ -15,6 +15,9 @@ export const DEFAULT_WORKFLOW_SETTINGS = {
   captionsEnabled: false,
   captionLanguage: "vi",
   captionName: null as string | null,
+  // Google Drive backups (P2-3): the user chooses; off by default
+  driveBackupEnabled: false,
+  driveFileTypes: ["MP4", "M4A", "TRANSCRIPT"] as string[],
 };
 
 export type WorkflowSettings = typeof DEFAULT_WORKFLOW_SETTINGS;

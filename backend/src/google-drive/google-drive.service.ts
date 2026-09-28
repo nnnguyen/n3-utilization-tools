@@ -98,6 +98,28 @@ export class GoogleDriveService {
     return google.drive({ version: "v3", auth: client });
   }
 
+  /** A fresh access token for raw Drive requests (resumable uploads), or null when not connected. */
+  async accessToken(userId: string): Promise<string | null> {
+    const connection = await this.connections.find(userId, PROVIDER);
+    const refreshToken = connection?.secrets.refreshToken;
+    if (connection?.status !== "active" || !refreshToken) return null;
+    const client = await this.oauthClient(userId);
+    client.setCredentials({ refresh_token: refreshToken });
+    const { token } = await client.getAccessToken();
+    void this.connections.markTokenRefreshed(userId, PROVIDER);
+    return token ?? null;
+  }
+
+  async isConnected(userId: string): Promise<boolean> {
+    const connection = await this.connections.find(userId, PROVIDER);
+    return connection?.status === "active" && !!connection.secrets.refreshToken && !connection.tokenInvalidAt;
+  }
+
+  /** Google refused the refresh token: the card asks to authorize again. */
+  async markTokenInvalid(userId: string) {
+    await this.connections.markTokenInvalid(userId, PROVIDER);
+  }
+
   /** Space of the connected Drive, or null (not connected, or Google refused). Never throws. */
   async storage(userId: string): Promise<DriveStorage | null> {
     try {

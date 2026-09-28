@@ -1,4 +1,6 @@
 import {
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsIn,
   IsOptional,
@@ -11,6 +13,7 @@ import {
 } from "class-validator";
 import { isValidTimeZone } from "./workflow-template";
 import { CAPTION_LANGUAGE } from "./captions";
+import { DRIVE_FILE_TYPES } from "./drive-backup";
 
 @ValidatorConstraint({ name: "timeZone" })
 class TimeZoneConstraint implements ValidatorConstraintInterface {
@@ -58,4 +61,15 @@ export class UpdateWorkflowSettingsDto {
   @IsOptional()
   @MaxLength(100)
   captionName?: string | null;
+
+  // Google Drive backups (P2-3); optional so older clients keep working
+  @IsBoolean()
+  @IsOptional()
+  driveBackupEnabled?: boolean;
+
+  @IsArray()
+  @IsIn(DRIVE_FILE_TYPES, { each: true })
+  @ArrayUnique()
+  @IsOptional()
+  driveFileTypes?: string[];
 }

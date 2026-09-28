@@ -756,6 +756,8 @@ export const en: Record<MessageKey, string> = {
   'caption.failed': 'Could not upload captions: {reason}',
   'syncHistory.captions': 'Captions:',
   'apiError.AUTH_EMAIL_EXISTS': 'This email is already registered',
+  'apiError.DRIVE_NOT_CONNECTED': 'Google Drive is not connected — connect it on the Integrations page',
+  'apiError.ZOOM_RECORDING_NOT_FOUND': 'This recording was not found on Zoom (it may have been deleted)',
   'apiError.CAPTION_RECORDING_NOT_FOUND': 'Synced recording not found',
   'apiError.CAPTION_VIDEO_NOT_READY': 'The video is not on YouTube yet — wait for the sync to finish, then upload captions',
   'apiError.AUTH_INVALID_CREDENTIALS': 'Incorrect email or password',

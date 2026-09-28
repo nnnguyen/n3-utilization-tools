@@ -10,15 +10,18 @@ import { HttpModule } from "@nestjs/axios";
 import { YoutubeModule } from "../youtube/youtube.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ConnectionsModule } from "../connections/connections.module";
+import { GoogleDriveModule } from "../google-drive/google-drive.module";
+import { DriveBackupService } from "./drive-backup.service";
 
 @Module({
-  imports: [HttpModule, YoutubeModule, PrismaModule, ConnectionsModule],
+  imports: [HttpModule, YoutubeModule, PrismaModule, ConnectionsModule, GoogleDriveModule],
   providers: [
     ZoomService,
     ZoomSyncSchedulerService,
     ZoomYoutubeMatchService,
     ZoomSyncRulesService,
     CaptionService,
+    DriveBackupService,
   ],
   controllers: [ZoomController, ZoomSyncRulesController],
 })

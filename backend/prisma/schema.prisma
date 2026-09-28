@@ -85,7 +85,34 @@ model ZoomWorkflowSettings {
   captionsEnabled     Boolean  @default(false)
   captionLanguage     String   @default("vi") // BCP-47, e.g. 'vi', 'en'
   captionName         String? // track name shown on YouTube
+  // Google Drive backups (docs/design/P2-3-google-drive.md): off by default
+  driveBackupEnabled  Boolean  @default(false)
+  driveFileTypes      String[] @default(["MP4", "M4A", "TRANSCRIPT"]) // 'MP4' | 'M4A' | 'TRANSCRIPT' | 'CHAT'
   updatedAt           DateTime @updatedAt
+}
+
+// One Zoom file saved (or being saved) to the account's Google Drive (P2-3b)
+model DriveBackup {
+  id          String   @id @default(uuid())
+  userId      String
+  recordingId String
+  fileType    String // 'MP4' | 'M4A' | 'TRANSCRIPT' | 'CHAT'
+  topic       String // meeting name, for the folder and file names
+  startTime   String // recording start (ISO), for the folder and file names
+  fileName    String?
+  bytes       BigInt? // size of the Zoom file
+  driveFileId String?
+  folderId    String? // the recording's folder in Drive
+  uploadUrl   String? // resumable upload session, to resume an interrupted upload
+  status      String // 'pending' | 'uploading' | 'done' | 'failed' | 'skipped'
+  errorCode   String?
+  error       String?
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([recordingId, fileType])
+  @@index([userId, status])
 }
 
 // Per-topic overrides of the workflow settings (first matching rule wins)

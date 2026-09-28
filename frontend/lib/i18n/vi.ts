@@ -755,6 +755,8 @@ export const vi = {
   'caption.failed': 'Không tải được phụ đề: {reason}',
   'syncHistory.captions': 'Phụ đề:',
   'apiError.AUTH_EMAIL_EXISTS': 'Email đã tồn tại',
+  'apiError.DRIVE_NOT_CONNECTED': 'Chưa kết nối Google Drive — hãy kết nối trong trang Tích hợp',
+  'apiError.ZOOM_RECORDING_NOT_FOUND': 'Không tìm thấy recording này trên Zoom (có thể đã bị xoá)',
   'apiError.CAPTION_RECORDING_NOT_FOUND': 'Không tìm thấy recording đã sync',
   'apiError.CAPTION_VIDEO_NOT_READY': 'Video chưa có trên YouTube — hãy đợi sync xong rồi tải phụ đề',
   'apiError.AUTH_INVALID_CREDENTIALS': 'Thông tin đăng nhập không chính xác',

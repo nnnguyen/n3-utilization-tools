@@ -5,6 +5,7 @@ import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import { zoomSignature } from "./webhook-owner";
 import { CaptionService } from "./caption.service";
 import { AnalyticsService } from "../analytics/analytics.service";
+import { DriveBackupService } from "./drive-backup.service";
 
 // @nestjs/axios v12 is ESM-only and Jest cannot require it; these tests never
 // call Zoom, so a stand-in HttpService class is enough.
@@ -62,6 +63,7 @@ describe("ZoomController", () => {
     };
     let webhookController: ZoomController;
     let analytics: { capture: jest.Mock };
+    let driveBackup: { onRecordingCompleted: jest.Mock };
     const envToken = process.env.ZOOM_WEBHOOK_SECRET_TOKEN;
 
     beforeEach(async () => {
@@ -80,6 +82,10 @@ describe("ZoomController", () => {
           { provide: ZoomYoutubeMatchService, useValue: {} },
           { provide: CaptionService, useValue: captionService },
           { provide: AnalyticsService, useValue: (analytics = { capture: jest.fn() }) },
+          {
+            provide: DriveBackupService,
+            useValue: (driveBackup = { onRecordingCompleted: jest.fn().mockResolvedValue(undefined) }),
+          },
         ],
       }).compile();
       webhookController = module.get<ZoomController>(ZoomController);
@@ -149,6 +155,8 @@ describe("ZoomController", () => {
       );
       expect(result.status).toBe("skipped");
       expect(zoomService.handleRecordingCompleted).not.toHaveBeenCalled();
+      // Drive backup does not depend on YouTube auto-upload
+      expect(driveBackup.onRecordingCompleted).toHaveBeenCalledWith("owner-1", { uuid: "rec-1" });
       expect(analytics.capture).toHaveBeenCalledWith("owner-1", "zoom_webhook_received", {
         event: "recording.completed",
         owner_found: false,

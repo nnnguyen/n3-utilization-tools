@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import {
@@ -12,6 +7,7 @@ import {
 } from "../youtube/youtube.service";
 import { ZoomService } from "./zoom.service";
 import { CaptionService } from "./caption.service";
+import { DriveBackupService } from "./drive-backup.service";
 
 const TICK_MS = 30_000;
 // Processing checks cost quota, so they run less often than the retry check
@@ -36,6 +32,7 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
     private readonly youtubeService: YoutubeService,
     private readonly zoomService: ZoomService,
     private readonly captionService: CaptionService,
+    @Optional() private readonly driveBackup?: DriveBackupService,
   ) {}
 
   onModuleInit() {
@@ -62,6 +59,8 @@ export class ZoomSyncSchedulerService implements OnModuleInit, OnModuleDestroy {
       }
       if (this.tickCount % CAPTION_SWEEP_EVERY_TICKS === 0) {
         await this.captionService.sweep();
+        // Drive backups (P2-3b): pending, interrupted and transient failures
+        await this.driveBackup?.sweep();
       }
     } catch (error) {
       this.logger.error("Sync scheduler tick failed", error.stack);

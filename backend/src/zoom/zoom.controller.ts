@@ -18,7 +18,8 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
 import { SyncRecordingDto } from "./sync-recording.dto";
-import { DismissMatchDto, LinkRecordingDto, UnlinkRecordingDto } from "./youtube-link.dto";
+import { DismissMatchDto, DriveBackupDto, LinkRecordingDto, UnlinkRecordingDto } from "./youtube-link.dto";
+import { DriveBackupService } from "./drive-backup.service";
 import { ZoomYoutubeMatchService } from "./youtube-match.service";
 import * as crypto from "crypto";
 import { verifyZoomSignature } from "./webhook-owner";
@@ -35,6 +36,7 @@ export class ZoomController {
     private readonly youtubeMatchService: ZoomYoutubeMatchService,
     private readonly captionService: CaptionService,
     @Optional() private readonly analytics?: AnalyticsService,
+    @Optional() private readonly driveBackup?: DriveBackupService,
   ) {}
 
   @Get("recordings")
@@ -89,6 +91,27 @@ export class ZoomController {
     @Param("recordingId") recordingId: string,
   ) {
     return this.captionService.uploadForUser(user.id, recordingId);
+  }
+
+  // Save one recording's files to the account's Google Drive (P2-3b)
+  @Post("recordings/:recordingId/drive-backup")
+  @UseGuards(JwtAuthGuard)
+  async backupToDrive(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("recordingId") recordingId: string,
+    @Body() body: DriveBackupDto,
+  ) {
+    return this.driveBackup!.backupForUser(user.id, { recordingId, ...body });
+  }
+
+  // Drive backup state of the account's recordings (P2-3b)
+  @Get("drive-backups")
+  @UseGuards(JwtAuthGuard)
+  async getDriveBackups(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("recordingId") recordingId?: string,
+  ) {
+    return this.driveBackup!.listForUser(user.id, recordingId);
   }
 
   // Next meetings and what the sync will do with them (P2-4a)
@@ -215,6 +238,11 @@ export class ZoomController {
     }
 
     if (payload.event === "recording.completed") {
+      // Drive backup (P2-3b) does not depend on YouTube auto-upload: it runs
+      // for the account the recording belongs to, if that account chose it
+      this.driveBackup
+        ?.onRecordingCompleted(owner?.userId ?? account?.userId, payload.payload?.object ?? {})
+        .catch((err) => this.logger.error("Error queueing the Drive backup", err.stack));
       if (!owner && account) {
         // The accounts of this Zoom account turned auto-upload off
         this.logger.log(

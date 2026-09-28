@@ -40,3 +40,14 @@ export class DismissMatchDto {
   @IsNotEmpty()
   videoId: string;
 }
+
+// "Save to Drive" on one recording (P2-3b); topic and start name the folder
+export class DriveBackupDto {
+  @IsString()
+  @IsNotEmpty()
+  topic: string;
+
+  @IsString()
+  @IsNotEmpty()
+  startTime: string;
+}
