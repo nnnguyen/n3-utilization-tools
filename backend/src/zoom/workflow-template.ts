@@ -17,7 +17,10 @@ export const DEFAULT_WORKFLOW_SETTINGS = {
   captionName: null as string | null,
   // Google Drive backups (P2-3): the user chooses; off by default
   driveBackupEnabled: false,
+  driveBackupTarget: "GOOGLE_DRIVE" as "GOOGLE_DRIVE" | "ONEDRIVE",
   driveFileTypes: ["MP4", "M4A", "TRANSCRIPT"] as string[],
+  driveFolderId: null as string | null,
+  driveFolderName: null as string | null,
 };
 
 export type WorkflowSettings = typeof DEFAULT_WORKFLOW_SETTINGS;

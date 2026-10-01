@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
 import { useSyncErrorText, useT } from '@/lib/i18n';
 import { CAPTION_STATUS_COLORS, isCaptionStatus, type CaptionStatus } from '@/lib/captions';
+import { DRIVE_STATE_COLORS, aggregateBackupState, driveFileUrl, driveFolderUrl, type DriveBackupRow } from '@/lib/drive-backup';
 
 const { Text } = Typography;
 
@@ -25,6 +26,7 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
   const t = useT();
   const syncErrorText = useSyncErrorText();
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  const [driveRows, setDriveRows] = useState<DriveBackupRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
@@ -33,8 +35,12 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
       setHistoryLoading(true);
       setHistoryLogs([]);
       try {
-        const response = await apiFetch(`/zoom/logs?recordingId=${encodeURIComponent(recordingId)}`);
-        setHistoryLogs(response);
+        const [logs, drive] = await Promise.all([
+          apiFetch(`/zoom/logs?recordingId=${encodeURIComponent(recordingId)}`),
+          apiFetch(`/zoom/drive-backups?recordingId=${encodeURIComponent(recordingId)}`).catch(() => []),
+        ]);
+        setHistoryLogs(logs);
+        setDriveRows(drive);
       } catch (error: any) {
         message.error(t('syncHistory.loadFailed'));
       } finally {
@@ -57,6 +63,30 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
       <div style={{ marginBottom: 16 }}>
         <Text strong>{t('syncHistory.recording')} </Text> <Text>{topic || historyLogs[0]?.meeting}</Text>
       </div>
+      {driveRows.length > 0 && (() => {
+        const state = aggregateBackupState(driveRows);
+        const folderId = driveRows.find(r => r.folderId)?.folderId ?? null;
+        return (
+          <div style={{ marginBottom: 16 }}>
+            <Space size={8} wrap>
+              <Text strong>{t('syncHistory.drive')}</Text>
+              {state && <Tag color={DRIVE_STATE_COLORS[state]}>{t(`drive.status.${state}` as 'drive.status.done')}</Tag>}
+              {folderId && (
+                <a href={driveFolderUrl(folderId)} target="_blank" rel="noreferrer">{t('drive.openFolder')}</a>
+              )}
+            </Space>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+              {driveRows.map(r => (
+                <Text key={r.fileType} type="secondary" style={{ fontSize: 12 }}>
+                  {t(`driveFile.${r.fileType}` as 'driveFile.MP4')}: {t(`drive.status.${(aggregateBackupState([r]) ?? 'skipped')}` as 'drive.status.done')}
+                  {r.status === 'failed' && r.errorCode && <> — {syncErrorText(r.errorCode, r.errorCode)}</>}
+                  {r.status === 'done' && r.driveFileId && <> · <a href={driveFileUrl(r.driveFileId)} target="_blank" rel="noreferrer">{t('common.open')}</a></>}
+                </Text>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       <Spin spinning={historyLoading}>
         <List
           dataSource={historyLogs}

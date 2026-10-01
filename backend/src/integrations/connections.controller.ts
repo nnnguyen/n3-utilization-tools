@@ -5,6 +5,8 @@ import {
   Param,
   Patch,
   Post,
+  Delete,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -43,5 +45,42 @@ export class ConnectionsController {
   @Post(":provider/disconnect")
   disconnect(@CurrentUser() user: AuthenticatedUser, @Param("provider") provider: string) {
     return this.integrationsService.disconnect(user.id, provider);
+  }
+
+  @Get(":provider/files")
+  listFiles(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("provider") provider: string,
+    @Query("folderId") folderId?: string,
+  ) {
+    return this.integrationsService.listFiles(user.id, provider, folderId);
+  }
+
+  @Post(":provider/folders")
+  createFolder(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("provider") provider: string,
+    @Body() body: { name: string; parentId?: string },
+  ) {
+    return this.integrationsService.createFolder(user.id, provider, body.name, body.parentId);
+  }
+
+  @Patch(":provider/files/:fileId")
+  renameFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("provider") provider: string,
+    @Param("fileId") fileId: string,
+    @Body() body: { name: string },
+  ) {
+    return this.integrationsService.renameFile(user.id, provider, fileId, body.name);
+  }
+
+  @Delete(":provider/files/:fileId")
+  deleteFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("provider") provider: string,
+    @Param("fileId") fileId: string,
+  ) {
+    return this.integrationsService.deleteFile(user.id, provider, fileId);
   }
 }

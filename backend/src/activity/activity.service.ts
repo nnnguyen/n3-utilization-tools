@@ -9,7 +9,7 @@ export interface ActivityEntry {
   targetType?: string;
   targetId?: string;
   // Never secrets or passwords
-  data?: Record<string, unknown>;
+  data?: Record<string, any>;
 }
 
 // Activity log (docs/design/P2-2-workspaces.md): who did what

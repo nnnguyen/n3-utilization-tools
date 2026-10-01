@@ -67,9 +67,21 @@ export class UpdateWorkflowSettingsDto {
   @IsOptional()
   driveBackupEnabled?: boolean;
 
+  @IsIn(["GOOGLE_DRIVE", "ONEDRIVE"])
+  @IsOptional()
+  driveBackupTarget?: "GOOGLE_DRIVE" | "ONEDRIVE";
+
   @IsArray()
   @IsIn(DRIVE_FILE_TYPES, { each: true })
   @ArrayUnique()
   @IsOptional()
   driveFileTypes?: string[];
+
+  @IsString()
+  @IsOptional()
+  driveFolderId?: string | null;
+
+  @IsString()
+  @IsOptional()
+  driveFolderName?: string | null;
 }

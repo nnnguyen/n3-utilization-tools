@@ -1,20 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions, Spin, Divider } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions, Spin, Divider, Modal } from 'antd';
+import { ThunderboltOutlined, CloudOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { ZoomPageTitle } from '../../components/BrandLogos';
 import ZoomRecordingsPanel from '../../components/ZoomRecordingsPanel';
 import ZoomSyncRules, { type ZoomSyncRulesHandle } from '../../components/ZoomSyncRules';
 import ZoomUpcomingMeetings from '../../components/ZoomUpcomingMeetings';
+import { FileExplorer } from '../../components/FileExplorer';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useT, useFormat } from '@/lib/i18n';
 import { usePreferences } from '@/lib/preferences';
 import { captionLanguageOptions, defaultCaptionTrackName } from '@/lib/captions';
-import { trackEvent } from '@/lib/product-analytics';
+import { DRIVE_FILE_TYPES, formatBytes } from '@/lib/drive-backup';
+import { setPersonProperties, trackEvent } from '@/lib/product-analytics';
 
 const { Text } = Typography;
 
@@ -43,6 +45,22 @@ export default function ZoomUtilities() {
   const refreshPredictions = () => setPredictionKey(key => key + 1);
   const [configsLoading, setConfigsLoading] = useState(false);
   const [configs, setConfigs] = useState<any>({ zoom: {}, youtube: {} });
+  const driveBackupEnabled = Form.useWatch('driveBackupEnabled', workflowForm);
+  const driveBackupTarget = Form.useWatch('driveBackupTarget', workflowForm);
+  // Drive/OneDrive connection cards (from /connections)
+  const [driveCard, setDriveCard] = useState<any>(null);
+  const [onedriveCard, setOnedriveCard] = useState<any>(null);
+  const [explorerOpen, setExplorerOpen] = useState(false);
+
+  const fetchCards = async () => {
+    try {
+      const list = await apiFetch('/connections');
+      setDriveCard(list.find((c: any) => c.provider === 'google_drive') ?? null);
+      setOnedriveCard(list.find((c: any) => c.provider === 'onedrive') ?? null);
+    } catch {
+      // The card just does not show its storage; the switch still saves
+    }
+  };
 
   // Most Recent Recording (from Webhook)
   const [mostRecentRecording, setMostRecentRecording] = useState<any>(null);
@@ -74,6 +92,7 @@ export default function ZoomUtilities() {
   useEffect(() => {
     fetchConfigs();
     fetchWorkflowSettings();
+    fetchCards();
   }, []);
 
   const onUpdateSettings = async (values: any) => {
@@ -93,6 +112,11 @@ export default function ZoomUtilities() {
         auto_upload: settings.autoUpload,
         has_description_template: !!settings.descriptionTemplate?.trim(),
         captions_enabled: settings.captionsEnabled,
+      });
+      setPersonProperties({
+        drive_backup_enabled: settings.driveBackupEnabled,
+        drive_backup_target: settings.driveBackupTarget,
+        drive_file_types: settings.driveFileTypes,
       });
     } catch (error: any) {
       message.error(error.message || t('zoomDash.saveWorkflowFailed'));
@@ -239,7 +263,95 @@ export default function ZoomUtilities() {
                   </Col>
                 </Row>
 
-                <Form.Item>
+                <Divider titlePlacement="start" plain>{t('zoomDash.driveSection')}</Divider>
+                {(driveCard?.connected || onedriveCard?.connected) ? (
+                  <>
+                    <Form.Item
+                      label={t('zoomDash.driveBackupEnabled')}
+                      name="driveBackupEnabled"
+                      valuePropName="checked"
+                      extra={t('zoomDash.driveBackupHelp')}
+                    >
+                      <Switch />
+                    </Form.Item>
+                    {driveBackupEnabled && (
+                      <>
+                        <Row gutter={16}>
+                          <Col xs={24} md={12}>
+                            <Form.Item label={t('zoomDash.driveTarget')} name="driveBackupTarget" extra={t('zoomDash.driveTargetHelp')}>
+                              <Select options={[
+                                { value: 'GOOGLE_DRIVE', label: 'Google Drive', disabled: !driveCard?.connected },
+                                { value: 'ONEDRIVE', label: 'Microsoft OneDrive', disabled: !onedriveCard?.connected },
+                              ]} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12}>
+                            <Form.Item label={t('zoomDash.driveFileTypes')} name="driveFileTypes" extra={t('zoomDash.driveFileTypesHelp')}>
+                              <Select
+                                mode="multiple"
+                                options={DRIVE_FILE_TYPES.map(type => ({ value: type, label: t(`driveFile.${type}` as 'driveFile.MP4') }))}
+                              />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+                        <Row gutter={16}>
+                          <Col xs={24} md={24}>
+                            <Form.Item label={t('zoomDash.driveFolder')} extra={t('zoomDash.driveFolderHelp')}>
+                              <Space.Compact style={{ width: '100%' }}>
+                                <Form.Item name="driveFolderName" noStyle>
+                                  <Input 
+                                    readOnly 
+                                    placeholder={t('zoomDash.driveFolderRoot')} 
+                                    prefix={<FolderOpenOutlined />} 
+                                  />
+                                </Form.Item>
+                                <Button 
+                                  icon={<FolderOpenOutlined />} 
+                                  onClick={() => setExplorerOpen(true)}
+                                >
+                                  {t('zoomDash.browse')}
+                                </Button>
+                              </Space.Compact>
+                            </Form.Item>
+                            <Form.Item name="driveFolderId" noStyle>
+                              <Input type="hidden" />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+                        <Space orientation="vertical" style={{ width: '100%', marginBottom: 16 }}>
+                          {driveCard?.connected && (
+                            <Text type="secondary" style={{ display: 'block' }}>
+                              <Badge status="success" /> <strong>Google Drive:</strong> {driveCard.externalAccountId}
+                              {driveCard.storage && (
+                                <> · {driveCard.storage.limit
+                                  ? t('zoomDash.driveStorage', { used: formatBytes(driveCard.storage.usage, fmt.locale), limit: formatBytes(driveCard.storage.limit, fmt.locale) })
+                                  : t('zoomDash.driveStorageUnlimited', { used: formatBytes(driveCard.storage.usage, fmt.locale) })}</>
+                              )}
+                            </Text>
+                          )}
+                          {onedriveCard?.connected && (
+                            <Text type="secondary" style={{ display: 'block' }}>
+                              <Badge status="success" /> <strong>OneDrive:</strong> {onedriveCard.externalAccountId}
+                              {onedriveCard.storage && (
+                                <> · {t('zoomDash.driveStorage', { used: formatBytes(onedriveCard.storage.used, fmt.locale), limit: formatBytes(onedriveCard.storage.total, fmt.locale) })}</>
+                              )}
+                            </Text>
+                          )}
+                        </Space>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <Alert
+                    type="info"
+                    showIcon
+                    icon={<CloudOutlined />}
+                    message={t('zoomDash.driveNotConnected')}
+                    action={<Link href="/settings/integrations"><Button size="small">{t('zoomDash.driveConnect')}</Button></Link>}
+                  />
+                )}
+
+                <Form.Item style={{ marginTop: 24 }}>
                   <Button type="primary" htmlType="submit" loading={savingWorkflow}>{t('zoomDash.saveWorkflow')}</Button>
                 </Form.Item>
               </Form>
@@ -252,18 +364,36 @@ export default function ZoomUtilities() {
         </Col>
 
         <Col span={24}>
+          {/* Same panel as YouTube → Channel Content → Zoom Sync */}
+          <ZoomRecordingsPanel onPlaylistsLoaded={setPlaylists} />
+        </Col>
+
+        <Col span={24}>
           <ZoomUpcomingMeetings
             playlists={playlists}
             refreshKey={predictionKey}
             onOpenRule={(ruleId) => rulesRef.current?.openRule(ruleId)}
           />
         </Col>
-
-        <Col span={24}>
-          {/* Same panel as YouTube → Channel Content → Zoom Sync */}
-          <ZoomRecordingsPanel onPlaylistsLoaded={setPlaylists} />
-        </Col>
       </Row>
+
+      <Modal
+        title={t('explorer.title')}
+        open={explorerOpen}
+        onCancel={() => setExplorerOpen(false)}
+        width={1000}
+        footer={null}
+        destroyOnHidden
+      >
+        <FileExplorer 
+          provider={driveBackupTarget === 'ONEDRIVE' ? 'onedrive' : 'google_drive'} 
+          selectable
+          onSelectFolder={(id, name) => {
+            workflowForm.setFieldsValue({ driveFolderId: id, driveFolderName: name });
+            setExplorerOpen(false);
+          }}
+        />
+      </Modal>
     </DashboardLayout>
   );
 }

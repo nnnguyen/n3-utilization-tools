@@ -1,6 +1,7 @@
 import { RECORDING_ID_PREFIX } from "./youtube-match";
 import { resolveWebhookAccounts } from "./webhook-owner";
 import { ConnectionReader } from "../connections/connection-reader.service";
+import { ActivityService } from "../activity/activity.service";
 import {
   DEFAULT_WORKFLOW_SETTINGS,
   renderUploadText,
@@ -60,6 +61,7 @@ export class ZoomService {
     private readonly prisma: PrismaService,
     // Reads Zoom configs (Connection when CONNECTIONS_READ, P2-1d)
     private readonly connectionReader: ConnectionReader,
+    private readonly activity: ActivityService,
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
@@ -405,7 +407,10 @@ export class ZoomService {
       captionLanguage: saved.captionLanguage,
       captionName: saved.captionName,
       driveBackupEnabled: saved.driveBackupEnabled,
+      driveBackupTarget: saved.driveBackupTarget as WorkflowSettings["driveBackupTarget"],
       driveFileTypes: saved.driveFileTypes,
+      driveFolderId: saved.driveFolderId,
+      driveFolderName: saved.driveFolderName,
     };
   }
 
@@ -420,6 +425,19 @@ export class ZoomService {
       update: data,
       create: { ...data, userId },
     });
+
+    const workspaceId = (await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { activeWorkspaceId: true },
+    }))?.activeWorkspaceId;
+
+    await this.activity.record({
+      actorId: userId,
+      workspaceId,
+      action: "zoom.workflow.updated",
+      data: dto,
+    });
+
     return this.getWorkflowSettings(userId);
   }
 
@@ -630,6 +648,11 @@ export class ZoomService {
         : "Manual Sync" + (downloadToken ? " (Webhook)" : "");
 
       if (userId !== "system") {
+        const workspaceId = (await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { activeWorkspaceId: true },
+        }))?.activeWorkspaceId;
+
         await this.prisma.zoomSyncLog.upsert({
           where: { recordingId },
           update: {
@@ -657,6 +680,7 @@ export class ZoomService {
           },
           create: {
             userId,
+            workspaceId,
             event,
             recordingStartTime: startTime,
             privacyStatus: privacyStatus || "private",
@@ -673,6 +697,14 @@ export class ZoomService {
             syncStartedAt: new Date(),
           },
         });
+
+        await this.activity.record({
+          actorId: userId,
+          workspaceId,
+          action: autoRetryAttempt ? "zoom.sync.retry" : "zoom.sync.started",
+          data: { recordingId, topic, event },
+        });
+
         this.analytics?.capture(userId, "sync_started", async () => ({
           trigger: autoRetryAttempt ? "retry" : downloadToken ? "webhook" : "manual",
           rule_matched: !!(await this.getSyncOptions(userId, topic)).ruleId,

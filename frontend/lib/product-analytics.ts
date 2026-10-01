@@ -67,6 +67,8 @@ export const FRONTEND_EVENTS = {
   sync_rule_saved: ['is_new', 'has_playlist', 'has_publish_delay', 'has_tags', 'has_caption_language'],
   manual_sync_opened: [],
   admin_page_viewed: [],
+  drive_backup_requested: ['source'],
+  drive_backup_skipped: ['source'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type FrontendEvent = keyof typeof FRONTEND_EVENTS;
@@ -87,6 +89,7 @@ export function sanitizeEventProperties(event: FrontendEvent, properties: Record
 
 interface AnalyticsClient {
   capture(event: string, properties?: Record<string, unknown>): unknown;
+  set_person_properties?(properties: Record<string, unknown>): unknown;
 }
 
 // Set by PostHogAnalytics once PostHog is loaded for an account that agreed
@@ -113,6 +116,17 @@ export function trackEvent(event: FrontendEvent, properties: Record<string, unkn
   const clean = sanitizeEventProperties(event, properties);
   if (client) send(event, clean);
   else if (pending && pending.length < MAX_PENDING) pending.push({ event, properties: clean });
+}
+
+/** Updates properties of the current user in PostHog. Never throws. */
+export function setPersonProperties(properties: Record<string, unknown>) {
+  try {
+    if (client?.set_person_properties) {
+      client.set_person_properties(properties);
+    }
+  } catch {
+    // Analytics must never break the page
+  }
 }
 
 function send(event: FrontendEvent, properties: Record<string, PlainValue>) {

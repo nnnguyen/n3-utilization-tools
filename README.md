@@ -311,7 +311,7 @@ After a deploy, check the Railway deployment logs for `All migrations have been 
 
 Plans for the hub (in Vietnamese, the AI spec in English) live in [`docs/`](docs/):
 
-- [ROADMAP.md](docs/ROADMAP.md) — proposed features and app integrations (Google Drive, Calendar, Zalo, Facebook, AI, …)
+- [ROADMAP.md](docs/ROADMAP.md) — proposed features and app integrations (Google Drive, Calendar, Facebook, AI, … (đã dừng Zalo))
 - [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — the implementation plan for readers: phases, order, risks, decisions to make
 - [IMPLEMENTATION_PLAN.ai.md](docs/IMPLEMENTATION_PLAN.ai.md) — executable task specs for AI agents (same task IDs)
 - [PROMPTS.md](docs/PROMPTS.md) — ready-to-use prompts to run each phase with an AI agent

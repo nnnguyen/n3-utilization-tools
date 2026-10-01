@@ -16,6 +16,7 @@ export const ANALYTICS_EVENTS = {
   captions_uploaded: ["language", "manual"],
   captions_failed: ["language", "error_code", "manual"],
   wordcloud_session_ended: ["questions", "participants", "responses"],
+  drive_backup_requested: ["trigger", "recording_id", "file_count"],
   drive_backup_completed: ["file_type", "size_bucket"],
   drive_backup_failed: ["file_type", "error_code", "will_retry"],
 } as const satisfies Record<string, readonly string[]>;

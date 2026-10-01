@@ -2,15 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConnectionsService, ConnectionView } from "./connections.service";
 
-// Step 3 of the migration (docs/design/P2-1-connector.md §3): with
-// CONNECTIONS_READ=true, connection data is read from Connection / QuotaUsage;
-// a missing row or a read error falls back to the legacy tables, and turning
-// the flag off rolls back at once. Results keep the legacy shapes so callers
-// barely change.
-
-export function connectionsReadEnabled(): boolean {
-  return process.env.CONNECTIONS_READ === "true";
-}
+// Design: docs/design/P2-1-connector.md
+// Data is read from Connection / QuotaUsage. Results keep the legacy shapes
+// so callers barely change.
 
 export interface YoutubeConnectionConfig {
   userId: string;
@@ -79,75 +73,48 @@ export class ConnectionReader {
   ) {}
 
   async youtubeConfig(userId: string): Promise<YoutubeConnectionConfig | null> {
-    if (connectionsReadEnabled()) {
-      const view = await this.tryRead(`youtube/${userId}`, () =>
-        this.connections.find(userId, "youtube"),
-      );
-      if (view) return viewToYoutubeConfig(view);
-    }
-    return this.prisma.youtubeConfig.findUnique({ where: { userId } });
+    const view = await this.tryRead(`youtube/${userId}`, () =>
+      this.connections.find(userId, "youtube"),
+    );
+    return view ? viewToYoutubeConfig(view) : null;
   }
 
   async zoomConfig(userId: string): Promise<ZoomConnectionConfig | null> {
-    if (connectionsReadEnabled()) {
-      const view = await this.tryRead(`zoom/${userId}`, () =>
-        this.connections.find(userId, "zoom"),
-      );
-      if (view) return viewToZoomConfig(view);
-    }
-    return this.prisma.zoomConfig.findUnique({ where: { userId } });
+    const view = await this.tryRead(`zoom/${userId}`, () =>
+      this.connections.find(userId, "zoom"),
+    );
+    return view ? viewToZoomConfig(view) : null;
   }
 
   /** Every account's Zoom config for a Zoom account id (webhook owner lookup). */
   async zoomConfigsByAccount(accountId: string): Promise<ZoomConnectionConfig[]> {
-    const legacy = await this.prisma.zoomConfig.findMany({ where: { accountId } });
-    if (!connectionsReadEnabled()) return legacy;
     const views = await this.tryRead(`zoom account ${accountId}`, () =>
       this.connections.findByExternalAccount("zoom", accountId),
     );
-    if (!views) return legacy;
-    // Legacy rows of accounts that have no Connection yet stay included
-    const fromConnections = views.map(viewToZoomConfig);
-    const covered = new Set(fromConnections.map((c) => c.userId));
-    return [...fromConnections, ...legacy.filter((c) => !covered.has(c.userId))];
+    return (views ?? []).map(viewToZoomConfig);
   }
 
   /** YouTube quota units used on a quota day. */
   async youtubeQuotaUsed(userId: string, date: string): Promise<number> {
-    if (connectionsReadEnabled()) {
-      const usage = await this.tryRead(`quota ${userId}/${date}`, () =>
-        this.prisma.quotaUsage.findUnique({
-          where: { userId_provider_date: { userId, provider: "youtube", date } },
-        }),
-      );
-      if (usage) return usage.unitsUsed;
-    }
-    const legacy = await this.prisma.youtubeQuotaUsage.findUnique({
-      where: { userId_date: { userId, date } },
-    });
-    return legacy?.unitsUsed ?? 0;
+    const usage = await this.tryRead(`quota ${userId}/${date}`, () =>
+      this.prisma.quotaUsage.findUnique({
+        where: { userId_provider_date: { userId, provider: "youtube", date } },
+      }),
+    );
+    return usage?.unitsUsed ?? 0;
   }
 
   /** Units used on the most recent quota days, newest first. */
   async youtubeQuotaHistory(userId: string, days: number): Promise<number[]> {
-    if (connectionsReadEnabled()) {
-      const rows = await this.tryRead(`quota history ${userId}`, () =>
-        this.prisma.quotaUsage.findMany({
-          where: { userId, provider: "youtube" },
-          orderBy: { date: "desc" },
-          take: days,
-          select: { unitsUsed: true },
-        }),
-      );
-      if (rows?.length) return rows.map((r) => r.unitsUsed);
-    }
-    const legacy = await this.prisma.youtubeQuotaUsage.findMany({
-      where: { userId },
-      orderBy: { date: "desc" },
-      take: days,
-      select: { unitsUsed: true },
-    });
-    return legacy.map((r) => r.unitsUsed);
+    const rows = await this.tryRead(`quota history ${userId}`, () =>
+      this.prisma.quotaUsage.findMany({
+        where: { userId, provider: "youtube" },
+        orderBy: { date: "desc" },
+        take: days,
+        select: { unitsUsed: true },
+      }),
+    );
+    return (rows ?? []).map((r) => r.unitsUsed);
   }
 
   // A failed read (e.g. CREDENTIALS_KEY missing or wrong) falls back to legacy

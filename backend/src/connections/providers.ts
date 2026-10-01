@@ -2,7 +2,7 @@
 // Values read from the environment are functions so they follow runtime env.
 // Design: docs/design/P2-1-connector.md
 
-export type ProviderId = "youtube" | "zoom" | "google_drive";
+export type ProviderId = "youtube" | "zoom" | "google_drive" | "onedrive";
 
 export interface TokenPolicy {
   // Google expires refresh tokens after this many days while the OAuth consent
@@ -88,6 +88,16 @@ export const PROVIDERS: Record<ProviderId, ProviderDefinition> = {
     secretFields: ["clientSecret", "webhookSecretToken"],
     connectedWhen: "clientSecret",
     scopes: [],
+    tokenPolicy: null,
+    quota: null,
+  },
+  onedrive: {
+    id: "onedrive",
+    authType: "oauth2",
+    settingsFields: ["clientId", "tenantId"],
+    secretFields: ["clientSecret", "refreshToken"],
+    connectedWhen: "refreshToken",
+    scopes: ["offline_access", "Files.ReadWrite.AppFolder"],
     tokenPolicy: null,
     quota: null,
   },

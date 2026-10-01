@@ -4,6 +4,7 @@ import { firstValueFrom } from "rxjs";
 import type { DriveBackup } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { GoogleDriveService } from "../google-drive/google-drive.service";
+import { OneDriveService } from "../onedrive/onedrive.service";
 import { AnalyticsService } from "../analytics/analytics.service";
 import { sizeBucket } from "../analytics/analytics-events";
 import { codedError } from "../common/coded-error";
@@ -59,6 +60,7 @@ export class DriveBackupService {
     private readonly prisma: PrismaService,
     private readonly zoomService: ZoomService,
     private readonly googleDrive: GoogleDriveService,
+    private readonly onedrive: OneDriveService,
     private readonly httpService: HttpService,
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
@@ -73,20 +75,63 @@ export class DriveBackupService {
     if (!recordingId) return;
     const settings = await this.zoomService.getWorkflowSettings(userId);
     if (!settings.driveBackupEnabled) return;
-    if (!(await this.googleDrive.isConnected(userId))) {
-      this.logger.warn(`Drive backup is on for ${userId} but Google Drive is not connected`);
+    
+    const isGoogle = settings.driveBackupTarget === "GOOGLE_DRIVE";
+    const isOneDrive = settings.driveBackupTarget === "ONEDRIVE";
+
+    if (isGoogle && !(await this.googleDrive.isConnected(userId))) {
+      this.logger.warn(`Drive backup is on (Google) for ${userId} but Google Drive is not connected`);
       return;
     }
-    await this.queue(userId, recordingId, recording.topic ?? "", recording.start_time ?? "", settings.driveFileTypes, false);
+    if (isOneDrive && !(await this.onedrive.accessToken(userId))) {
+      this.logger.warn(`Drive backup is on (OneDrive) for ${userId} but OneDrive is not connected`);
+      return;
+    }
+
+    await this.queue(
+      userId,
+      recordingId,
+      recording.topic ?? "",
+      recording.start_time ?? "",
+      settings.driveFileTypes,
+      settings.driveBackupTarget,
+      false,
+    );
+    this.analytics?.capture(userId, "drive_backup_requested", {
+      trigger: "webhook",
+      recording_id: recordingId,
+    });
   }
 
   /** "Save to Drive" on one recording (or the Sync dialog's checkbox). */
   async backupForUser(userId: string, dto: { recordingId: string; topic: string; startTime: string }) {
-    if (!(await this.googleDrive.isConnected(userId))) {
-      throw codedError(BadRequestException, "DRIVE_NOT_CONNECTED", "Chưa kết nối Google Drive — hãy kết nối trong trang Tích hợp");
-    }
     const settings = await this.zoomService.getWorkflowSettings(userId);
-    return this.queue(userId, dto.recordingId, dto.topic, dto.startTime, settings.driveFileTypes, true);
+    const isGoogle = settings.driveBackupTarget === "GOOGLE_DRIVE";
+    const isOneDrive = settings.driveBackupTarget === "ONEDRIVE";
+
+    if (isGoogle && !(await this.googleDrive.isConnected(userId))) {
+      throw codedError(
+        BadRequestException,
+        "DRIVE_NOT_CONNECTED",
+        "Chưa kết nối Google Drive — hãy kết nối trong trang Tích hợp",
+      );
+    }
+    if (isOneDrive && !(await this.onedrive.accessToken(userId))) {
+      throw codedError(
+        BadRequestException,
+        "ONEDRIVE_NOT_CONNECTED",
+        "Chưa kết nối Microsoft OneDrive — hãy kết nối trong trang Tích hợp",
+      );
+    }
+    return this.queue(
+      userId,
+      dto.recordingId,
+      dto.topic,
+      dto.startTime,
+      settings.driveFileTypes,
+      settings.driveBackupTarget,
+      true,
+    );
   }
 
   async listForUser(userId: string, recordingId?: string): Promise<DriveBackupView[]> {
@@ -125,6 +170,7 @@ export class DriveBackupService {
     topic: string,
     startTime: string,
     types: string[],
+    destination: "GOOGLE_DRIVE" | "ONEDRIVE",
     manual: boolean,
   ): Promise<DriveBackupView[]> {
     let zoomFiles: any[];
@@ -132,14 +178,24 @@ export class DriveBackupService {
       zoomFiles = await this.zoomFiles(userId, recordingId);
     } catch (error) {
       if (error?.response?.status === 404) {
-        throw codedError(NotFoundException, "ZOOM_RECORDING_NOT_FOUND", "Không tìm thấy recording này trên Zoom (có thể đã bị xoá)");
+        throw codedError(
+          NotFoundException,
+          "ZOOM_RECORDING_NOT_FOUND",
+          "Không tìm thấy recording này trên Zoom (có thể đã bị xoá)",
+        );
       }
       throw error;
     }
     const files = pickBackupFiles(zoomFiles, types);
     for (const file of files) {
       const existing = await this.prisma.driveBackup.findUnique({
-        where: { recordingId_fileType: { recordingId, fileType: file.fileType } },
+        where: {
+          recordingId_fileType_destination: {
+            recordingId,
+            fileType: file.fileType,
+            destination,
+          },
+        },
       });
       // Saved already, being saved, or another account's: leave it
       if (existing && (existing.userId !== userId || existing.status === "done" || existing.status === "uploading")) {
@@ -156,12 +212,26 @@ export class DriveBackupService {
         ...(manual ? { attempts: 0 } : {}),
       };
       await this.prisma.driveBackup.upsert({
-        where: { recordingId_fileType: { recordingId, fileType: file.fileType } },
+        where: {
+          recordingId_fileType_destination: {
+            recordingId,
+            fileType: file.fileType,
+            destination,
+          },
+        },
         update: data,
-        create: { ...data, userId, recordingId, fileType: file.fileType },
+        create: { ...data, userId, recordingId, fileType: file.fileType, destination },
       });
     }
     this.kick(userId);
+    if (manual) {
+      this.analytics?.capture(userId, "drive_backup_requested", {
+        trigger: "manual",
+        recording_id: recordingId,
+        file_count: files.length,
+        destination,
+      });
+    }
     return this.listForUser(userId, recordingId);
   }
 
@@ -194,34 +264,53 @@ export class DriveBackupService {
       data: { status: "uploading", attempts: { increment: 1 } },
     });
     try {
-      const drive = await this.googleDrive.drive(row.userId);
-      if (!drive) throw new Error("DRIVE_NOT_CONNECTED");
+      const { timeZone, driveFolderId } = await this.zoomService.getWorkflowSettings(row.userId);
       const [file] = pickBackupFiles(await this.zoomFiles(row.userId, row.recordingId), [row.fileType]);
       if (!file) throw Object.assign(new Error("The Zoom file no longer exists"), { source: "zoom", status: 404 });
-
-      const { timeZone } = await this.zoomService.getWorkflowSettings(row.userId);
-      const folderId = await this.ensureFolderPath(row.userId, drive, backupFolderPath(row.topic, row.startTime, timeZone));
+      const folderPath = backupFolderPath(row.topic, row.startTime, timeZone);
       const fileName = backupFileName(row.topic, row.startTime, timeZone, file);
-      const driveFileId =
-        file.size && file.size >= RESUMABLE_FROM_BYTES
-          ? await this.resumableUpload(started, file, fileName, folderId)
-          : await this.simpleUpload(row.userId, drive, file, fileName, folderId);
+
+      let driveFileId: string;
+      let folderId: string;
+
+      if (row.destination === "GOOGLE_DRIVE") {
+        const drive = await this.googleDrive.drive(row.userId);
+        if (!drive) throw new Error("DRIVE_NOT_CONNECTED");
+        folderId = await this.ensureFolderPath(row.userId, drive, folderPath, driveFolderId ?? undefined);
+        driveFileId =
+          file.size && file.size >= RESUMABLE_FROM_BYTES
+            ? await this.resumableUpload(started, file, fileName, folderId)
+            : await this.simpleUpload(row.userId, drive, file, fileName, folderId);
+      } else {
+        const token = await this.onedrive.accessToken(row.userId);
+        if (!token) throw new Error("ONEDRIVE_NOT_CONNECTED");
+        folderId = await this.onedrive.getOrCreateFolder(row.userId, folderPath.join("/"), driveFolderId ?? undefined);
+        driveFileId = await this.onedriveResumableUpload(started, file, fileName, folderId);
+      }
 
       await this.prisma.driveBackup.update({
         where: { id: row.id },
         data: { status: "done", driveFileId, folderId, fileName, uploadUrl: null, errorCode: null, error: null },
       });
-      this.logger.log(`Saved ${row.fileType} of recording ${row.recordingId} to Google Drive`);
+      this.logger.log(`Saved ${row.fileType} of recording ${row.recordingId} to ${row.destination}`);
       this.analytics?.capture(row.userId, "drive_backup_completed", {
         file_type: row.fileType,
+        destination: row.destination,
         size_bucket: sizeBucket(file.size),
       });
     } catch (error) {
       const classified = classifyBackupError(error);
-      if (classified.code === "DRIVE_NOT_CONNECTED" && /invalid_grant/.test(String(error?.message ?? error?.response?.data?.error ?? ""))) {
+      if (
+        classified.code === "DRIVE_NOT_CONNECTED" &&
+        /invalid_grant/.test(String(error?.message ?? error?.response?.data?.error ?? ""))
+      ) {
         await this.googleDrive.markTokenInvalid(row.userId);
       }
-      this.logger.warn(`Drive backup of ${row.fileType} ${row.recordingId} failed: ${classified.code} ${error?.message ?? ""}`);
+      this.logger.warn(
+        `Drive backup of ${row.fileType} ${row.recordingId} to ${row.destination} failed: ${classified.code} ${
+          error?.message ?? ""
+        }`,
+      );
       await this.prisma.driveBackup.update({
         where: { id: row.id },
         data: {
@@ -232,12 +321,66 @@ export class DriveBackupService {
       });
       this.analytics?.capture(row.userId, "drive_backup_failed", {
         file_type: row.fileType,
+        destination: row.destination,
         error_code: classified.code,
         will_retry: classified.retryable,
       });
     } finally {
       this.inProgress.delete(row.id);
     }
+  }
+
+  private async onedriveResumableUpload(row: DriveBackup, file: BackupFile, name: string, folderId: string) {
+    const token = await this.onedrive.accessToken(row.userId);
+    if (!token) throw new Error("ONEDRIVE_NOT_CONNECTED");
+    const total = file.size!;
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let url = row.uploadUrl;
+    let offset = 0;
+
+    if (url) {
+      try {
+        const status = await firstValueFrom(
+          this.httpService.get(url, { headers: auth, validateStatus: () => true }),
+        );
+        if (status.status === 200) {
+          if (status.data.nextExpectedRanges) {
+            offset = parseInt(status.data.nextExpectedRanges[0].split("-")[0]);
+          }
+        } else {
+          url = null; // Session expired
+        }
+      } catch (err) {
+        url = null;
+      }
+    }
+
+    let { stream, partial } = await this.zoomService.openRecordingFile(row.userId, file.downloadUrl, offset);
+    if (offset > 0 && !partial) {
+      (stream as any).destroy?.();
+      url = null;
+      offset = 0;
+      ({ stream } = await this.zoomService.openRecordingFile(row.userId, file.downloadUrl));
+    }
+
+    if (!url) {
+      url = await this.onedrive.createUploadSession(row.userId, folderId, name);
+      await this.prisma.driveBackup.update({ where: { id: row.id }, data: { uploadUrl: url } });
+    }
+
+    const uploaded = await firstValueFrom(
+      this.httpService.put(url!, stream, {
+        headers: {
+          ...auth,
+          "Content-Range": `bytes ${offset}-${total - 1}/${total}`,
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      }),
+    );
+
+    return uploaded.data.id as string;
   }
 
   // The recording's files from the Zoom API; failures are tagged as Zoom's
@@ -250,10 +393,10 @@ export class DriveBackupService {
   }
 
   /** N3 Connect / Zoom / <year> / <date> <topic>, created where missing; returns the last id. */
-  private async ensureFolderPath(userId: string, drive: DriveClient, path: string[]): Promise<string> {
-    let parent = "root";
+  private async ensureFolderPath(userId: string, drive: DriveClient, path: string[], rootId = "root"): Promise<string> {
+    let parent = rootId;
     for (let depth = 1; depth <= path.length; depth++) {
-      const key = `${userId}|${path.slice(0, depth).join("/")}`;
+      const key = `${userId}|${rootId}|${path.slice(0, depth).join("/")}`;
       const cached = this.folders.get(key);
       if (cached) {
         parent = cached;

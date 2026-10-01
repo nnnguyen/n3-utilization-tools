@@ -144,4 +144,65 @@ export class GoogleDriveService {
   async disconnect(userId: string) {
     await this.connections.disconnect(userId, PROVIDER);
   }
+
+  async listFiles(userId: string, folderId?: string) {
+    const drive = await this.drive(userId);
+    if (!drive) throw new BadRequestException("Google Drive not connected");
+
+    const response = await drive.files.list({
+      q: `'${folderId || "root"}' in parents and trashed = false`,
+      fields: "files(id, name, mimeType, size, modifiedTime)",
+      orderBy: "folder,name",
+    });
+
+    return response.data.files?.map((f) => ({
+      id: f.id,
+      name: f.name,
+      type: f.mimeType === "application/vnd.google-apps.folder" ? "folder" : "file",
+      mimeType: f.mimeType,
+      size: f.size ? parseInt(f.size) : null,
+      updatedAt: f.modifiedTime,
+    }));
+  }
+
+  async createFolder(userId: string, name: string, parentId?: string) {
+    const drive = await this.drive(userId);
+    if (!drive) throw new BadRequestException("Google Drive not connected");
+
+    const response = await drive.files.create({
+      requestBody: {
+        name,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: parentId ? [parentId] : undefined,
+      },
+      fields: "id, name",
+    });
+
+    return response.data;
+  }
+
+  async renameItem(userId: string, itemId: string, name: string) {
+    const drive = await this.drive(userId);
+    if (!drive) throw new BadRequestException("Google Drive not connected");
+
+    const response = await drive.files.update({
+      fileId: itemId,
+      requestBody: { name },
+      fields: "id, name",
+    });
+
+    return response.data;
+  }
+
+  async deleteItem(userId: string, itemId: string) {
+    const drive = await this.drive(userId);
+    if (!drive) throw new BadRequestException("Google Drive not connected");
+
+    await drive.files.update({
+      fileId: itemId,
+      requestBody: { trashed: true },
+    });
+
+    return { success: true };
+  }
 }

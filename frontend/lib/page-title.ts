@@ -7,6 +7,7 @@ const PAGE_TITLES: [prefix: string, key: MessageKey][] = [
   ['/youtube/analytics', 'nav.analytics'],
   ['/zoom-utilities', 'nav.zoom'],
   ['/word-cloud', 'nav.wordCloud'],
+  ['/utilities/qr-generator', 'nav.qrGenerator'],
   ['/settings/integrations', 'nav.integrations'],
   ['/settings/personalization', 'nav.personalization'],
   ['/admin', 'nav.admin'],

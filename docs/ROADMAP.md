@@ -45,7 +45,7 @@ Hiện mỗi dịch vụ có cấu hình riêng (`YoutubeConfig`, `ZoomConfig`) 
 ### 2.2 Trình tạo quy trình tự động (Workflow builder) — **L**
 Biến "Zoom → YouTube" thành một trường hợp của quy tắc tổng quát **Khi … thì …**:
 - *Khi* Zoom có recording mới · YouTube có video mới · có câu trả lời Word Cloud · đến giờ hẹn.
-- *Thì* upload lên YouTube · đăng lên Facebook · gửi email · nhắn Zalo/Telegram · lưu vào Google Drive.
+- *Thì* upload lên YouTube · đăng lên Facebook · gửi email · nhắn Telegram · lưu vào Google Drive.
 - Có điều kiện lọc (ví dụ: chỉ các cuộc họp có tên bắt đầu bằng "SOH").
 
 Tái sử dụng những gì đã có: bộ lập lịch (`zoom-sync-scheduler`), cơ chế tự thử lại, lịch sử thực thi (tương tự `ZoomSyncLog`) và thông báo.
@@ -64,11 +64,13 @@ Cho phép hệ thống khác nhận sự kiện (video sẵn sàng, sync lỗi�
 | Ứng dụng | Tính năng đề xuất | Giá trị | Độ khó | Ghi chú |
 | --- | --- | --- | --- | --- |
 | **Google Drive** | Tự sao lưu MP4/M4A/transcript của Zoom vào một thư mục Drive; xem dung lượng | Recording của Zoom có hạn lưu trữ; Drive là kho lâu dài | M | Cùng Google OAuth với YouTube (thêm scope `drive.file`) |
+| **Microsoft OneDrive** | Tương tự Google Drive, sao lưu vào OneDrive / SharePoint | Lựa chọn cho người dùng hệ sinh thái Microsoft | M | Microsoft Graph API, cần đăng ký App trên Azure |
+| **QR Code Generator** | Tạo mã QR tĩnh (không đổi được nội dung) và mã QR động (có thể đổi link đích, theo dõi lượt quét) | Công cụ tiện ích cho marketing và chia sẻ tài liệu | S–M | Thư viện `qrcode.react` cho QR tĩnh; rút gọn link + redirect cho QR động |
 | **Buổi họp sắp tới** (thay cho Google Calendar) | Hiện các buổi họp Zoom sắp tới và quy tắc sẽ áp dụng. *Không* tự gắn video vào lịch: chia sẻ video/recording do super admin quyết định (27/09/2026) | Biết trước video sẽ lên YouTube thế nào | S | Zoom API (scope đọc cuộc họp), không cần quyền Google |
 | **Gmail / Email** | Gửi link video cho người tham dự sau buổi họp; bản tin hằng tuần các video mới | Người tham gia nhận ngay bản ghi | S–M | Đã có `mail.service` (SMTP); có thể dùng Gmail API để gửi từ chính tài khoản người dùng |
 | **Facebook Page** | Đăng video/bài viết kèm link YouTube lên Fanpage; lên lịch đăng | Mở rộng khán giả ngoài YouTube | L | Graph API, cần App Review của Meta cho quyền đăng lên Page |
-| **Zalo OA** | Gửi thông báo "video đã sẵn sàng" cho người theo dõi Official Account | Kênh nhắn tin phổ biến nhất ở Việt Nam | M | Zalo Official Account API, cần OA đã xác thực |
-| **Telegram / Discord / Slack** | Bot thông báo sync xong/lỗi vào nhóm nội bộ | Nhóm vận hành nắm tình hình ngay | S | Bot token + webhook, không cần OAuth phức tạp |
+| ~~**Zalo OA**~~ | (Dừng) Gửi thông báo "video đã sẵn sàng" | Kênh phổ biến ở VN | M | Dừng tích hợp giai đoạn này |
+| **Telegram / Discord / Slack** | Bot thông báo sync xong/lỗi vào nhóm nội bộ (đã dừng tích hợp Zalo) | Nhóm vận hành nắm tình hình ngay | S | Bot token + webhook, không cần OAuth phức tạp |
 | **Podcast (RSS, Spotify)** | Tách audio từ recording thành tập podcast, tạo RSS feed công khai | Nghe lại khi di chuyển; phù hợp nội dung chia sẻ, suy niệm | M | Zoom đã có file M4A; host file (Drive/S3) + sinh RSS |
 | **Google Meet / Microsoft Teams** | Cùng luồng như Zoom: lấy bản ghi → YouTube | Không phụ thuộc một nền tảng họp | L | Meet lưu bản ghi vào Drive; Teams qua Microsoft Graph |
 | **YouTube Live** | Tạo/lên lịch buổi livestream, lấy link chia sẻ trước | Chuẩn bị buổi phát trực tiếp ngay trong hub | M | `liveBroadcasts` API (tốn quota) |
@@ -125,13 +127,13 @@ Word Cloud đã có sẵn nền tảng quan trọng: realtime (socket.io), ngư�
 **Giai đoạn 1 — Củng cố (2–4 tuần)**
 - Toàn bộ mục 1, đặc biệt lưu thật Automation Workflow và dừng kiểm tra video đã xoá.
 - Mẫu tiêu đề/playlist theo quy tắc, lên lịch công khai (mục 4).
-- Bot thông báo Telegram hoặc Zalo (mục 3) — nhanh, giá trị thấy ngay.
+- Bot thông báo Telegram (mục 3) — nhanh, giá trị thấy ngay.
 
 **Giai đoạn 2 — Nền tảng hub (1–2 tháng)**
-- Khung Connector chung (2.1), rồi Google Drive trên khung đó; buổi họp sắp tới lấy từ Zoom.
+- Khung Connector chung (2.1), rồi OneDrive (ưu tiên) và Google Drive trên khung đó; buổi họp sắp tới lấy từ Zoom.
 - Workspace và phân quyền (2.3).
 - Phụ đề tự động từ transcript (mục 4).
-
+- Trình tạo mã QR (Static & Dynamic QR).
 **Giai đoạn 3 — Mở rộng (từ tháng thứ 3)**
 - Workflow builder (2.2).
 - Facebook Page, Podcast RSS.

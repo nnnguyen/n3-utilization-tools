@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Alert, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip, Popconfirm } from 'antd';
-import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined, LinkOutlined, DisconnectOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Button, Tag, Typography, Form, Input, Select, Table, Space, Alert, message, Spin, Divider, DatePicker, Modal, Descriptions, Progress, Tooltip, Popconfirm, Checkbox } from 'antd';
+import { VideoCameraOutlined, HistoryOutlined, YoutubeOutlined, ReloadOutlined, FilePdfOutlined, AudioOutlined, MessageOutlined, PlayCircleOutlined, EditOutlined, LinkOutlined, DisconnectOutlined, FileTextOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import EditVideoModal from './EditVideoModal';
 import SyncHistoryModal from './SyncHistoryModal';
 import { apiFetch } from '@/lib/api';
 import { useFormat, useSyncErrorText, useT } from '@/lib/i18n';
 import { CAPTION_STATUS_COLORS, hasTranscript, isCaptionStatus, type CaptionStatus } from '@/lib/captions';
+import { aggregateBackupState, DRIVE_STATE_COLORS, driveFolderUrl, isDriveBackupActive, type DriveBackupRow, type DriveBackupState } from '@/lib/drive-backup';
 import { trackEvent } from '@/lib/product-analytics';
 import dayjs from 'dayjs';
 
@@ -74,22 +75,32 @@ export default function ZoomRecordingsPanel({
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   // Recordings whose captions are being uploaded by hand
   const [captionIds, setCaptionIds] = useState<Set<string>>(new Set());
+  // Google Drive backups grouped by recordingId, and the manual-save spinner
+  const [driveBackups, setDriveBackups] = useState<Record<string, DriveBackupRow[]>>({});
+  const [driveIds, setDriveIds] = useState<Set<string>>(new Set());
+  const [driveConnected, setDriveConnected] = useState(false);
+  // Sync dialog: also save the files to Drive
+  const [saveToDrive, setSaveToDrive] = useState(false);
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
   const [quota, setQuota] = useState<any>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
 
   // Polling for processing logs and sync status
   useEffect(() => {
-    const activePolling = logs.some((log: any) => 
-      log.syncStatus === 'UPLOADING' || 
-      log.syncStatus === 'PROCESSING' ||
-      // An automatic retry is scheduled: keep polling so the UI sees it start
-      (log.syncStatus === 'FAILED' && log.nextRetryAt)
-    );
-    
+    const activePolling =
+      logs.some((log: any) =>
+        log.syncStatus === 'UPLOADING' ||
+        log.syncStatus === 'PROCESSING' ||
+        // An automatic retry is scheduled: keep polling so the UI sees it start
+        (log.syncStatus === 'FAILED' && log.nextRetryAt)
+      ) ||
+      // A Drive backup is still running
+      Object.values(driveBackups).some(isDriveBackupActive);
+
     if (activePolling) {
       const interval = setInterval(() => {
         fetchLogs();
+        fetchDriveBackups();
         // Also refresh status for specific recordings
         logs.forEach((log: any) => {
           if (log.syncStatus === 'PROCESSING') {
@@ -99,7 +110,7 @@ export default function ZoomRecordingsPanel({
       }, 15000);
       return () => clearInterval(interval);
     }
-  }, [logs]);
+  }, [logs, driveBackups]);
 
   // SyncHistoryModal loads the logs itself
   const fetchHistory = (record: any) => {
@@ -173,6 +184,21 @@ export default function ZoomRecordingsPanel({
     }
   };
 
+  const fetchDriveBackups = async () => {
+    try {
+      const [rows, connections] = await Promise.all([
+        apiFetch('/zoom/drive-backups'),
+        apiFetch('/connections'),
+      ]);
+      const byRec: Record<string, DriveBackupRow[]> = {};
+      for (const r of rows as DriveBackupRow[]) (byRec[r.recordingId] ??= []).push(r);
+      setDriveBackups(byRec);
+      setDriveConnected(!!(connections as any[]).find(c => c.provider === 'google_drive')?.connected);
+    } catch {
+      // The Drive column just stays empty; the rest of the table still works
+    }
+  };
+
   const fetchQuota = async () => {
     try {
       const data = await apiFetch('/youtube/quota');
@@ -210,6 +236,7 @@ export default function ZoomRecordingsPanel({
     setSyncingRecord(record);
     setSyncPrivacyStatus(workflowDefaults.privacyStatus);
     setSyncPlaylistId(workflowDefaults.playlistId);
+    setSaveToDrive(false);
     setSyncModalVisible(true);
     trackEvent('manual_sync_opened');
     // Settings may have changed on the Zoom page since the panel loaded
@@ -217,6 +244,7 @@ export default function ZoomRecordingsPanel({
     if (settings) {
       setSyncPrivacyStatus(settings.privacyStatus);
       setSyncPlaylistId(settings.playlistId || 'none');
+      setSaveToDrive(!!settings.driveBackupEnabled && driveConnected);
     }
   };
 
@@ -238,7 +266,8 @@ export default function ZoomRecordingsPanel({
       fetchRecordings(),
       fetchLogs(),
       fetchQuota(),
-      fetchYoutubeStatus()
+      fetchYoutubeStatus(),
+      fetchDriveBackups()
     ]);
   };
 
@@ -331,6 +360,53 @@ export default function ZoomRecordingsPanel({
     return tooltip ? <Tooltip title={tooltip}>{tag}</Tooltip> : tag;
   };
 
+  // "Save to Drive": the recording's original files are copied to the account's Drive
+  const backupToDrive = async (record: any) => {
+    const recordingId = record.uuid || record.id;
+    setDriveIds(prev => new Set(prev).add(recordingId));
+    try {
+      const rows = await apiFetch(`/zoom/recordings/${encodeURIComponent(recordingId)}/drive-backup`, {
+        method: 'POST',
+        body: JSON.stringify({ topic: record.topic, startTime: record.start_time }),
+      });
+      setDriveBackups(prev => ({ ...prev, [recordingId]: rows }));
+      message.success(t('drive.queued'));
+      trackEvent('drive_backup_requested', { source: 'manual_button' });
+    } catch (error: any) {
+      message.error(t('drive.saveFailed', { reason: error.message || '' }));
+    } finally {
+      setDriveIds(prev => {
+        const next = new Set(prev);
+        next.delete(recordingId);
+        return next;
+      });
+    }
+  };
+
+  // Drive backup state of a recording, with the reason on hover and a folder link
+  const driveTag = (recordingId: string) => {
+    const rows = driveBackups[recordingId];
+    const state = aggregateBackupState(rows ?? []);
+    if (!state) return null;
+    const done = rows.filter(r => r.status === 'done');
+    const failed = rows.find(r => r.status === 'failed');
+    const folderId = rows.find(r => r.folderId)?.folderId ?? null;
+    const tooltip =
+      state === 'done' ? t('drive.doneHint', { count: done.length })
+      : state === 'uploading' ? t('drive.uploadingHint')
+      : state === 'failed' ? t('drive.failedHint', { reason: syncErrorText(failed?.errorCode ?? null, failed?.errorCode ?? '') })
+      : t('drive.skippedHint');
+    const tag = (
+      <Tag color={DRIVE_STATE_COLORS[state]} icon={<CloudUploadOutlined />} style={{ cursor: state === 'done' && folderId ? 'pointer' : 'help' }}>
+        {t(`drive.status.${state}` as 'drive.status.done')}
+      </Tag>
+    );
+    const withTip = <Tooltip title={tooltip}>{tag}</Tooltip>;
+    return state === 'done' && folderId
+      ? <a href={driveFolderUrl(folderId)} target="_blank" rel="noreferrer">{withTip}</a>
+      : withTip;
+  };
+
   const dismissMatch = (record: any) =>
     withLinking(record.uuid || record.id, async () => {
       await apiFetch('/zoom/recordings/dismiss-match', {
@@ -401,6 +477,13 @@ export default function ZoomRecordingsPanel({
         })
       });
       message.success(t('zoomRec.syncStarted', { topic: record.topic, privacy: t(`privacy.${privacyStatus}` as 'privacy.public') }));
+      // The Sync dialog also asked to keep the files in Drive
+      if (saveToDrive && driveConnected) {
+        backupToDrive(record);
+        trackEvent('drive_backup_requested', { source: 'sync_dialog' });
+      } else if (!saveToDrive && driveConnected) {
+        trackEvent('drive_backup_skipped', { source: 'sync_dialog' });
+      }
       // Immediately fetch logs and recordings to show "Processing" state
       await fetchAllData();
     } catch (error: any) {
@@ -478,12 +561,13 @@ export default function ZoomRecordingsPanel({
             </Space>
           );
         }
-        if (!log) return <Tag color="default">{t('zoomRec.notSynced')}</Tag>;
+        if (!log) return <Space orientation="vertical" size={4}><Tag color="default">{t('zoomRec.notSynced')}</Tag>{driveTag(recordingId)}</Space>;
         if (log.source === 'linked') {
           return (
             <Space orientation="vertical" size={4}>
               <Tag color="success" icon={<LinkOutlined />}>{t('zoomRec.linked')}</Tag>
               {captionTag(log)}
+              {driveTag(recordingId)}
             </Space>
           );
         }
@@ -506,6 +590,7 @@ export default function ZoomRecordingsPanel({
               <Space orientation="vertical" size={4}>
                 <Tag color="success">{t('zoomRec.ready')}</Tag>
                 {captionTag(log)}
+                {driveTag(recordingId)}
               </Space>
             );
           case 'FAILED':
@@ -519,11 +604,12 @@ export default function ZoomRecordingsPanel({
                     {t('zoomRec.retryAt', { time: dayjs(log.nextRetryAt).format('HH:mm'), attempt: log.autoRetryCount + 1 })}
                   </Text>
                 )}
+                {driveTag(recordingId)}
               </Space>
             );
           case 'PENDING':
           default:
-            return <Tag color="default">{t('zoomRec.notSynced')}</Tag>;
+            return <Space orientation="vertical" size={4}><Tag color="default">{t('zoomRec.notSynced')}</Tag>{driveTag(recordingId)}</Space>;
         }
       }
     },
@@ -645,6 +731,19 @@ export default function ZoomRecordingsPanel({
               >
                 <Button size="small" icon={<FileTextOutlined />} loading={captionIds.has(recordingId)}>
                   {log.captionStatus === 'uploaded' ? t('caption.reupload') : t('caption.upload')}
+                </Button>
+              </Popconfirm>
+            )}
+
+            {driveConnected && (record.recording_files?.length > 0) && (
+              <Popconfirm
+                title={t('drive.saveConfirm')}
+                onConfirm={() => { backupToDrive(record); }}
+                okText={t('drive.save')}
+                cancelText={t('common.cancel')}
+              >
+                <Button size="small" icon={<CloudUploadOutlined />} loading={driveIds.has(recordingId)}>
+                  {aggregateBackupState(driveBackups[recordingId] ?? []) === 'done' ? t('drive.resave') : t('drive.save')}
                 </Button>
               </Popconfirm>
             )}
@@ -798,6 +897,11 @@ export default function ZoomRecordingsPanel({
                 onChange={(e) => setNewPlaylistTitle(e.target.value)}
               />
             </Form.Item>
+          )}
+          {driveConnected && (
+            <Checkbox checked={saveToDrive} onChange={(e) => setSaveToDrive(e.target.checked)}>
+              {t('drive.checkbox')}
+            </Checkbox>
           )}
         </Form>
       </Modal>

@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AnalyticsService } from "../analytics/analytics.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { LegacyMirrorService } from "../connections/legacy-mirror.service";
 import { ConnectionReader } from "../connections/connection-reader.service";
+import { ActivityService } from "../activity/activity.service";
 import {
   isProviderId,
   PROVIDERS,
@@ -13,6 +13,7 @@ import { quotaDate, tokenHealth } from "../connections/token-health";
 import { connectionCard, ConnectionCard } from "./connection-card";
 import { ConnectionsService } from "../connections/connections.service";
 import { GoogleDriveService } from "../google-drive/google-drive.service";
+import { OneDriveService } from "../onedrive/onedrive.service";
 import { UpdateConnectionDto } from "./dto/update-connection.dto";
 import {
   UpdateZoomConfigDto,
@@ -26,15 +27,20 @@ import {
   YOUTUBE_SECRET_FIELDS,
   ZOOM_SECRET_FIELDS,
 } from "./public-config";
+import {
+  viewToYoutubeConfig,
+  viewToZoomConfig,
+} from "../connections/connection-reader.service";
 
 @Injectable()
 export class IntegrationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly legacyMirror: LegacyMirrorService,
     private readonly connectionReader: ConnectionReader,
     private readonly connections: ConnectionsService,
     private readonly googleDrive: GoogleDriveService,
+    private readonly oneDrive: OneDriveService,
+    private readonly activity: ActivityService,
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
@@ -49,32 +55,68 @@ export class IntegrationsService {
 
   async updateZoomConfig(userId: string, dto: UpdateZoomConfigDto) {
     const data = stripEmptySecrets(dto, ZOOM_SECRET_FIELDS);
-    const config = await this.prisma.zoomConfig.upsert({
-      where: { userId },
-      update: data,
-      create: {
-        ...data,
-        userId,
-      },
+    const { isActive, ...others } = data;
+    const secrets: Record<string, string> = {};
+    const settings: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(others)) {
+      if (typeof value === "string") {
+        if (ZOOM_SECRET_FIELDS.includes(key as any)) secrets[key] = value;
+        else settings[key] = value;
+      }
+    }
+
+    const view = await this.connections.save(userId, "zoom", {
+      status: isActive === false ? "disabled" : "active",
+      settings,
+      secrets,
     });
-    await this.legacyMirror.mirrorZoom(userId);
-    this.analytics?.capture(userId, "connection_saved", { provider: "zoom", active: config.isActive });
-    return toPublicZoomConfig(config);
+
+    await this.activity.record({
+      actorId: userId,
+      workspaceId: view.workspaceId,
+      action: view.status === "active" ? "connection.enabled" : "connection.disabled",
+      data: { provider: "zoom", ...settings },
+    });
+
+    this.analytics?.capture(userId, "connection_saved", {
+      provider: "zoom",
+      active: view.status === "active",
+    });
+    return toPublicZoomConfig(viewToZoomConfig(view));
   }
 
   async updateYoutubeConfig(userId: string, dto: UpdateYoutubeConfigDto) {
     const data = stripEmptySecrets(dto, YOUTUBE_SECRET_FIELDS);
-    const config = await this.prisma.youtubeConfig.upsert({
-      where: { userId },
-      update: data,
-      create: {
-        ...data,
-        userId,
-      },
+    const { isActive, ...others } = data;
+    const secrets: Record<string, string> = {};
+    const settings: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(others)) {
+      if (typeof value === "string") {
+        if (YOUTUBE_SECRET_FIELDS.includes(key as any)) secrets[key] = value;
+        else settings[key] = value;
+      }
+    }
+
+    const view = await this.connections.save(userId, "youtube", {
+      status: isActive === false ? "disabled" : "active",
+      settings,
+      secrets,
     });
-    await this.legacyMirror.mirrorYoutube(userId);
-    this.analytics?.capture(userId, "connection_saved", { provider: "youtube", active: config.isActive });
-    return toPublicYoutubeConfig(config);
+
+    await this.activity.record({
+      actorId: userId,
+      workspaceId: view.workspaceId,
+      action: view.status === "active" ? "connection.enabled" : "connection.disabled",
+      data: { provider: "youtube", ...settings },
+    });
+
+    this.analytics?.capture(userId, "connection_saved", {
+      provider: "youtube",
+      active: view.status === "active",
+    });
+    return toPublicYoutubeConfig(viewToYoutubeConfig(view));
   }
 
   // --- /connections (P2-1d): one card per app. Writes still go to the
@@ -120,29 +162,40 @@ export class IntegrationsService {
   /** Turns the connection off and forgets its token (sync history is kept). */
   async disconnect(userId: string, providerId: string) {
     const provider = this.provider(providerId);
+    let workspaceId: string | null = null;
+
     if (provider.id === "google_drive") {
       // Files already backed up stay in the Drive
+      const view = await this.connections.find(userId, "google_drive");
+      workspaceId = view?.workspaceId ?? null;
       await this.googleDrive.disconnect(userId);
+    } else if (provider.id === "onedrive") {
+      const view = await this.connections.find(userId, "onedrive");
+      workspaceId = view?.workspaceId ?? null;
+      await this.oneDrive.disconnect(userId);
     } else if (provider.id === "zoom") {
-      await this.prisma.zoomConfig.updateMany({
-        where: { userId },
-        data: { isActive: false, clientSecret: null, webhookSecretToken: null },
+      const view = await this.connections.save(userId, "zoom", {
+        status: "disabled",
+        secrets: { clientSecret: "", webhookSecretToken: "" },
       });
-      await this.legacyMirror.mirrorZoom(userId);
+      workspaceId = view.workspaceId;
     } else {
       // The OAuth app (client id/secret) stays, so reconnecting is one click
-      await this.prisma.youtubeConfig.updateMany({
-        where: { userId },
-        data: {
-          isActive: false,
-          refreshToken: null,
-          tokenObtainedAt: null,
-          lastTokenRefreshAt: null,
-          tokenInvalidAt: null,
-        },
+      const view = await this.connections.save(userId, "youtube", {
+        status: "disabled",
+        secrets: { refreshToken: "" },
       });
-      await this.legacyMirror.mirrorYoutube(userId);
+      workspaceId = view.workspaceId;
+      await this.connections.markTokenInvalid(userId, "youtube");
     }
+
+    await this.activity.record({
+      actorId: userId,
+      workspaceId,
+      action: "connection.disconnected",
+      data: { provider: provider.id },
+    });
+
     this.analytics?.capture(userId, "connection_disconnected", { provider: provider.id });
     return this.connectionCardOf(userId, provider);
   }
@@ -157,6 +210,7 @@ export class IntegrationsService {
     provider: ProviderDefinition,
   ): Promise<ConnectionCard> {
     if (provider.id === "google_drive") return this.driveCard(userId, provider);
+    if (provider.id === "onedrive") return this.onedriveCard(userId, provider);
     const config =
       provider.id === "zoom"
         ? await this.connectionReader.zoomConfig(userId)
@@ -210,5 +264,54 @@ export class IntegrationsService {
       externalAccountName: view?.externalAccountName ?? null,
       storage: card.connected && !health.tokenInvalid ? await this.googleDrive.storage(userId) : null,
     };
+  }
+
+  private async onedriveCard(userId: string, provider: ProviderDefinition): Promise<ConnectionCard> {
+    const view = await this.connections.find(userId, "onedrive");
+    const fields = view
+      ? { isActive: view.status === "active", ...view.settings, ...view.secrets }
+      : null;
+    const health = tokenHealth(
+      {
+        active: view?.status === "active",
+        hasToken: !!view?.secrets.refreshToken,
+        tokenObtainedAt: view?.tokenObtainedAt ?? null,
+        lastTokenRefreshAt: view?.lastTokenRefreshAt ?? null,
+        tokenInvalidAt: view?.tokenInvalidAt ?? null,
+      },
+      provider.tokenPolicy,
+    );
+    const card = connectionCard(provider, fields, health, null);
+    const storage = card.connected && !health.tokenInvalid ? await this.oneDrive.storage(userId) : null;
+    return {
+      ...card,
+      externalAccountId: view?.externalAccountId ?? null,
+      externalAccountName: view?.externalAccountName ?? null,
+      storage: storage ? { usage: storage.used, limit: storage.total } : null,
+    };
+  }
+
+  async listFiles(userId: string, provider: string, folderId?: string) {
+    if (provider === "google_drive") return this.googleDrive.listFiles(userId, folderId);
+    if (provider === "onedrive") return this.oneDrive.listFiles(userId, folderId);
+    throw new BadRequestException(`Listing files not supported for ${provider}`);
+  }
+
+  async createFolder(userId: string, provider: string, name: string, parentId?: string) {
+    if (provider === "google_drive") return this.googleDrive.createFolder(userId, name, parentId);
+    if (provider === "onedrive") return this.oneDrive.createFolder(userId, name, parentId);
+    throw new BadRequestException(`Creating folders not supported for ${provider}`);
+  }
+
+  async renameFile(userId: string, provider: string, fileId: string, name: string) {
+    if (provider === "google_drive") return this.googleDrive.renameItem(userId, fileId, name);
+    if (provider === "onedrive") return this.oneDrive.renameItem(userId, fileId, name);
+    throw new BadRequestException(`Renaming items not supported for ${provider}`);
+  }
+
+  async deleteFile(userId: string, provider: string, fileId: string) {
+    if (provider === "google_drive") return this.googleDrive.deleteItem(userId, fileId);
+    if (provider === "onedrive") return this.oneDrive.deleteItem(userId, fileId);
+    throw new BadRequestException(`Deleting items not supported for ${provider}`);
   }
 }

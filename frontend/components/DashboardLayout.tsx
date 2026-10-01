@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography, Drawer, Grid } from 'antd';
+import { Layout, Menu, Button, theme, Avatar, Dropdown, Space, Typography, Drawer, Grid, MenuProps } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -18,10 +18,12 @@ import {
   SkinOutlined,
   SafetyCertificateOutlined,
   KeyOutlined,
+  QrcodeOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useWorkspaces } from '@/lib/workspaces/workspace-context';
 import NotificationBell from './NotificationBell';
 import LanguageSwitcher from './LanguageSwitcher';
 import { WordCloudLogo, YoutubeLogo, ZoomLogo } from './BrandLogos';
@@ -42,6 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const t = useT();
   const { user, logout, loading } = useAuth();
+  const { activeWorkspace, workspaces, switchWorkspace } = useWorkspaces();
   
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -103,6 +106,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           key: '/word-cloud/dashboard',
           label: <Link href="/word-cloud/dashboard"><WordCloudLogo height={15} /></Link>,
         },
+        {
+          key: '/utilities/qr-generator',
+          icon: <QrcodeOutlined />,
+          label: <Link href="/utilities/qr-generator">{t('nav.qrGenerator')}</Link>,
+        },
       ]
     },
     ...(user?.platformRole === 'super_admin'
@@ -123,6 +131,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           label: <Link href="/settings/integrations">{t('nav.integrations')}</Link>,
         },
         {
+          key: '/settings/workspaces',
+          icon: <UserOutlined />,
+          label: <Link href="/settings/workspaces">{t('nav.workspaces')}</Link>,
+        },
+        {
           key: '/settings/personalization',
           icon: <SkinOutlined />,
           label: <Link href="/settings/personalization">{t('nav.personalization')}</Link>,
@@ -131,7 +144,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
   ];
 
-  const userMenuItems = [
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'workspaces',
+      label: (
+        <Space orientation="vertical" size={0} style={{ width: '100%', marginBottom: 8 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>{t('nav.activeWorkspace')}</Text>
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: workspaces.map(w => ({
+                key: w.id,
+                label: w.name,
+                disabled: w.id === activeWorkspace?.id,
+                onClick: () => switchWorkspace(w.id),
+              }))
+            }}
+          >
+            <Button block style={{ textAlign: 'left', padding: '4px 8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text ellipsis>{activeWorkspace?.name}</Text>
+                <MenuUnfoldOutlined style={{ fontSize: 12 }} />
+              </div>
+            </Button>
+          </Dropdown>
+        </Space>
+      ),
+    },
+    { type: 'divider' },
     {
       key: 'personalization',
       icon: <SkinOutlined />,

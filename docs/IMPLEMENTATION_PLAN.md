@@ -24,7 +24,7 @@ Hai file dùng **cùng mã task** (ví dụ `P1-3`), nên khi muốn giao một 
 | Giai đoạn | Mục tiêu | Thời gian ước tính |
 | --- | --- | --- |
 | **1. Củng cố** | Sửa những chỗ đang sai hoặc chưa hoạt động, vá bảo mật, làm cho tự động hoá Zoom → YouTube thật sự cấu hình được | 2–4 tuần |
-| **2. Nền tảng hub** | Khung kết nối chung, workspace/phân quyền, Google Drive, Google Calendar, phụ đề tự động | 1–2 tháng |
+| **2. Nền tảng hub** | Khung kết nối chung, workspace/phân quyền, OneDrive (ưu tiên), Google Drive, phụ đề tự động (đã dừng Zalo) | 1–2 tháng |
 | **3. Mở rộng** | Trình tạo quy trình tự động, Facebook, Podcast, AI, bình chọn/hỏi đáp | từ tháng thứ 3 |
 
 ### Thứ tự và phụ thuộc — giai đoạn 1
@@ -107,16 +107,19 @@ Các hạng mục này lớn và ảnh hưởng nhiều phần. Mỗi hạng m�
 
 | Mã | Hạng mục | Mục tiêu | Quyết định cần chốt |
 | --- | --- | --- | --- |
-| **P2-1** | Khung kết nối chung (Connector) | Một bảng `Connection` và luồng OAuth dùng chung cho mọi ứng dụng; trang Tích hợp dạng thẻ; mã hoá khoá bí mật khi lưu | **Đã chốt (25/09/2026)**: chuyển dần có cờ lùi; khoá mã hoá trong env `CREDENTIALS_KEY`. Thiết kế: [docs/design/P2-1-connector.md](design/P2-1-connector.md), task con P2-1a → P2-1f |
-| **P2-2** | Workspace và phân quyền | Kết nối Zoom/YouTube thuộc về một nhóm; vai trò Quản trị / Biên tập / Xem; nhật ký hoạt động | **Đã chốt (25/09/2026)**: nhiều workspace/người; không gộp tự động; giữ tự đăng ký + super admin toàn quyền (tạo tài khoản thủ công, mật khẩu tạm hiện một lần để copy); **tạm không dùng email** (26/09/2026), mời bằng link. Thiết kế: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md), task con P2-2a → P2-2i |
+| **P2-1** ✅ | Khung kết nối chung (Connector) | Một bảng `Connection` và luồng OAuth dùng chung cho mọi ứng dụng; trang Tích hợp dạng thẻ; mã hoá khoá bí mật khi lưu | **Đã chốt (25/09/2026)**: chuyển dần có cờ lùi; khoá mã hoá trong env `CREDENTIALS_KEY`. Thiết kế: [docs/design/P2-1-connector.md](design/P2-1-connector.md), task con P2-1a → P2-1f ✅ |
+| **P2-2** | Workspace và phân quyền | Kết nối Zoom/YouTube thuộc về một nhóm; vai trò Quản trị / Biên tập / Xem; nhật ký hoạt động | **Đã chốt (25/09/2026)**: nhiều workspace/người; không gộp tự động; giữ tự đăng ký + super admin toàn quyền (tạo tài khoản thủ công, mật khẩu tạm hiện một lần để copy); **tạm không dùng email** (26/09/2026), mời bằng link. Thiết kế: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md), task con P2-2a ✅ → P2-2c ✅ |
 | **P2-3** | Google Drive | Tự sao lưu MP4/M4A/transcript sau khi sync | Cần thêm quyền Drive → người dùng phải uỷ quyền Google lại; cấu trúc thư mục · **Bản nháp thiết kế (26/09/2026, chờ duyệt)**: [docs/design/P2-3-google-drive.md](design/P2-3-google-drive.md) · **Đã duyệt 27/09/2026**: người dùng tự chọn có lưu vào Drive hay không (mặc định tắt, chọn được từng recording); file giữ riêng tư; các câu khác theo đề xuất · P2-3a ✅ (kết nối Google Drive), P2-3b ✅ (lưu file lên Drive) |
 | **P2-4** ✅ | Buổi họp sắp tới | Xem các buổi họp Zoom sắp tới và quy tắc sẽ áp dụng (lấy từ Zoom, không cần quyền Google) | **Góp ý 27/09/2026**: bỏ phần tự gắn video vào Google Calendar — chỉ super admin quyết định chia sẻ video/recording hay không và cho ai. **Đã duyệt 27/09/2026** (14 ngày): [docs/design/P2-4-upcoming-meetings.md](design/P2-4-upcoming-meetings.md), task P2-4a ✅ |
 | **P2-5** ✅ | Phụ đề tự động | Transcript của Zoom → phụ đề YouTube | **Đã chốt (26/09/2026)**: tiếng Việt, tắt mặc định, công khai ngay, làm trước P2-2; video cũ tải bằng nút. Thiết kế: [docs/design/P2-5-captions.md](design/P2-5-captions.md), task P2-5a → P2-5c |
-| **P2-6** | Zalo OA | Thông báo qua Zalo trên khung P2-1 | Có sẵn OA đã xác thực chưa · **Bản nháp thiết kế (26/09/2026, chờ duyệt)**: [docs/design/P2-6-zalo-oa.md](design/P2-6-zalo-oa.md) — cần chốt gửi cho ai (người vận hành hay cộng đồng) · **Góp ý 27/09/2026**: super admin duyệt từng tin, không gửi tự động · ⏸ **Tạm chờ**: chưa có OA đã xác thực |
+| ~~**P2-6**~~ | ~~Zalo OA~~ | ~~Thông báo qua Zalo~~ | **Dừng thực hiện** trong giai đoạn này theo yêu cầu. |
 | **P2-7** ✅ | Vercel Web Analytics + Speed Insights | Lượt xem trang và tốc độ thực tế; **chỉ super admin xem** (dashboard Vercel, nút mở từ trang Quản trị); bỏ query string khỏi URL, không tính lượt của super admin | Không cần thiết kế — làm được ngay; bật trên project Vercel **`frontend`** (đã chốt 26/09/2026) |
 | **P2-8** ✅ | PostHog | Phân tích sử dụng sản phẩm (funnel, tính năng được dùng), sự kiện từ backend, feature flag, dashboard nhúng trong trang Quản trị | **Đã chốt (26/09/2026)**: phễu kích hoạt + lỗi sync trước; không ghi phiên; hỏi đồng ý một lần, chưa đồng ý thì không theo dõi; vùng EU; chỉ nút mở từ trang Quản trị. Thiết kế: [docs/design/P2-8-posthog.md](design/P2-8-posthog.md), task P2-8a → P2-8c ✅ |
+| **P2-9** | Microsoft OneDrive | Tương tự Google Drive: tự sao lưu MP4/M4A/transcript vào OneDrive | Microsoft Graph API; cần đăng ký app trên Azure; người dùng chọn giữa Google Drive / OneDrive hoặc cả hai. |
+| **P2-10** | QR Generator (Static) | Tạo mã QR tĩnh cho URL, Text, WiFi ở Frontend | Sử dụng thư viện `qrcode.react`, hỗ trợ tải ảnh (PNG/SVG). |
+| **P2-11** | QR Generator (Dynamic) | Tạo mã QR động có thể thay đổi link đích và theo dõi lượt quét | Backend controller điều hướng `/q/:code`, lưu trữ trong Prisma. |
 
-Thứ tự đề xuất: **P2-1 → P2-2 → (P2-3, P2-5 song song) → P2-4 → P2-6**. P2-7 làm được bất cứ lúc nào; P2-8 viết thiết kế khi anh/chị sẵn sàng. **Upstash**: chưa cần (backend chạy một instance); khi cần Redis thì ưu tiên Redis ngay trong project Railway.
+Thứ tự đề xuất: **P2-1 → P2-2 → P2-9 (OneDrive) → P2-10/P2-11 (QR Code) → (P2-3, P2-5 song song) → P2-4 (Dừng P2-6)**. P2-7 làm được bất cứ lúc nào; P2-8 viết thiết kế khi anh/chị sẵn sàng. **Upstash**: chưa cần (backend chạy một instance); khi cần Redis thì ưu tiên Redis ngay trong project Railway.
 
 ## 5. Giai đoạn 3 — Mở rộng (định hướng)
 

@@ -11,6 +11,7 @@ export type ConnectionStatus = "active" | "disabled" | "needs_reauth";
 export interface ConnectionView {
   id: string;
   userId: string;
+  workspaceId: string | null;
   provider: ProviderId;
   status: ConnectionStatus;
   externalAccountId: string | null;
@@ -244,6 +245,7 @@ export class ConnectionsService {
     return {
       id: row.id,
       userId: row.userId,
+      workspaceId: (row as any).workspaceId ?? null,
       provider: getProvider(row.provider).id,
       status: row.status as ConnectionStatus,
       externalAccountId: row.externalAccountId,

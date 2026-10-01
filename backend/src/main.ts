@@ -7,6 +7,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { join } from "path";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import { WorkspaceInterceptor } from "./common/workspace-context/workspace.interceptor";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -38,6 +39,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
+  app.useGlobalInterceptors(new WorkspaceInterceptor());
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();

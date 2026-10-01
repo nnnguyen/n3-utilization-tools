@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Caprasimo, Figtree, Fraunces, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { WorkspaceProvider } from "@/lib/workspaces/workspace-context";
 import AppThemeProvider from "@/components/AppThemeProvider";
 import { PreferencesProvider } from "@/lib/preferences";
 import VercelInsights from "@/components/VercelInsights";
@@ -45,12 +46,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col">
         {/* Preferences need the signed-in user; the theme and language need the preferences */}
         <AuthProvider>
-          <PreferencesProvider>
-            <AppThemeProvider>
-              {children}
-              <AnalyticsConsentPrompt />
-            </AppThemeProvider>
-          </PreferencesProvider>
+          <WorkspaceProvider>
+            <PreferencesProvider>
+              <AppThemeProvider>
+                {children}
+                <AnalyticsConsentPrompt />
+              </AppThemeProvider>
+            </PreferencesProvider>
+          </WorkspaceProvider>
           {/* Under AuthProvider: super admin visits are not counted */}
           <VercelInsights />
           {/* Only after the account agreed (P2-8) */}

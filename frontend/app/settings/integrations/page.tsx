@@ -1,15 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Card, Row, Col, Typography, Form, Input, Button, Space, Switch, Divider, message, Alert, Avatar, Tag, Tooltip, Drawer, Grid, Popconfirm } from 'antd';
-import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, DisconnectOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Typography, Form, Input, Button, Space, Switch, Divider, message, Alert, Avatar, Tag, Tooltip, Drawer, Grid, Popconfirm, Modal, Tabs } from 'antd';
+import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, DisconnectOutlined, FolderOpenOutlined, DatabaseOutlined, MessageOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../../components/DashboardLayout';
+import { FileExplorer } from '../../../components/FileExplorer';
 import { API_URL, apiFetch } from '@/lib/api';
 import { AUTH_RETURN_TO_KEY } from '../../../components/YoutubeTokenBanner';
 import { YoutubeLogo, ZoomLogo } from '../../../components/BrandLogos';
 import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
 import { canAuthorize, cardState, formatBytes, type CardState, type ConnectionCard } from '@/lib/connection-status';
+
+function onedriveCallbackUrl() {
+  const path = "/api/connections/onedrive/callback";
+  if (process.env.NEXT_PUBLIC_RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.NEXT_PUBLIC_RAILWAY_PUBLIC_DOMAIN}${path}`;
+  return `http://localhost:3001${path}`;
+}
 
 const { Title, Text } = Typography;
 
@@ -35,17 +42,19 @@ function IntegrationsContent() {
   const [loading, setLoading] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [cards, setCards] = useState<ConnectionCard[]>([]);
+  const [explorerProvider, setExplorerProvider] = useState<'google_drive' | 'onedrive' | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<any>(null);
   const [checkingYoutube, setCheckingYoutube] = useState(false);
   const [saving, setSaving] = useState(false);
   const [zoomForm] = Form.useForm();
   const [youtubeForm] = Form.useForm();
+  const [onedriveForm] = Form.useForm();
   const searchParams = useSearchParams();
   const router = useRouter();
 
   // ?tab=youtube|zoom (links from other pages, the OAuth return) opens its drawer
   const tab = searchParams.get('tab');
-  const drawer: ProviderId | null = tab === 'youtube' || tab === 'zoom' ? tab : null;
+  const drawer: ProviderId | null = tab === 'youtube' || tab === 'zoom' || tab === 'onedrive' ? tab : null;
   const openDrawer = (provider: ProviderId) => router.replace(`/settings/integrations?tab=${provider}`);
   const closeDrawer = () => router.replace('/settings/integrations');
 
@@ -91,16 +100,27 @@ function IntegrationsContent() {
   // Back from Google's Drive consent screen (the backend handled the code)
   useEffect(() => {
     const drive = searchParams.get('drive');
-    if (!drive) return;
-    if (drive === 'connected') message.success(t('integ.driveConnected'));
-    else if (drive === 'cancelled') message.info(t('integ.driveCancelled'));
-    else message.error(t('integ.driveError'));
-    router.replace('/settings/integrations');
+    const onedrive = searchParams.get('onedrive');
+    
+    if (drive) {
+      if (drive === 'connected') message.success(t('integ.driveConnected'));
+      else if (drive === 'cancelled') message.info(t('integ.driveCancelled'));
+      else message.error(t('integ.driveError'));
+      router.replace('/settings/integrations');
+    }
+    
+    if (onedrive) {
+      if (onedrive === 'connected') message.success(t('integ.onedriveConnected'));
+      else if (onedrive === 'cancelled') message.info(t('integ.onedriveCancelled'));
+      else message.error(t('integ.onedriveError'));
+      router.replace('/settings/integrations');
+    }
   }, [searchParams]);
 
   const fillForms = (list: ConnectionCard[]) => {
     const youtube = list.find(c => c.provider === 'youtube');
     const zoom = list.find(c => c.provider === 'zoom');
+    const onedrive = list.find(c => c.provider === 'onedrive');
     // Secrets are never sent back: their inputs start empty (placeholder says whether one is saved)
     youtubeForm.setFieldsValue({
       isActive: youtube?.status === 'active',
@@ -114,6 +134,12 @@ function IntegrationsContent() {
       clientId: zoom?.settings.clientId ?? '',
       clientSecret: '',
       webhookSecretToken: '',
+    });
+    onedriveForm.setFieldsValue({
+      isActive: onedrive?.status === 'active',
+      clientId: onedrive?.settings.clientId ?? '',
+      tenantId: onedrive?.settings.tenantId ?? 'common',
+      clientSecret: '',
     });
   };
 
@@ -149,8 +175,11 @@ function IntegrationsContent() {
   }, []);
 
   const save = async (provider: ProviderId, values: Record<string, any>) => {
-    const settingsFields = provider === 'zoom' ? ['accountId', 'clientId'] : ['clientId'];
-    const secretFields = provider === 'zoom' ? ['clientSecret', 'webhookSecretToken'] : ['clientSecret', 'refreshToken'];
+    const settingsFields = 
+      provider === 'zoom' ? ['accountId', 'clientId'] : 
+      provider === 'onedrive' ? ['clientId', 'tenantId'] : ['clientId'];
+    const secretFields = 
+      provider === 'zoom' ? ['clientSecret', 'webhookSecretToken'] : ['clientSecret', 'refreshToken'];
     setSaving(true);
     try {
       await apiFetch(`/connections/${provider}`, {
@@ -161,10 +190,16 @@ function IntegrationsContent() {
           secrets: nonEmpty(Object.fromEntries(secretFields.map(f => [f, values[f]]))),
         }),
       });
-      message.success(t(provider === 'zoom' ? 'integ.zoomSaved' : 'integ.ytSaved'));
+      message.success(t(
+        provider === 'zoom' ? 'integ.zoomSaved' : 
+        provider === 'onedrive' ? 'integ.onedriveSaved' : 'integ.ytSaved'
+      ));
       fetchCards();
     } catch (error: any) {
-      message.error(error.message || t(provider === 'zoom' ? 'integ.zoomSaveFailed' : 'integ.ytSaveFailed'));
+      message.error(error.message || t(
+        provider === 'zoom' ? 'integ.zoomSaveFailed' : 
+        provider === 'onedrive' ? 'integ.onedriveSaveFailed' : 'integ.ytSaveFailed'
+      ));
     } finally {
       setSaving(false);
     }
@@ -192,6 +227,15 @@ function IntegrationsContent() {
   const onConnectDrive = async () => {
     try {
       const { url } = await apiFetch('/connections/google_drive/auth-url');
+      window.location.href = url;
+    } catch (error: any) {
+      message.error(error.message || t('integ.authUrlFailed'));
+    }
+  };
+
+  const onConnectOneDrive = async () => {
+    try {
+      const { url } = await apiFetch('/connections/onedrive/auth-url');
       window.location.href = url;
     } catch (error: any) {
       message.error(error.message || t('integ.authUrlFailed'));
@@ -240,6 +284,13 @@ function IntegrationsContent() {
       );
     }
     if (card && (state === 'connected' || state === 'needs_reauth')) {
+      if (state === 'connected') {
+        actions.push(
+          <Button key="explorer" icon={<FolderOpenOutlined />} onClick={() => setExplorerProvider('google_drive')}>
+            {t('explorer.title')}
+          </Button>
+        );
+      }
       actions.push(
         <Popconfirm
           key="disconnect"
@@ -262,6 +313,78 @@ function IntegrationsContent() {
           <Tag color={tag.color} style={{ marginInlineEnd: 0 }}>{t(tag.label)}</Tag>
         </div>
         <Text type="secondary">{t('integ.card.driveDesc')}</Text>
+        {details.length > 0 && <Space orientation="vertical" size={4}>{details}</Space>}
+        {actions.length > 0 && <Space wrap style={{ marginTop: 'auto' }}>{actions}</Space>}
+      </Card>
+    );
+  };
+
+  const onedriveCard = () => {
+    const card = cardOf('onedrive');
+    const state: CardState = card ? cardState(card) : 'not_connected';
+    const tag = STATE_TAG[state];
+    const onedriveReady = !!card && canAuthorize(card);
+
+    const details: React.ReactNode[] = [];
+    if (card?.externalAccountId && state !== 'not_connected') {
+      details.push(
+        <Text key="account">{card.externalAccountName ? `${card.externalAccountName} · ` : ''}{card.externalAccountId}</Text>,
+      );
+    }
+    if (card?.storage && state === 'connected') {
+      const used = formatBytes(card.storage.usage, fmt.locale);
+      details.push(
+        <Text key="storage" type="secondary">
+          {card.storage.limit
+            ? t('integ.card.storage', { used, limit: formatBytes(card.storage.limit, fmt.locale) })
+            : t('integ.card.storageUnlimited', { used })}
+        </Text>,
+      );
+    }
+
+    const actions: React.ReactNode[] = [];
+    if (state !== 'connected') {
+      actions.push(
+        <Button key="auth" type="primary" icon={<CloudOutlined />} onClick={onConnectOneDrive} disabled={!onedriveReady}>
+          {state === 'needs_reauth' ? t('integ.reauthorize') : t('integ.card.onedriveConnect')}
+        </Button>,
+      );
+    }
+    actions.push(
+      <Button key="settings" icon={<SettingOutlined />} onClick={() => openDrawer('onedrive')}>
+        {state === 'not_connected' && !onedriveReady ? t('integ.card.setUp') : t('integ.card.configure')}
+      </Button>,
+    );
+    if (card && (state === 'connected' || state === 'needs_reauth')) {
+      if (state === 'connected') {
+        actions.push(
+          <Button key="explorer" icon={<FolderOpenOutlined />} onClick={() => setExplorerProvider('onedrive')}>
+            {t('explorer.title')}
+          </Button>
+        );
+      }
+      actions.push(
+        <Popconfirm
+          key="disconnect"
+          title={t('integ.card.disconnectConfirm')}
+          description={t('integ.card.disconnectOneDriveHint')}
+          onConfirm={() => disconnect('onedrive')}
+          okText={t('integ.card.disconnect')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger type="text" icon={<DisconnectOutlined />}>{t('integ.card.disconnect')}</Button>
+        </Popconfirm>,
+      );
+    }
+
+    return (
+      <Card loading={loading && !card} style={{ height: '100%' }} styles={{ body: { display: 'flex', flexDirection: 'column', gap: 12, height: '100%' } }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, minHeight: 28 }}>
+          <Space><CloudOutlined style={{ fontSize: 20, color: '#0078d4' }} /><Text strong>{t('integ.card.onedriveName')}</Text></Space>
+          <Tag color={tag.color} style={{ marginInlineEnd: 0 }}>{t(tag.label)}</Tag>
+        </div>
+        <Text type="secondary">{t('integ.card.onedriveDesc')}</Text>
         {details.length > 0 && <Space orientation="vertical" size={4}>{details}</Space>}
         {actions.length > 0 && <Space wrap style={{ marginTop: 'auto' }}>{actions}</Space>}
       </Card>
@@ -299,6 +422,31 @@ function IntegrationsContent() {
         <Text code copyable>{`${API_URL}/zoom/webhook`}</Text>
       </Text>
     </>
+  );
+
+  const onedriveSettings = (
+    <Form form={onedriveForm} layout="vertical" onFinish={values => save('onedrive', values)}>
+      <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
+        <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
+      </Form.Item>
+      <Form.Item label="Client ID" name="clientId">
+        <Input prefix={<LockOutlined />} placeholder="Microsoft Azure Client ID" />
+      </Form.Item>
+      <Form.Item label="Tenant ID" name="tenantId" help={t('integ.onedriveTenantHelp')}>
+        <Input prefix={<LockOutlined />} placeholder="common" />
+      </Form.Item>
+      <Form.Item label="Client Secret" name="clientSecret">
+        <Input.Password prefix={<LockOutlined />} placeholder={cardOf('onedrive')?.secrets.clientSecret ? t('integ.secretSaved') : 'Microsoft Azure Client Secret'} />
+      </Form.Item>
+      <Form.Item>
+        <Button type="primary" htmlType="submit" loading={saving}>{t('integ.saveOneDrive')}</Button>
+      </Form.Item>
+      <Divider />
+      <Text type="secondary">
+        <strong>{t('integ.onedriveRedirectUri')}</strong><br/>
+        <Text code copyable>{onedriveCallbackUrl()}</Text>
+      </Text>
+    </Form>
   );
 
   const youtubeSettings = (
@@ -467,14 +615,107 @@ function IntegrationsContent() {
         {t('integ.subtitle')}
       </Text>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
-        <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
-        <Col xs={24} md={12} lg={8}>{driveCard()}</Col>
-      </Row>
+      <Modal
+        title={t('explorer.title')}
+        open={!!explorerProvider}
+        onCancel={() => setExplorerProvider(null)}
+        width={1000}
+        footer={null}
+        destroyOnHidden
+      >
+        {explorerProvider && <FileExplorer provider={explorerProvider} />}
+      </Modal>
+
+      <Tabs
+        defaultActiveKey="all"
+        style={{ marginTop: 24 }}
+        items={[
+          {
+            key: 'all',
+            label: (
+              <Space>
+                <SettingOutlined />
+                {t('integ.category.all')}
+              </Space>
+            ),
+            children: (
+              <>
+                <Title level={4} style={{ marginTop: 16, marginBottom: 16 }}>
+                  <Space><DatabaseOutlined />{t('integ.category.storage')}</Space>
+                </Title>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={12} lg={8}>{driveCard()}</Col>
+                  <Col xs={24} md={12} lg={8}>{onedriveCard()}</Col>
+                </Row>
+
+                <Title level={4} style={{ marginTop: 32, marginBottom: 16 }}>
+                  <Space><MessageOutlined />{t('integ.category.communication')}</Space>
+                </Title>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
+                </Row>
+
+                <Title level={4} style={{ marginTop: 32, marginBottom: 16 }}>
+                  <Space><ShareAltOutlined />{t('integ.category.social')}</Space>
+                </Title>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
+                </Row>
+              </>
+            ),
+          },
+          {
+            key: 'storage',
+            label: (
+              <Space>
+                <DatabaseOutlined />
+                {t('integ.category.storage')}
+              </Space>
+            ),
+            children: (
+              <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                <Col xs={24} md={12} lg={8}>{driveCard()}</Col>
+                <Col xs={24} md={12} lg={8}>{onedriveCard()}</Col>
+              </Row>
+            ),
+          },
+          {
+            key: 'communication',
+            label: (
+              <Space>
+                <MessageOutlined />
+                {t('integ.category.communication')}
+              </Space>
+            ),
+            children: (
+              <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
+              </Row>
+            ),
+          },
+          {
+            key: 'social',
+            label: (
+              <Space>
+                <ShareAltOutlined />
+                {t('integ.category.social')}
+              </Space>
+            ),
+            children: (
+              <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
+              </Row>
+            ),
+          },
+        ]}
+      />
 
       <Drawer
-        title={drawer === 'zoom' ? <ZoomLogo height={16} /> : <YoutubeLogo height={20} />}
+        title={
+          drawer === 'zoom' ? <ZoomLogo height={16} /> : 
+          drawer === 'onedrive' ? <Space><CloudOutlined style={{ color: '#0078d4' }} />OneDrive</Space> : 
+          <YoutubeLogo height={20} />
+        }
         open={drawer !== null}
         onClose={closeDrawer}
         size={screens.sm ? 520 : '100%'}
@@ -483,6 +724,7 @@ function IntegrationsContent() {
         {/* Both forms stay mounted so setFieldsValue always has a target */}
         <div style={{ display: drawer === 'youtube' ? 'block' : 'none' }}>{youtubeSettings}</div>
         <div style={{ display: drawer === 'zoom' ? 'block' : 'none' }}>{zoomSettings}</div>
+        <div style={{ display: drawer === 'onedrive' ? 'block' : 'none' }}>{onedriveSettings}</div>
       </Drawer>
     </div>
   );

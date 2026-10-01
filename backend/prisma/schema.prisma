@@ -28,12 +28,15 @@ model User {
   notifyEmailOnFailed    Boolean @default(true)
 
   // Personalization (Settings → Personalization); defaults keep the original look
-  themeStyle String @default("broadsheet") // 'broadsheet' | 'organic' | 'classic'
-  themeMode  String @default("light") // 'light' | 'dark' | 'system'
-  language   String @default("vi") // 'vi' | 'en'
+  themeStyle       String   @default("broadsheet") // 'broadsheet' | 'organic' | 'classic'
+  themeMode        String   @default("light") // 'light' | 'dark' | 'system'
+  language         String   @default("vi") // 'vi' | 'en'
   // Product analytics (docs/design/P2-8-posthog.md): null = not asked yet;
   // nothing is tracked until true
   analyticsConsent Boolean?
+
+  // Workspace context (docs/design/P2-2-workspaces.md §7.1)
+  activeWorkspaceId String?
 
   // System administration (docs/design/P2-2-workspaces.md §6b)
   platformRole          String    @default("user") // 'user' | 'super_admin'
@@ -43,60 +46,104 @@ model User {
 
   createdAt              DateTime                    @default(now())
   topics                 Topic[]
-  zoomConfig             ZoomConfig?
   zoomWorkflowSettings   ZoomWorkflowSettings?
   zoomSyncRules          ZoomSyncRule[]
   connections            Connection[]
   quotaUsages            QuotaUsage[]
-  youtubeConfig          YoutubeConfig?
-  youtubeQuotas          YoutubeQuotaUsage[]
   zoomSyncLogs           ZoomSyncLog[]
   notifications          Notification[]
+  memberships            Membership[]
+  invitesCreated         WorkspaceInvite[]           @relation("InvitesCreated")
+  invitesAccepted        WorkspaceInvite[]           @relation("InvitesAccepted")
   channelVideos          ChannelVideoCache[]
   youtubeMatchDismissals ZoomYoutubeMatchDismissal[]
 }
 
-model ZoomConfig {
-  id                 String   @id @default(uuid())
-  userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId          String?
-  clientId           String?
-  clientSecret       String?
-  webhookSecretToken String?
-  isActive           Boolean  @default(false)
-  updatedAt          DateTime @updatedAt
+model Workspace {
+  id               String                      @id @default(uuid())
+  name             String
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  members          Membership[]
+  connections      Connection[]
+  workflowSettings ZoomWorkflowSettings?
+  syncRules        ZoomSyncRule[]
+  syncLogs         ZoomSyncLog[]
+  invites          WorkspaceInvite[]
+  activityLogs     ActivityLog[]
+  quotaUsages      QuotaUsage[]
+  dismissals       ZoomYoutubeMatchDismissal[]
+  channelVideos    ChannelVideoCache[]
+  dynamicQRs       DynamicQR[]
+}
+
+model Membership {
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("editor") // 'owner' | 'admin' | 'editor' | 'viewer'
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@id([workspaceId, userId])
+}
+
+model WorkspaceInvite {
+  id           String    @id @default(uuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role         String    @default("editor")
+  tokenHash    String    @unique
+  createdById  String
+  createdBy    User      @relation("InvitesCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  acceptedById String?
+  acceptedBy   User?     @relation("InvitesAccepted", fields: [acceptedById], references: [id], onDelete: SetNull)
+  acceptedAt   DateTime?
+  createdAt    DateTime  @default(now())
 }
 
 // Automation Workflow settings of the Zoom page. Auto-upload is off by
 // default; the other defaults reproduce the behaviour from before they existed
 // (private, fixed title). Keep in step with DEFAULT_WORKFLOW_SETTINGS.
 model ZoomWorkflowSettings {
-  id                  String   @id @default(uuid())
-  userId              String   @unique
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  autoUpload          Boolean  @default(false)
-  titleTemplate       String   @default("Zoom Recording: {topic}")
-  descriptionTemplate String   @default("Recorded on {date} {time}")
-  privacyStatus       String   @default("private") // 'public' | 'unlisted' | 'private'
+  id                  String                 @id @default(uuid())
+  workspaceId         String?                @unique
+  workspace           Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId              String                 @unique
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  autoUpload          Boolean                @default(false)
+  titleTemplate       String                 @default("Zoom Recording: {topic}")
+  descriptionTemplate String                 @default("Recorded on {date} {time}")
+  privacyStatus       String                 @default("private") // 'public' | 'unlisted' | 'private'
   playlistId          String?
-  timeZone            String   @default("Asia/Ho_Chi_Minh") // for {date} and {time}
+  timeZone            String                 @default("Asia/Ho_Chi_Minh") // for {date} and {time}
   // Captions from the Zoom transcript (docs/design/P2-5-captions.md)
-  captionsEnabled     Boolean  @default(false)
-  captionLanguage     String   @default("vi") // BCP-47, e.g. 'vi', 'en'
+  captionsEnabled     Boolean                @default(false)
+  captionLanguage     String                 @default("vi") // BCP-47, e.g. 'vi', 'en'
   captionName         String? // track name shown on YouTube
   // Google Drive backups (docs/design/P2-3-google-drive.md): off by default
-  driveBackupEnabled  Boolean  @default(false)
-  driveFileTypes      String[] @default(["MP4", "M4A", "TRANSCRIPT"]) // 'MP4' | 'M4A' | 'TRANSCRIPT' | 'CHAT'
-  updatedAt           DateTime @updatedAt
+  driveBackupEnabled  Boolean                @default(false)
+  driveBackupTarget   DriveBackupDestination @default(GOOGLE_DRIVE)
+  driveFileTypes      String[]               @default(["MP4", "M4A", "TRANSCRIPT"]) // 'MP4' | 'M4A' | 'TRANSCRIPT' | 'CHAT'
+  driveFolderId       String?
+  driveFolderName     String?
+  updatedAt           DateTime               @updatedAt
 }
 
-// One Zoom file saved (or being saved) to the account's Google Drive (P2-3b)
+enum DriveBackupDestination {
+  GOOGLE_DRIVE
+  ONEDRIVE
+}
+
+// One Zoom file saved (or being saved) to the account's Drive (P2-3b, P2-9)
 model DriveBackup {
-  id          String   @id @default(uuid())
+  id          String                 @id @default(uuid())
   userId      String
   recordingId String
   fileType    String // 'MP4' | 'M4A' | 'TRANSCRIPT' | 'CHAT'
+  destination DriveBackupDestination @default(GOOGLE_DRIVE)
   topic       String // meeting name, for the folder and file names
   startTime   String // recording start (ISO), for the folder and file names
   fileName    String?
@@ -107,101 +154,94 @@ model DriveBackup {
   status      String // 'pending' | 'uploading' | 'done' | 'failed' | 'skipped'
   errorCode   String?
   error       String?
-  attempts    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  attempts    Int                    @default(0)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
-  @@unique([recordingId, fileType])
+  @@unique([recordingId, fileType, destination])
   @@index([userId, status])
 }
 
 // Per-topic overrides of the workflow settings (first matching rule wins)
 model ZoomSyncRule {
-  id                  String   @id @default(uuid())
+  id                  String     @id @default(uuid())
+  workspaceId         String?
+  workspace           Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId              String
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   position            Int
   matchText           String // matched against the meeting topic, ignoring case and accents
   titleTemplate       String?
   descriptionTemplate String?
   playlistId          String?
-  tags                String[] @default([])
+  tags                String[]   @default([])
   privacyStatus       String? // 'public' | 'unlisted' | 'private'; ignored when publishDelayMinutes is set
   publishDelayMinutes Int? // upload private, YouTube publishes at recording end + delay
   captionLanguage     String? // overrides the workflow caption language
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   @@index([userId, position])
+  @@index([workspaceId, position])
 }
 
 // One connection per app (provider) per account: replaces ZoomConfig /
 // YoutubeConfig step by step (docs/design/P2-1-connector.md)
 model Connection {
-  id                  String    @id @default(uuid())
+  id                  String     @id @default(uuid())
+  workspaceId         String?
+  workspace           Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId              String
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider            String // 'youtube' | 'zoom' (connections/providers.ts)
-  status              String    @default("active") // 'active' | 'disabled' | 'needs_reauth'
+  status              String     @default("active") // 'active' | 'disabled' | 'needs_reauth'
   externalAccountId   String? // Zoom account_id, YouTube channel id
   externalAccountName String?
-  settings            Json      @default("{}") // non-secret: clientId, accountId…
+  settings            Json       @default("{}") // non-secret: clientId, accountId…
   credentials         String? // secrets, encrypted by connections/credentials-cipher.ts
-  state               Json      @default("{}") // provider bookkeeping (e.g. channelVideosFetchedAt)
+  state               Json       @default("{}") // provider bookkeeping (e.g. channelVideosFetchedAt)
   tokenObtainedAt     DateTime?
   lastTokenRefreshAt  DateTime?
   tokenInvalidAt      DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   @@unique([userId, provider])
+  @@unique([workspaceId, provider])
   @@index([provider, externalAccountId])
 }
 
 // API quota used per account, app and day (the provider's reset day)
 model QuotaUsage {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   provider    String
   date        String // YYYY-MM-DD in the provider's reset time zone
-  unitsUsed   Int      @default(0)
-  lastUpdated DateTime @updatedAt
+  unitsUsed   Int        @default(0)
+  lastUpdated DateTime   @updatedAt
 
   @@unique([userId, provider, date])
+  @@unique([workspaceId, provider, date])
 }
 
 // Who did what. workspaceId stays null for system-level (super admin) actions
 // until workspaces exist (P2-2a).
 model ActivityLog {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   actorId     String? // null = the system (webhook, retries, bootstrap)
   action      String // e.g. 'admin.user.created', 'admin.user.locked'
   targetType  String?
   targetId    String?
   data        Json?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
 
   @@index([workspaceId, createdAt])
   @@index([createdAt])
-}
-
-model YoutubeConfig {
-  id           String   @id @default(uuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId     String?
-  clientSecret String?
-  refreshToken String?
-  isActive     Boolean  @default(false)
-  updatedAt    DateTime @updatedAt
-
-  tokenObtainedAt    DateTime? // When the current refresh token was issued (OAuth callback)
-  lastTokenRefreshAt DateTime? // Last time the refresh token was successfully exchanged for an access token
-  tokenInvalidAt     DateTime? // Set when Google rejected the refresh token (invalid_grant); cleared on re-authorize
-
-  channelVideosFetchedAt DateTime? // Last successful refresh of ChannelVideoCache (null = never fetched)
 }
 
 enum SyncStatus {
@@ -214,6 +254,8 @@ enum SyncStatus {
 
 model ZoomSyncLog {
   id                      String     @id @default(uuid())
+  workspaceId             String?
+  workspace               Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId                  String
   user                    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   event                   String
@@ -255,6 +297,8 @@ model ZoomSyncLog {
   createdAt               DateTime   @default(now())
 
   @@index([userId])
+  @@index([workspaceId, createdAt])
+  @@unique([workspaceId, recordingId])
 }
 
 enum TopicStatus {
@@ -364,9 +408,11 @@ model Notification {
 // Snapshot of every video on the connected channel (Channel Content → Videos),
 // refreshed on demand or when older than an hour so page views cost no quota
 model ChannelVideoCache {
-  id              String    @id @default(uuid())
+  id              String     @id @default(uuid())
+  workspaceId     String?
+  workspace       Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   videoId         String
   title           String
   thumbnail       String?
@@ -377,34 +423,29 @@ model ChannelVideoCache {
   commentCount    Int? // null when comments are disabled
   publishedAt     DateTime?
   zoomRecordingId String? // From the "Zoom recording ID:" line this app writes in the description of its uploads
-  fetchedAt       DateTime  @default(now())
+  fetchedAt       DateTime   @default(now())
 
   @@unique([userId, videoId])
+  @@unique([workspaceId, videoId])
   @@index([userId])
+  @@index([workspaceId])
 }
 
 // A suggested Zoom recording <-> YouTube video match the user rejected ("not this one")
 model ZoomYoutubeMatchDismissal {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   recordingId String
   videoId     String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
 
   @@unique([userId, recordingId, videoId])
+  @@unique([workspaceId, recordingId, videoId])
   @@index([userId])
-}
-
-model YoutubeQuotaUsage {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date        String // Format: YYYY-MM-DD
-  unitsUsed   Int      @default(0)
-  lastUpdated DateTime @updatedAt
-
-  @@unique([userId, date])
+  @@index([workspaceId])
 }
 
 model Response {
@@ -429,4 +470,18 @@ model WordAggregate {
 
   @@unique([questionId, normalizedText])
   @@index([questionId, count])
+}
+
+model DynamicQR {
+  id          String    @id @default(uuid())
+  name        String?
+  shortCode   String    @unique
+  targetUrl   String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  scanCount   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
 }

@@ -168,7 +168,7 @@ Executable task specs for the roadmap in [ROADMAP.md](ROADMAP.md). The human-rea
 
 **Paused (2026-09-25)**: the human stopped this task. Do not implement it unless the human explicitly resumes it.
 
-**Decision (2026-09-25)**: Telegram now; Zalo OA later in P2-6.
+**Decision (2026-09-25)**: Telegram now; Zalo OA (dropped).
 
 **Changes**
 1. Env `TELEGRAM_BOT_TOKEN` (one bot for the app). Model `TelegramLink { userId @unique, chatId String, linkedAt }` and a short-lived link code.
@@ -204,7 +204,8 @@ For each item, the first task is a **design note** (`docs/design/<id>-<name>.md`
 | P2-3 | Google Drive backup | new scope `drive.file` (re-authorization flow), upload MP4/M4A/VTT after sync, folder layout, retries, storage display | folder structure; which files — **approved 2026-09-27: the user chooses whether to save to Drive** (off by default, per recording too; files stay private; other questions as proposed). Design: [P2-3-google-drive.md](design/P2-3-google-drive.md), tasks P2-3a ✅, P2-3b ✅ → P2-3c |
 | P2-4 ✅ | Upcoming meetings | upcoming Zoom meetings with the rule/result that will apply (Zoom API, no Google scope) | **approved 2026-09-27** (14 days): [P2-4-upcoming-meetings.md](design/P2-4-upcoming-meetings.md), task P2-4a ✅. Auto-attaching videos to Calendar events **dropped**: only the super admin decides whether and with whom videos/recordings are shared |
 | P2-5 ✅ | Automatic captions | Zoom `TRANSCRIPT` (VTT) → `captions.insert` (≈400 quota units, scope `youtube.force-ssl` already granted) after processing succeeds | default language; on by default? |
-| P2-6 | Zalo OA notifications | on top of P2-1 | ⏸ **waiting (2026-09-27): no verified Zalo OA yet**. Design draft: [P2-6-zalo-oa.md](design/P2-6-zalo-oa.md); the super admin approves every announcement (no automatic sending); audience and a verified OA still to be decided |
+| P2-9 | Microsoft OneDrive backup (Priority) | Microsoft Graph API (OAuth, resumable upload), upload MP4/M4A/VTT after sync, folder layout, retries, storage display | choice between GDrive and OneDrive; scopes |
+| ~~P2-6~~ | ~~Zalo OA~~ | ~~Dropped~~ | **Dropped** in this phase. |
 
 ### P2-1 subtasks (approved 2026-09-25)
 
@@ -217,7 +218,7 @@ Design: [docs/design/P2-1-connector.md](design/P2-1-connector.md) — approved w
 | P2-1c ✅ | Dual-write from the legacy config/quota writes + idempotent startup backfill | P2-1b |
 | P2-1d ✅ | Read through `ConnectionsService` behind `CONNECTIONS_READ`; `/connections` API | P2-1c |
 | P2-1e ✅ | Settings → Integrations as provider cards | P2-1d |
-| P2-1f | Contract: remove dual-write, flag, legacy tables and env fallbacks — **destructive, ask before starting** | P2-1e + ≥ 1 week stable |
+| P2-1f ✅ | Contract: remove dual-write, flag, legacy tables and env fallbacks — **destructive, ask before starting** | P2-1e + ≥ 1 week stable |
 
 ### P2-2 subtasks (approved 2026-09-25)
 
@@ -226,11 +227,11 @@ Design: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md) — approved
 | ID | Task | Depends on |
 | --- | --- | --- |
 | P2-2h1 ✅ | Super admin early (account level, 2026-09-26): `User.platformRole/isLocked/mustChangePassword/tempPasswordExpiresAt`, `ActivityLog` (nullable `workspaceId`), bootstrap from `BOOTSTRAP_SUPER_ADMIN_EMAIL`, JWT checks the account on every request (lock, pending password change), `POST /auth/change-password`, `/admin` accounts + activity pages, mail bodies no longer logged | — |
-| P2-2a | Schema + personal workspaces backfill | P2-1f |
-| P2-2b | Workspace context, guard and roles; `/workspaces` | P2-2a |
-| P2-2c | Scope data by workspace; fix the shared `recordingId` overwrite | P2-2b |
+| P2-2a ✅ | Schema + personal workspaces backfill | P2-1f |
+| P2-2b ✅ | Workspace context, guard and roles; `/workspaces` | P2-2a |
+| P2-2c ✅ | Scope data by workspace; fix the shared `recordingId` overwrite | P2-2b |
 | P2-2h | Workspace part of the admin pages (list/create/rename/delete any workspace, its members); the account part shipped as P2-2h1 | P2-2b |
-| P2-2d | Members and invite links, Settings → Workspace, header switcher | P2-2c |
+| P2-2d ✅ | Members and invite links, Settings → Workspace, header switcher | P2-2c |
 | P2-2e | Activity log | P2-2c |
 | P2-2f | Shared Zoom account suggestion | P2-2d |
 | P2-2g | Contract — **destructive, ask before starting** | all above |
@@ -263,6 +264,60 @@ Design: [docs/design/P2-5-captions.md](design/P2-5-captions.md) — approved wit
 | P2-5a ✅ | Schema + `CaptionService` (transcript file choice, insert/update track, quota, status) hooked after a sync completes | — |
 | P2-5b ✅ | `recording.transcript_completed` webhook + scheduler sweep, `no_transcript` after 48 h | P2-5a |
 | P2-5c ✅ | UI: workflow switch/language/name, rule language, caption status + "Upload captions" button, manual endpoint | P2-5b |
+| P2-10 | QR Code Generator (Static) | — |
+| P2-11 | QR Code Generator (Dynamic) | P2-10 |
+
+### P2-10 — QR Code Generator (Static)
+
+**Goal**: Provide a tool to generate static QR codes for URLs, plain text, and WiFi configurations.
+
+**Context**
+- Frontend Path: `frontend/app/utilities/qr-generator/page.tsx`.
+- Library: `qrcode.react`.
+- Navigation: `frontend/components/DashboardLayout.tsx`.
+
+**Changes**
+1. Dependency: Add `qrcode.react` to `frontend/package.json`.
+2. Frontend UI:
+   - Create a tabbed interface (Static / Dynamic).
+   - Static Tab: 
+     - Input field for Content.
+     - Select for Type (URL, Text, WiFi).
+     - Live preview of QR code.
+     - Download buttons for PNG and SVG.
+   - WiFi sub-fields (SSID, Password, Encryption: WPA/WEP/None).
+3. Sidebar: Add "Mã QR" (QR Code) under the "Utilities" group in `DashboardLayout.tsx` with `QrcodeOutlined` icon.
+4. i18n: Add `qr.*` keys to `vi.ts` and `en.ts`.
+
+**Acceptance**: A user can enter a URL and download a working QR code as an image.
+
+### P2-11 — QR Code Generator (Dynamic)
+
+**Goal**: Allow users to create QR codes with destinations that can be changed later, and track scan counts.
+
+**Context**
+- Backend: NestJS.
+- Database: Prisma (`schema.prisma`).
+- Public URL: `n3connect.io/q/:shortCode`.
+
+**Changes**
+1. Schema: Add `DynamicQR` model: `id, name, shortCode @unique, targetUrl, workspaceId, scanCount, createdAt, updatedAt`.
+2. Backend API:
+   - `QRModule`, `QRController`, `QRService`.
+   - `POST /qr`: Create dynamic QR (requires `JwtAuthGuard`).
+   - `PATCH /qr/:id`: Update `targetUrl` or `name`.
+   - `GET /qr`: List dynamic QRs for the workspace.
+   - `DELETE /qr/:id`: Remove entry.
+3. Redirector: `GET /q/:shortCode` (public):
+   - Find `DynamicQR` by `shortCode`.
+   - Increment `scanCount`.
+   - Redirect 302 to `targetUrl`.
+4. Frontend UI:
+   - Dynamic Tab: List existing dynamic QRs with scan counts.
+   - Create/Edit dialog for Dynamic QR.
+   - Show the shortened URL for copying.
+
+**Acceptance**: A dynamic QR points to URL A, user changes it to URL B, the same QR now redirects to URL B. Scan count increases on every scan.
 
 ### P2-8 ✅ — PostHog product analytics
 

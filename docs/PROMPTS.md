@@ -36,7 +36,6 @@ Yêu cầu:
 
 - P1-3 (nhiều tài khoản dùng chung một Zoom, recording mới thuộc về ai): [ví dụ: dùng phương án mặc định]
 - P1-5 (quy tắc tạo sẵn): [ví dụ: không tạo sẵn / tên chứa "SOH" → playlist "..." ]
-- P1-8 (kênh thông báo): [Telegram / Zalo OA]
 
 Chưa sửa code trong bước này.
 ```
@@ -46,7 +45,7 @@ Chưa sửa code trong bước này.
 ```text
 Thực hiện giai đoạn 1 trong docs/IMPLEMENTATION_PLAN.ai.md theo thứ tự sau, mỗi lần MỘT task:
 
-P1-1 → P1-2 → P1-6 → P1-7 → P1-3 → P1-4 → P1-5 → P1-9 → P1-8
+P1-1 → P1-2 → P1-6 → P1-7 → P1-3 → P1-4 → P1-5 → P1-9
 
 Quy trình cho mỗi task:
 1. Đọc "How to use this file", "Global rules" và đặc tả task; đọc các file trong Context.
@@ -91,7 +90,7 @@ Yêu cầu:
 5. Chưa sửa code. Báo tôi đường dẫn file và các câu hỏi mở, rồi chờ duyệt.
 ```
 
-Thứ tự đề xuất: **P2-1 → P2-2 → P2-3 và P2-5 → P2-4 → P2-6**.
+Thứ tự đề xuất: **P2-1 → P2-2 → P2-9 (OneDrive) → (P2-3, P2-5 song song) → P2-4**.
 
 ### 2b. Triển khai hạng mục đã được duyệt
 
@@ -102,6 +101,21 @@ Bản thiết kế docs/design/[FILE].md đã được tôi duyệt, với các 
 2. Thêm các task con (P2-xa, P2-xb, …) vào mục 4 của docs/IMPLEMENTATION_PLAN.ai.md, trỏ tới bản thiết kế.
 3. Thực hiện các task con theo thứ tự, mỗi lần MỘT task, với cùng quy trình như giai đoạn 1: đủ Definition of done, báo cáo bằng tiếng Việt, rồi DỪNG chờ tôi nói "commit và push" hoặc "tiếp".
 4. Với thay đổi database: migration phải an toàn khi deploy (chỉ thêm, có giá trị mặc định); nếu cần chuyển dữ liệu, viết thành bước riêng có thể chạy lại nhiều lần mà không lỗi.
+```
+
+### 2c. Triển khai Trình tạo mã QR (P2-10, P2-11)
+
+```text
+Triển khai tính năng Trình tạo mã QR (QR Code Generator) theo docs/IMPLEMENTATION_PLAN.ai.md.
+
+Thứ tự:
+1. P2-10 (Static QR): Làm frontend trước, sử dụng qrcode.react, cho phép tải ảnh.
+2. P2-11 (Dynamic QR): Làm fullstack, thêm model Prisma, API redirect và giao diện quản lý.
+
+Yêu cầu:
+- Đọc kỹ đặc tả task P2-10 và P2-11 trong docs/IMPLEMENTATION_PLAN.ai.md.
+- Đảm bảo i18n đầy đủ cho cả hai tab Static và Dynamic.
+- Sau mỗi task, báo cáo kết quả và DỪNG để tôi kiểm tra.
 ```
 
 ---

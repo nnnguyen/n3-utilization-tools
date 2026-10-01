@@ -1,4 +1,4 @@
-import { Controller, Get, Logger, Query, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Logger, Param, Patch, Post, Query, Res, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -37,5 +37,37 @@ export class GoogleDriveController {
       this.logger.warn(`Google Drive authorization failed: ${err.message}`);
       return back("error");
     }
+  }
+
+  @Get("files")
+  @UseGuards(JwtAuthGuard)
+  async listFiles(@CurrentUser() user: AuthenticatedUser, @Query("folderId") folderId?: string) {
+    return this.drive.listFiles(user.id, folderId);
+  }
+
+  @Post("folders")
+  @UseGuards(JwtAuthGuard)
+  async createFolder(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body("name") name: string,
+    @Body("parentId") parentId?: string,
+  ) {
+    return this.drive.createFolder(user.id, name, parentId);
+  }
+
+  @Patch("files/:id")
+  @UseGuards(JwtAuthGuard)
+  async renameItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body("name") name: string,
+  ) {
+    return this.drive.renameItem(user.id, id, name);
+  }
+
+  @Delete("files/:id")
+  @UseGuards(JwtAuthGuard)
+  async deleteItem(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.drive.deleteItem(user.id, id);
   }
 }

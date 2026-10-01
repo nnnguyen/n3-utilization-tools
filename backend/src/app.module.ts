@@ -15,12 +15,19 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { ConnectionsModule } from "./connections/connections.module";
 import { AdminModule } from "./admin/admin.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { WorkspacesModule } from "./workspaces/workspaces.module";
+import { GoogleDriveModule } from "./google-drive/google-drive.module";
+import { OneDriveModule } from "./onedrive/onedrive.module";
+import { ActivityModule } from "./activity/activity.module";
+import { QrModule } from './qr/qr.module';
 
 @Module({
   imports: [
     PrismaModule,
     AnalyticsModule,
+    ActivityModule,
     AuthModule,
+    WorkspacesModule,
     TopicsModule,
     QuestionsModule,
     PublicModule,
@@ -31,7 +38,10 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     IntegrationsModule,
     NotificationsModule,
     ConnectionsModule,
+    GoogleDriveModule,
+    OneDriveModule,
     AdminModule,
+    QrModule,
   ],
   controllers: [AppController],
   providers: [AppService],
