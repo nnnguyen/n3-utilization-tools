@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional, forwardRef } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { DriveBackup } from "@prisma/client";
@@ -58,6 +58,7 @@ export class DriveBackupService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ZoomService))
     private readonly zoomService: ZoomService,
     private readonly googleDrive: GoogleDriveService,
     private readonly onedrive: OneDriveService,
@@ -284,7 +285,8 @@ export class DriveBackupService {
       } else {
         const token = await this.onedrive.accessToken(row.userId);
         if (!token) throw new Error("ONEDRIVE_NOT_CONNECTED");
-        folderId = await this.onedrive.getOrCreateFolder(row.userId, folderPath.join("/"), driveFolderId ?? undefined);
+        // For OneDrive, folderId is the drive item ID. We store it in driveFolderId if picked by explorer.
+        folderId = await this.onedrive.getOrCreateFolder(row.userId, folderPath.join("/"), driveFolderId ?? "root");
         driveFileId = await this.onedriveResumableUpload(started, file, fileName, folderId);
       }
 

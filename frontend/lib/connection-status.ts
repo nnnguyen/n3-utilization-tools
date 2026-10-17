@@ -1,5 +1,7 @@
 // Card of GET /connections (backend integrations/connection-card.ts)
 export interface ConnectionCard {
+  id: string | null;
+  workspaceId: string | null;
   provider: 'youtube' | 'zoom' | 'google_drive' | 'onedrive';
   authType: 'oauth2' | 'server_to_server';
   status: 'not_configured' | 'active' | 'disabled';

@@ -21,6 +21,11 @@ export const DEFAULT_WORKFLOW_SETTINGS = {
   driveFileTypes: ["MP4", "M4A", "TRANSCRIPT"] as string[],
   driveFolderId: null as string | null,
   driveFolderName: null as string | null,
+  // AI features (P3-2): auto-title and auto-summary
+  aiTitleEnabled: false,
+  aiSummaryEnabled: false,
+  aiChaptersEnabled: false,
+  youtubePreferredFileType: "shared_screen_with_speaker_view",
 };
 
 export type WorkflowSettings = typeof DEFAULT_WORKFLOW_SETTINGS;

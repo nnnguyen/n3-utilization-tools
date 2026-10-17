@@ -20,4 +20,8 @@ export class SyncRecordingDto {
   @IsString()
   @IsOptional()
   playlistId?: string;
+
+  @IsString()
+  @IsOptional()
+  fileType?: string;
 }

@@ -44,6 +44,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { firstValueFrom } from "rxjs";
 
+import { AIService } from "../ai/ai.service";
+import { WorkflowEngineService } from "../workflow/workflow-engine.service";
+import { forwardRef, Inject } from "@nestjs/common";
+
 // Zoom caps each recordings query at one month; a wider range is split into
 // this many monthly queries at most (two years)
 const MAX_RECORDING_WINDOWS = 24;
@@ -62,6 +66,9 @@ export class ZoomService {
     // Reads Zoom configs (Connection when CONNECTIONS_READ, P2-1d)
     private readonly connectionReader: ConnectionReader,
     private readonly activity: ActivityService,
+    private readonly ai: AIService,
+    @Inject(forwardRef(() => WorkflowEngineService))
+    private readonly workflowEngine: WorkflowEngineService,
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
@@ -411,6 +418,10 @@ export class ZoomService {
       driveFileTypes: saved.driveFileTypes,
       driveFolderId: saved.driveFolderId,
       driveFolderName: saved.driveFolderName,
+      aiTitleEnabled: saved.aiTitleEnabled,
+      aiSummaryEnabled: saved.aiSummaryEnabled,
+      aiChaptersEnabled: saved.aiChaptersEnabled,
+      youtubePreferredFileType: saved.youtubePreferredFileType,
     };
   }
 
@@ -496,6 +507,7 @@ export class ZoomService {
     playlistId?: string,
     autoRetryAttempt?: number,
     publishAt?: Date | null,
+    fileType?: string,
   ) {
     try {
       this.logger.log(`Fetching recording details for sync: ${recordingId}`);
@@ -515,6 +527,7 @@ export class ZoomService {
         playlistId,
         autoRetryAttempt,
         publishAt,
+        fileType,
       );
     } catch (error) {
       this.logger.error(
@@ -591,23 +604,25 @@ export class ZoomService {
     playlistId?: string,
     autoRetryAttempt?: number,
     publishAt?: Date | null,
+    fileType?: string,
   ) {
-    // Find the shared_screen_with_speaker_view MP4 file
-    const videoFile = recordingFiles.find(
-      (file) =>
-        file.file_type === "MP4" &&
-        (file.recording_type === "shared_screen_with_speaker_view" ||
-          file.recording_type === "host_video" || // Fallback if requested type not found
-          true), // Or just the first MP4 if we want to be generous
-    );
+    // Find the preferred MP4 file or fallback to any MP4
+    const settings =
+      userId !== "system"
+        ? await this.getWorkflowSettings(userId)
+        : DEFAULT_WORKFLOW_SETTINGS;
+    const preferredType = fileType || settings.youtubePreferredFileType;
 
-    // Filter strictly if possible, but let's be more robust
     const bestVideoFile =
+      recordingFiles.find(
+        (f) => f.file_type === "MP4" && f.recording_type === preferredType,
+      ) ||
       recordingFiles.find(
         (f) =>
           f.file_type === "MP4" &&
           f.recording_type === "shared_screen_with_speaker_view",
-      ) || recordingFiles.find((f) => f.file_type === "MP4");
+      ) ||
+      recordingFiles.find((f) => f.file_type === "MP4");
 
     if (!bestVideoFile) {
       this.logger.warn(
@@ -616,6 +631,43 @@ export class ZoomService {
       throw new BadRequestException(
         "No suitable MP4 file found in this recording.",
       );
+    }
+
+    // AI Enrichment (Phase 3.2)
+    let aiTitle = topic;
+    let aiSummary = "";
+    let aiChapters = "";
+    let transcriptText = "";
+    try {
+      if (userId !== "system") {
+        if (
+          settings.aiTitleEnabled ||
+          settings.aiSummaryEnabled ||
+          settings.aiChaptersEnabled
+        ) {
+          const transcriptFile = recordingFiles.find(
+            (f) => f.file_type === "TRANSCRIPT" || f.file_type === "CHAT",
+          );
+          if (transcriptFile) {
+            transcriptText = await this.downloadRecordingText(
+              userId,
+              transcriptFile.download_url,
+            );
+          }
+
+          if (settings.aiTitleEnabled) {
+            aiTitle = await this.ai.generateTitle(topic, transcriptText);
+          }
+          if (settings.aiSummaryEnabled && transcriptText) {
+            aiSummary = await this.ai.generateSummary(topic, transcriptText);
+          }
+          if (settings.aiChaptersEnabled && transcriptText) {
+            aiChapters = await this.ai.generateChapters(topic, transcriptText);
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.error(`AI Enrichment failed: ${e.message}`);
     }
 
     const downloadUrl = bestVideoFile.download_url;
@@ -633,34 +685,32 @@ export class ZoomService {
       );
 
       // Reset or create log entry for this sync attempt
-      // We only create a NEW log if the previous one was SUCCESS or FAILED
       const existingLog = await this.prisma.zoomSyncLog.findUnique({
         where: { recordingId },
       });
-
-      const shouldCreateNew =
-        !existingLog ||
-        existingLog.syncStatus === "COMPLETED" ||
-        existingLog.syncStatus === "FAILED";
 
       const event = autoRetryAttempt
         ? `Tự động retry lần ${autoRetryAttempt}/${MAX_AUTO_RETRIES}`
         : "Manual Sync" + (downloadToken ? " (Webhook)" : "");
 
+      let workspaceId: string | null = null;
       if (userId !== "system") {
-        const workspaceId = (await this.prisma.user.findUnique({
+        const user = await this.prisma.user.findUnique({
           where: { id: userId },
           select: { activeWorkspaceId: true },
-        }))?.activeWorkspaceId;
+        });
+        workspaceId = user?.activeWorkspaceId ?? null;
 
         await this.prisma.zoomSyncLog.upsert({
           where: { recordingId },
           update: {
             event,
-            // A manual sync starts a fresh auto-retry budget
             autoRetryCount: autoRetryAttempt ?? 0,
             nextRetryAt: null,
             recordingStartTime: startTime,
+            aiTitle: aiTitle !== topic ? aiTitle : null,
+            aiSummary: aiSummary || null,
+            aiChapters: aiChapters || null,
             privacyStatus: privacyStatus || "private",
             publishAt: publishAt ?? null,
             attemptCount: { increment: 1 },
@@ -683,6 +733,9 @@ export class ZoomService {
             workspaceId,
             event,
             recordingStartTime: startTime,
+            aiTitle: aiTitle !== topic ? aiTitle : null,
+            aiSummary: aiSummary || null,
+            aiChapters: aiChapters || null,
             privacyStatus: privacyStatus || "private",
             publishAt: publishAt ?? null,
             attemptCount: 1,
@@ -724,6 +777,18 @@ export class ZoomService {
         playlistId,
         publishAt,
       );
+
+      // Trigger post-upload workflow (AI chapters, etc.)
+      if (userId !== "system" && workspaceId) {
+        // We don't await this to keep the response fast, as it's a background process
+        this.workflowEngine
+          .executeRecordingWorkflow(recordingId, workspaceId)
+          .catch((err) =>
+            this.logger.error(
+              `Workflow execution failed for ${recordingId}: ${err.message}`,
+            ),
+          );
+      }
 
       return youtubeResult;
     } catch (error) {

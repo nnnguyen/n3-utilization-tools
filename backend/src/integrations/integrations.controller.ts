@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/strategies/jwt.strategy";
@@ -22,15 +22,17 @@ export class IntegrationsController {
   async updateZoom(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateZoomConfigDto,
+    @Query("id") connectionId?: string,
   ) {
-    return this.integrationsService.updateZoomConfig(user.id, dto);
+    return this.integrationsService.updateZoomConfig(user.id, dto, user.activeWorkspaceId, connectionId);
   }
 
   @Patch("youtube")
   async updateYoutube(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateYoutubeConfigDto,
+    @Query("id") connectionId?: string,
   ) {
-    return this.integrationsService.updateYoutubeConfig(user.id, dto);
+    return this.integrationsService.updateYoutubeConfig(user.id, dto, user.activeWorkspaceId, connectionId);
   }
 }

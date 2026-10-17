@@ -47,14 +47,14 @@ export class GoogleDriveService {
     return new google.auth.OAuth2(clientId, clientSecret, driveCallbackUrl());
   }
 
-  async authUrl(userId: string): Promise<string> {
+  async authUrl(userId: string, workspaceId?: string): Promise<string> {
     const client = await this.oauthClient(userId);
     return client.generateAuthUrl({
       access_type: "offline",
       // A refresh token every time, also when access was granted before
       prompt: "consent",
       scope: [...PROVIDERS.google_drive.scopes],
-      state: createOAuthState({ userId, provider: PROVIDER }),
+      state: createOAuthState({ userId, provider: PROVIDER, workspaceId }),
     });
   }
 
@@ -63,7 +63,7 @@ export class GoogleDriveService {
     const verified = verifyOAuthState(state, PROVIDER);
     if (!verified) throw new BadRequestException("Invalid or expired authorization request");
     if (!code) throw new BadRequestException("Missing authorization code");
-    const { userId } = verified;
+    const { userId, workspaceId } = verified;
 
     const client = await this.oauthClient(userId);
     const { tokens } = await client.getToken(code);
@@ -77,6 +77,7 @@ export class GoogleDriveService {
 
     await this.connections.save(userId, PROVIDER, {
       status: "active",
+      workspaceId,
       externalAccountId: about.data.user?.emailAddress ?? null,
       externalAccountName: about.data.user?.displayName ?? null,
       secrets: { refreshToken: tokens.refresh_token },

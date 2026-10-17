@@ -20,6 +20,8 @@ import { GoogleDriveModule } from "./google-drive/google-drive.module";
 import { OneDriveModule } from "./onedrive/onedrive.module";
 import { ActivityModule } from "./activity/activity.module";
 import { QrModule } from './qr/qr.module';
+import { AIModule } from './ai/ai.module';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { QrModule } from './qr/qr.module';
     OneDriveModule,
     AdminModule,
     QrModule,
+    AIModule,
+    WorkflowModule,
   ],
   controllers: [AppController],
   providers: [AppService],

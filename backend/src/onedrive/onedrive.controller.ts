@@ -13,8 +13,8 @@ export class OneDriveController {
 
   @Get("auth-url")
   @UseGuards(JwtAuthGuard)
-  async authUrl(@CurrentUser() user: AuthenticatedUser) {
-    return { url: await this.onedrive.authUrl(user.id) };
+  async authUrl(@CurrentUser() user: AuthenticatedUser, @Query("workspaceId") workspaceId?: string) {
+    return { url: await this.onedrive.authUrl(user.id, workspaceId || user.activeWorkspaceId) };
   }
 
   @Get("callback")

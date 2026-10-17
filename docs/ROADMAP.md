@@ -35,12 +35,12 @@ Những việc nhỏ nhưng nên làm trước, vì người dùng đang nhìn t
 
 Trước khi thêm nhiều app, nên có một "khung" chung để mỗi tích hợp mới tốn ít công hơn.
 
-### 2.1 Khung Connector chung — **L, nên làm sớm**
-Hiện mỗi dịch vụ có cấu hình riêng (`YoutubeConfig`, `ZoomConfig`) và code riêng. Một khung chung gồm:
-- Bảng `Connection` (ứng dụng, tài khoản, token mã hoá, trạng thái, hạn token) thay cho từng bảng config.
-- Luồng OAuth dùng chung (kết nối, làm mới token, báo hết hạn — đã có sẵn logic cho YouTube để tổng quát hoá).
-- Trang **Settings → Integrations** dạng danh sách thẻ ứng dụng: *Kết nối / Đang hoạt động / Cần kết nối lại*.
-- Quota và giới hạn tốc độ theo từng ứng dụng (tổng quát hoá phần theo dõi quota YouTube).
+### 2.1 Khung Connector chung — ✅ **Hoàn thành**
+Hiện các dịch vụ đã dùng chung một khung kết nối:
+- Bảng `Connection` (ứng dụng, tài khoản, token mã hoá, trạng thái, hạn token) thay cho từng bảng config. Hỗ trợ nhiều tài khoản cho Zoom/YouTube.
+- Luồng OAuth dùng chung cho YouTube, Google Drive và OneDrive.
+- Trang **Settings → Integrations** dạng danh sách thẻ ứng dụng: *Kết nối / Đang hoạt động / Cần kết nối lại / Xoá*.
+- Quota và giới hạn tốc độ theo từng ứng dụng.
 
 ### 2.2 Trình tạo quy trình tự động (Workflow builder) — **L**
 Biến "Zoom → YouTube" thành một trường hợp của quy tắc tổng quát **Khi … thì …**:
@@ -130,10 +130,11 @@ Word Cloud đã có sẵn nền tảng quan trọng: realtime (socket.io), ngư�
 - Bot thông báo Telegram (mục 3) — nhanh, giá trị thấy ngay.
 
 **Giai đoạn 2 — Nền tảng hub (1–2 tháng)**
-- Khung Connector chung (2.1), rồi OneDrive (ưu tiên) và Google Drive trên khung đó; buổi họp sắp tới lấy từ Zoom.
-- Workspace và phân quyền (2.3).
-- Phụ đề tự động từ transcript (mục 4).
+- Khung Connector chung (2.1) ✅, rồi OneDrive (✅) và Google Drive (✅) trên khung đó; buổi họp sắp tới lấy từ Zoom (✅).
+- Workspace và phân quyền (2.3) ✅.
+- Phụ đề tự động từ transcript (mục 4) ✅.
 - Trình tạo mã QR (Static & Dynamic QR).
+- Khôi phục Đa tài khoản & Sửa lỗi trùng lặp triệt để (P2-12).
 **Giai đoạn 3 — Mở rộng (từ tháng thứ 3)**
 - Workflow builder (2.2).
 - Facebook Page, Podcast RSS.

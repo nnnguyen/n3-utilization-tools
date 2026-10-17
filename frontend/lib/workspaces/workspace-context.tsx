@@ -45,7 +45,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
       // Find active workspace based on user's activeWorkspaceId (from JWT/Session)
       // or default to the first one if not set
-      const activeId = (user as any).activeWorkspaceId;
+      const activeId = user.activeWorkspaceId;
       const active = data.find((w: Workspace) => w.id === activeId) || data[0] || null;
       setActiveWorkspace(active);
     } catch (error) {

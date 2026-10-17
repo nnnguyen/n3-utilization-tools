@@ -263,20 +263,28 @@ export default function ZoomSyncRules({
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item label={t('field.playlist')} name="playlistId" initialValue="">
-                <Select showSearch optionFilterProp="label" options={[
-                  { value: '', label: t('zoomRules.useDefault') },
-                  ...playlists.map(p => ({ value: p.id, label: p.title })),
-                ]} />
+                <Select 
+                  showSearch 
+                  optionFilterProp="label" 
+                  getPopupContainer={(trigger) => trigger.parentElement}
+                  options={[
+                    { value: '', label: t('zoomRules.useDefault') },
+                    ...playlists.map(p => ({ value: p.id, label: p.title })),
+                  ]} 
+                />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
               <Form.Item label={t('zoomRules.privacy')} name="privacyStatus" initialValue="">
-                <Select options={[
-                  { value: '', label: t('zoomRules.useDefault') },
-                  { value: 'public', label: t('privacy.public') },
-                  { value: 'unlisted', label: t('privacy.unlisted') },
-                  { value: 'private', label: t('privacy.private') },
-                ]} />
+                <Select 
+                  getPopupContainer={(trigger) => trigger.parentElement}
+                  options={[
+                    { value: '', label: t('zoomRules.useDefault') },
+                    { value: 'public', label: t('privacy.public') },
+                    { value: 'unlisted', label: t('privacy.unlisted') },
+                    { value: 'private', label: t('privacy.private') },
+                  ]} 
+                />
               </Form.Item>
             </Col>
           </Row>

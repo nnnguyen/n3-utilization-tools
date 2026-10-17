@@ -107,7 +107,7 @@ Các hạng mục này lớn và ảnh hưởng nhiều phần. Mỗi hạng m�
 
 | Mã | Hạng mục | Mục tiêu | Quyết định cần chốt |
 | --- | --- | --- | --- |
-| **P2-1** ✅ | Khung kết nối chung (Connector) | Một bảng `Connection` và luồng OAuth dùng chung cho mọi ứng dụng; trang Tích hợp dạng thẻ; mã hoá khoá bí mật khi lưu | **Đã chốt (25/09/2026)**: chuyển dần có cờ lùi; khoá mã hoá trong env `CREDENTIALS_KEY`. Thiết kế: [docs/design/P2-1-connector.md](design/P2-1-connector.md), task con P2-1a → P2-1f ✅ |
+| **P2-1** ✅ | Khung kết nối chung & Đa tài khoản (Connector) | Một bảng `Connection` và luồng OAuth dùng chung cho mọi ứng dụng; trang Tích hợp dạng thẻ; mã hoá khoá bí mật khi lưu; hỗ trợ nhiều tài khoản cho Zoom/YouTube | **Đã chốt (25/09/2026)**: chuyển dần có cờ lùi; khoá mã hoá trong env `CREDENTIALS_KEY`. Thiết kế: [docs/design/P2-1-connector.md](design/P2-1-connector.md), task con P2-1a → P2-1f ✅ |
 | **P2-2** | Workspace và phân quyền | Kết nối Zoom/YouTube thuộc về một nhóm; vai trò Quản trị / Biên tập / Xem; nhật ký hoạt động | **Đã chốt (25/09/2026)**: nhiều workspace/người; không gộp tự động; giữ tự đăng ký + super admin toàn quyền (tạo tài khoản thủ công, mật khẩu tạm hiện một lần để copy); **tạm không dùng email** (26/09/2026), mời bằng link. Thiết kế: [docs/design/P2-2-workspaces.md](design/P2-2-workspaces.md), task con P2-2a ✅ → P2-2c ✅ |
 | **P2-3** | Google Drive | Tự sao lưu MP4/M4A/transcript sau khi sync | Cần thêm quyền Drive → người dùng phải uỷ quyền Google lại; cấu trúc thư mục · **Bản nháp thiết kế (26/09/2026, chờ duyệt)**: [docs/design/P2-3-google-drive.md](design/P2-3-google-drive.md) · **Đã duyệt 27/09/2026**: người dùng tự chọn có lưu vào Drive hay không (mặc định tắt, chọn được từng recording); file giữ riêng tư; các câu khác theo đề xuất · P2-3a ✅ (kết nối Google Drive), P2-3b ✅ (lưu file lên Drive) |
 | **P2-4** ✅ | Buổi họp sắp tới | Xem các buổi họp Zoom sắp tới và quy tắc sẽ áp dụng (lấy từ Zoom, không cần quyền Google) | **Góp ý 27/09/2026**: bỏ phần tự gắn video vào Google Calendar — chỉ super admin quyết định chia sẻ video/recording hay không và cho ai. **Đã duyệt 27/09/2026** (14 ngày): [docs/design/P2-4-upcoming-meetings.md](design/P2-4-upcoming-meetings.md), task P2-4a ✅ |
@@ -119,7 +119,17 @@ Các hạng mục này lớn và ảnh hưởng nhiều phần. Mỗi hạng m�
 | **P2-10** | QR Generator (Static) | Tạo mã QR tĩnh cho URL, Text, WiFi ở Frontend | Sử dụng thư viện `qrcode.react`, hỗ trợ tải ảnh (PNG/SVG). |
 | **P2-11** | QR Generator (Dynamic) | Tạo mã QR động có thể thay đổi link đích và theo dõi lượt quét | Backend controller điều hướng `/q/:code`, lưu trữ trong Prisma. |
 
-Thứ tự đề xuất: **P2-1 → P2-2 → P2-9 (OneDrive) → P2-10/P2-11 (QR Code) → (P2-3, P2-5 song song) → P2-4 (Dừng P2-6)**. P2-7 làm được bất cứ lúc nào; P2-8 viết thiết kế khi anh/chị sẵn sàng. **Upstash**: chưa cần (backend chạy một instance); khi cần Redis thì ưu tiên Redis ngay trong project Railway.
+### P2-12. Khôi phục Đa tài khoản & Sửa lỗi trùng lặp triệt để
+
+- **Vấn đề**: Người dùng vẫn muốn có nhiều tài khoản Zoom/YouTube cho mỗi người, nhưng cần khắc phục triệt để lỗi "bản sao ma" (tạo ra nhiều thẻ cho cùng một tài khoản vật lý khi kết nối lại).
+- **Cách làm**:
+  - **Backend**: Cập nhật logic `save` để sử dụng `externalAccountId` (Account ID, Channel ID) làm khóa định danh duy nhất. Luồng OAuth sẽ lấy ID tài khoản từ API bên thứ ba *trước* khi lưu để đảm bảo so khớp chính xác với bản ghi cũ (upsert).
+  - **Frontend**: Khôi phục nút "Thêm tài khoản mới" cho Zoom và YouTube. Hiển thị tên tài khoản cụ thể trên từng thẻ để phân biệt.
+  - **Dọn dẹp**: Hướng dẫn người dùng xóa các bản ghi lỗi bằng nút "Xóa" (Delete).
+- **Thiết kế chi tiết**: [docs/design/P2-12-multi-account-fix.md](design/P2-12-multi-account-fix.md).
+- **Nghiệm thu**: Có thể thêm nhiều tài khoản khác nhau; kết nối lại tài khoản cũ sẽ cập nhật thẻ hiện có thay vì tạo thẻ mới.
+
+Thứ tự đề xuất: **P2-1 → P2-2 → P2-9 (OneDrive) → P2-10/P2-11 (QR Code) → (P2-3, P2-5 song song) → P2-4 → P2-12**. P2-7 làm được bất cứ lúc nào; P2-8 viết thiết kế khi anh/chị sẵn sàng.
 
 ## 5. Giai đoạn 3 — Mở rộng (định hướng)
 

@@ -21,6 +21,7 @@
 5. [Environment variables](#environment-variables)
 6. [Connecting YouTube, Zoom and Google login](#connecting-youtube-zoom-and-google-login)
    - [Product analytics (PostHog)](#product-analytics-posthog)
+   - [AI Features (OpenAI)](#ai-features-openai)
 7. [User guide](#user-guide)
 8. [Development guidelines](#development-guidelines)
 9. [Testing](#testing)
@@ -49,7 +50,7 @@
 
 **Platform**
 - Email/password and Google sign-in, in-app notifications.
-- **Settings → Integrations:** each account connects its own YouTube and Zoom credentials.
+- **Settings → Integrations:** each account connects its own YouTube, Zoom, Google Drive and OneDrive credentials. Supports multiple accounts for Zoom and YouTube.
 - **Settings → Personalization:** interface style (Broadsheet, Organic, Classic), light / dark / system mode, language — saved to the account.
 - Responsive layout for phones and tablets.
 
@@ -179,6 +180,7 @@ Never commit real values: `.env` files are git-ignored. `.env.example` lists wha
 | `POSTHOG_API_KEY` | no | PostHog **project token** (`phc_…`, the same one as `NEXT_PUBLIC_POSTHOG_KEY`). Unset = no backend analytics. Set: the events of `src/analytics/analytics-events.ts` are sent, batched in the background, only for accounts that agreed (Settings → Personalization); identified by the internal user id, never the email |
 | `GOOGLE_DRIVE_CALLBACK_URL` | no | Where Google returns after authorizing Google Drive. Default: `https://$RAILWAY_PUBLIC_DOMAIN/api/connections/google_drive/callback` on Railway, `http://localhost:3001/api/connections/google_drive/callback` locally |
 | `POSTHOG_HOST` | no | PostHog ingestion host, default `https://eu.i.posthog.com` (EU Cloud) |
+| `OPENAI_API_KEY` | yes (for AI features) | API Key for OpenAI (GPT-4o-mini) to generate titles and summaries |
 
 ### Frontend (`frontend/.env.local`, or the Vercel project variables)
 
@@ -206,6 +208,12 @@ Credentials are entered per account in **Settings → Integrations**; the enviro
 2. Under **Feature → Event Subscriptions**, add the endpoint `https://<backend domain>/api/zoom/webhook` and the event **Recording → All Recordings have completed**. Copy the **Secret Token** into `ZOOM_WEBHOOK_SECRET_TOKEN`.
 3. In the app: **Settings → Integrations → Zoom**, enter the Account ID, Client ID, Client Secret and Webhook Secret Token, and switch **Activation** on.
 
+### Managing Connections
+In **Settings → Integrations**, you can:
+- **Disconnect**: Temporarily disable a connection. Credentials are removed, but sync history is kept.
+- **Delete**: Permanently remove a connection record from the database. This is available for disabled connections.
+- **Add New**: Connect multiple accounts for supported services (Zoom, YouTube).
+
 ### Google Drive (optional)
 Backups of Zoom files ([docs/design/P2-3-google-drive.md](docs/design/P2-3-google-drive.md)) use the **same Google Cloud project and OAuth client as the YouTube card**, with a separate Google account if you like:
 1. In that project, enable the **Google Drive API** and add the scope `.../auth/drive.file` to the OAuth consent screen (only files the app creates are visible to it).
@@ -231,6 +239,14 @@ Design: [docs/design/P2-8-posthog.md](docs/design/P2-8-posthog.md). Nothing is t
 | Feature usage | Trend, weekly | `workflow_saved`, `sync_rule_saved`, `recording_linked`, `captions_uploaded`, `wordcloud_session_ended` |
 
 Filter out your own use with the person property `platform_role ≠ super_admin`. Events come from the backend (`backend/src/analytics/analytics-events.ts`) and the UI (`FRONTEND_EVENTS` in `frontend/lib/product-analytics.ts`); each lists the only properties it may carry — never an email, name, meeting title or URL query.
+
+### AI Features (OpenAI)
+
+Detailed guide: [docs/AI_SETUP.md](docs/AI_SETUP.md).
+
+1. Get an API key from [OpenAI Platform](https://platform.openai.com/).
+2. Add `OPENAI_API_KEY` to your `backend/.env`.
+3. Enable **AI Title** or **AI Summary** in **Apps → Zoom → Automation Workflow Manager**.
 
 ## User guide
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Modal, Button, List, Space, Spin, Tag, Typography, message } from 'antd';
+import { Modal, Button, List, Space, Spin, Tag, Typography, message, Divider } from 'antd';
 import dayjs from 'dayjs';
 import { apiFetch } from '@/lib/api';
 import { useSyncErrorText, useT } from '@/lib/i18n';
@@ -123,6 +123,29 @@ export default function SyncHistoryModal({ open, recordingId, topic, playlists =
                     >
                       {t('common.viewOnYouTube')}
                     </Button>
+                  )}
+
+                  {log.aiTitle && (
+                    <div style={{ marginTop: 4 }}>
+                      <Text type="secondary" strong>{t('zoomDash.aiTitleLabel')}</Text> <Text italic>{log.aiTitle}</Text>
+                    </div>
+                  )}
+                  {log.aiSummary && (
+                    <div style={{ marginTop: 4 }}>
+                      <Text type="secondary" strong>{t('zoomDash.aiSummaryLabel')}</Text>
+                      <div style={{ padding: '8px', background: 'var(--color-bg)', borderRadius: '4px', marginTop: 4, whiteSpace: 'pre-wrap', fontSize: '13px' }}>
+                        {log.aiSummary}
+                      </div>
+                    </div>
+                  )}
+
+                  {log.aiChapters && (
+                    <div style={{ marginTop: 4 }}>
+                      <Text type="secondary" strong>{t('zoomDash.aiChaptersEnabled')}</Text>
+                      <div style={{ padding: '8px', background: 'var(--color-bg)', borderRadius: '4px', marginTop: 4, whiteSpace: 'pre-wrap', fontSize: '12px', fontFamily: 'monospace' }}>
+                        {log.aiChapters}
+                      </div>
+                    </div>
                   )}
 
                   {isCaptionStatus(log.captionStatus) && (

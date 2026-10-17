@@ -8,7 +8,7 @@ import { tokenHealth } from "./token-health";
 export type ConnectionStatus = "active" | "disabled" | "needs_reauth";
 
 /** A connection with its secrets decrypted — for server-side use only. */
-export interface ConnectionView {
+export class ConnectionView {
   id: string;
   userId: string;
   workspaceId: string | null;
@@ -26,6 +26,7 @@ export interface ConnectionView {
 }
 
 export interface SaveConnectionInput {
+  workspaceId?: string | null;
   status?: ConnectionStatus;
   externalAccountId?: string | null;
   externalAccountName?: string | null;
@@ -68,9 +69,13 @@ export class ConnectionsService {
     return this.cipherInstance;
   }
 
-  async find(userId: string, provider: ProviderId): Promise<ConnectionView | null> {
-    const row = await this.prisma.connection.findUnique({
-      where: { userId_provider: { userId, provider } },
+  async find(
+    userId: string,
+    provider: ProviderId,
+    externalAccountId?: string,
+  ): Promise<ConnectionView | null> {
+    const row = await this.prisma.connection.findFirst({
+      where: { userId, provider, externalAccountId },
     });
     return row ? this.toView(row) : null;
   }
@@ -90,9 +95,18 @@ export class ConnectionsService {
     userId: string,
     provider: ProviderId,
     input: SaveConnectionInput,
+    connectionId?: string,
   ): Promise<ConnectionView> {
     const definition = getProvider(provider);
-    const existing = await this.find(userId, provider);
+    let existing: ConnectionView | null = null;
+
+    if (connectionId) {
+      existing = await this.prisma.connection.findUnique({ where: { id: connectionId } }).then((row) => (row ? this.toView(row) : null));
+    }
+
+    if (!existing && input.externalAccountId) {
+      existing = await this.find(userId, provider, input.externalAccountId);
+    }
 
     const settings = { ...(existing?.settings ?? {}) };
     for (const [field, value] of Object.entries(input.settings ?? {})) {
@@ -112,7 +126,8 @@ export class ConnectionsService {
       if (value) secrets[field] = value;
     }
 
-    const data = {
+    const data: any = {
+      workspaceId: input.workspaceId ?? existing?.workspaceId,
       status: input.status,
       externalAccountId: input.externalAccountId,
       externalAccountName: input.externalAccountName,
@@ -125,39 +140,35 @@ export class ConnectionsService {
         : undefined,
     };
     const row = await this.prisma.connection.upsert({
-      where: { userId_provider: { userId, provider } },
+      where: connectionId ? { id: connectionId } : {
+        userId_provider_externalAccountId: {
+          userId,
+          provider,
+          externalAccountId: input.externalAccountId || "",
+        },
+      },
       update: data,
-      create: { ...data, userId, provider },
+      create: {
+        ...data,
+        userId,
+        provider,
+      },
     });
     return this.toView(row);
   }
 
-  /** Replaces the whole connection with a snapshot (no merging). */
-  async overwrite(userId: string, provider: ProviderId, snapshot: ConnectionSnapshot) {
-    const data = {
-      status: snapshot.status,
-      externalAccountId: snapshot.externalAccountId,
-      externalAccountName: snapshot.externalAccountName,
-      settings: snapshot.settings,
-      credentials: Object.keys(snapshot.secrets).length
-        ? this.cipher.encrypt(snapshot.secrets, this.context(userId, provider))
-        : null,
-      state: snapshot.state as Prisma.InputJsonObject,
-      tokenObtainedAt: snapshot.tokenObtainedAt,
-      lastTokenRefreshAt: snapshot.lastTokenRefreshAt,
-      tokenInvalidAt: snapshot.tokenInvalidAt,
-    };
-    await this.prisma.connection.upsert({
-      where: { userId_provider: { userId, provider } },
-      update: data,
-      create: { ...data, userId, provider },
-    });
-  }
-
   /** Clears the secrets and disables the connection (sync history is kept). */
-  async disconnect(userId: string, provider: ProviderId) {
-    await this.prisma.connection.updateMany({
-      where: { userId, provider },
+  async disconnect(userId: string, provider: ProviderId, connectionId?: string) {
+    await this.prisma.connection.update({
+      where: connectionId
+        ? { id: connectionId }
+        : {
+            userId_provider_externalAccountId: {
+              userId,
+              provider,
+              externalAccountId: "",
+            },
+          },
       data: {
         status: "disabled",
         credentials: null,
@@ -168,12 +179,26 @@ export class ConnectionsService {
     });
   }
 
+  /** Hard delete a connection. */
+  async delete(userId: string, provider: ProviderId, connectionId?: string) {
+    await this.prisma.connection.delete({
+      where: connectionId
+        ? { id: connectionId }
+        : {
+            userId_provider_externalAccountId: {
+              userId,
+              provider,
+              externalAccountId: "",
+            },
+          },
+    });
+  }
+
   /** A newly issued token (OAuth callback) restarts the expiry clock. */
   async markTokenIssued(userId: string, provider: ProviderId, now = new Date()) {
     await this.prisma.connection.updateMany({
-      where: { userId, provider },
+      where: { userId, provider, status: "active" },
       data: {
-        status: "active",
         tokenObtainedAt: now,
         lastTokenRefreshAt: now,
         tokenInvalidAt: null,
@@ -188,6 +213,7 @@ export class ConnectionsService {
         where: {
           userId,
           provider,
+          status: "active",
           OR: [
             { lastTokenRefreshAt: null },
             {
@@ -211,7 +237,7 @@ export class ConnectionsService {
   async markTokenInvalid(userId: string, provider: ProviderId, now = new Date()) {
     try {
       await this.prisma.connection.updateMany({
-        where: { userId, provider, tokenInvalidAt: null },
+        where: { userId, provider, status: "active", tokenInvalidAt: null },
         data: { tokenInvalidAt: now },
       });
     } catch (error) {

@@ -45,11 +45,11 @@ export class OneDriveService {
     return { clientId, clientSecret, tenantId };
   }
 
-  async authUrl(userId: string): Promise<string> {
+  async authUrl(userId: string, workspaceId?: string): Promise<string> {
     const { clientId, tenantId } = await this.getAppCredentials(userId);
     const scope = PROVIDERS.onedrive.scopes.join(" ");
     const redirectUri = onedriveCallbackUrl();
-    const state = createOAuthState({ userId, provider: PROVIDER });
+    const state = createOAuthState({ userId, provider: PROVIDER, workspaceId });
 
     return `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
       redirectUri,
@@ -60,7 +60,7 @@ export class OneDriveService {
     const verified = verifyOAuthState(state, PROVIDER);
     if (!verified) throw new BadRequestException("Invalid or expired authorization request");
     if (!code) throw new BadRequestException("Missing authorization code");
-    const { userId } = verified;
+    const { userId, workspaceId } = verified;
 
     const { clientId, clientSecret, tenantId } = await this.getAppCredentials(userId);
     const redirectUri = onedriveCallbackUrl();
@@ -89,6 +89,7 @@ export class OneDriveService {
 
       await this.connections.save(userId, PROVIDER, {
         status: "active",
+        workspaceId,
         externalAccountId: meResponse.data.mail || meResponse.data.userPrincipalName || null,
         externalAccountName: meResponse.data.displayName || null,
         secrets: { refreshToken: tokens.refresh_token },

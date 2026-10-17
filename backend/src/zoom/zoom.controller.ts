@@ -166,6 +166,9 @@ export class ZoomController {
         body.startTime,
         body.privacyStatus,
         body.playlistId,
+        0,
+        null,
+        body.fileType,
       )
       .then((result) => {
         if (result) {

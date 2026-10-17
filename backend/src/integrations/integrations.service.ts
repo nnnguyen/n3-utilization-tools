@@ -11,7 +11,7 @@ import {
 } from "../connections/providers";
 import { quotaDate, tokenHealth } from "../connections/token-health";
 import { connectionCard, ConnectionCard } from "./connection-card";
-import { ConnectionsService } from "../connections/connections.service";
+import { ConnectionView, ConnectionsService } from "../connections/connections.service";
 import { GoogleDriveService } from "../google-drive/google-drive.service";
 import { OneDriveService } from "../onedrive/onedrive.service";
 import { UpdateConnectionDto } from "./dto/update-connection.dto";
@@ -53,7 +53,7 @@ export class IntegrationsService {
     return toPublicConfig(zoomConfig, youtubeConfig);
   }
 
-  async updateZoomConfig(userId: string, dto: UpdateZoomConfigDto) {
+  async updateZoomConfig(userId: string, dto: UpdateZoomConfigDto, workspaceId?: string, connectionId?: string) {
     const data = stripEmptySecrets(dto, ZOOM_SECRET_FIELDS);
     const { isActive, ...others } = data;
     const secrets: Record<string, string> = {};
@@ -68,9 +68,11 @@ export class IntegrationsService {
 
     const view = await this.connections.save(userId, "zoom", {
       status: isActive === false ? "disabled" : "active",
+      workspaceId,
       settings,
       secrets,
-    });
+      externalAccountId: settings.accountId,
+    }, connectionId);
 
     await this.activity.record({
       actorId: userId,
@@ -86,7 +88,7 @@ export class IntegrationsService {
     return toPublicZoomConfig(viewToZoomConfig(view));
   }
 
-  async updateYoutubeConfig(userId: string, dto: UpdateYoutubeConfigDto) {
+  async updateYoutubeConfig(userId: string, dto: UpdateYoutubeConfigDto, workspaceId?: string, connectionId?: string) {
     const data = stripEmptySecrets(dto, YOUTUBE_SECRET_FIELDS);
     const { isActive, ...others } = data;
     const secrets: Record<string, string> = {};
@@ -101,9 +103,10 @@ export class IntegrationsService {
 
     const view = await this.connections.save(userId, "youtube", {
       status: isActive === false ? "disabled" : "active",
+      workspaceId,
       settings,
       secrets,
-    });
+    }, connectionId);
 
     await this.activity.record({
       actorId: userId,
@@ -123,9 +126,35 @@ export class IntegrationsService {
   // legacy tables (the source of truth) and are mirrored to Connection.
 
   async listConnections(userId: string): Promise<ConnectionCard[]> {
-    return Promise.all(
-      Object.values(PROVIDERS).map((provider) => this.connectionCardOf(userId, provider)),
-    );
+    const connections = await this.prisma.connection.findMany({
+      where: { userId },
+    });
+
+    const cards: ConnectionCard[] = [];
+    const connectedProviders = new Set<string>();
+
+    for (const connection of connections) {
+      const provider = this.provider(connection.provider);
+      cards.push(await this.connectionCardOf(userId, provider, connection.id));
+      connectedProviders.add(connection.provider);
+    }
+
+    // Add "not_configured" cards for providers that haven't been connected yet.
+    // For singletons (Drive, OneDrive), we always want a card.
+    for (const provider of Object.values(PROVIDERS)) {
+      if (provider.id === "zoom" || provider.id === "youtube") {
+        if (!connectedProviders.has(provider.id)) {
+          cards.push(await this.connectionCardOf(userId, provider));
+        }
+        continue;
+      }
+
+      if (!connectedProviders.has(provider.id)) {
+        cards.push(await this.connectionCardOf(userId, provider));
+      }
+    }
+
+    return cards;
   }
 
   async getConnection(userId: string, providerId: string) {
@@ -154,37 +183,41 @@ export class IntegrationsService {
         fields[field] = value ?? "";
       }
     }
-    if (provider.id === "zoom") await this.updateZoomConfig(userId, fields);
-    else await this.updateYoutubeConfig(userId, fields);
+    if (provider.id === "zoom") await this.updateZoomConfig(userId, fields, dto.workspaceId, dto.id);
+    else await this.updateYoutubeConfig(userId, fields, dto.workspaceId, dto.id);
     return this.connectionCardOf(userId, provider);
   }
 
   /** Turns the connection off and forgets its token (sync history is kept). */
-  async disconnect(userId: string, providerId: string) {
+  async disconnect(userId: string, providerId: string, connectionId?: string) {
     const provider = this.provider(providerId);
     let workspaceId: string | null = null;
 
     if (provider.id === "google_drive") {
       // Files already backed up stay in the Drive
-      const view = await this.connections.find(userId, "google_drive");
+      const view = connectionId 
+        ? await this.prisma.connection.findUnique({ where: { id: connectionId } }).then(row => row ? (this.connections as any).toView(row) : null)
+        : await this.connections.find(userId, "google_drive");
       workspaceId = view?.workspaceId ?? null;
       await this.googleDrive.disconnect(userId);
     } else if (provider.id === "onedrive") {
-      const view = await this.connections.find(userId, "onedrive");
+      const view = connectionId
+        ? await this.prisma.connection.findUnique({ where: { id: connectionId } }).then(row => row ? (this.connections as any).toView(row) : null)
+        : await this.connections.find(userId, "onedrive");
       workspaceId = view?.workspaceId ?? null;
       await this.oneDrive.disconnect(userId);
     } else if (provider.id === "zoom") {
       const view = await this.connections.save(userId, "zoom", {
         status: "disabled",
         secrets: { clientSecret: "", webhookSecretToken: "" },
-      });
+      }, connectionId);
       workspaceId = view.workspaceId;
     } else {
       // The OAuth app (client id/secret) stays, so reconnecting is one click
       const view = await this.connections.save(userId, "youtube", {
         status: "disabled",
         secrets: { refreshToken: "" },
-      });
+      }, connectionId);
       workspaceId = view.workspaceId;
       await this.connections.markTokenInvalid(userId, "youtube");
     }
@@ -200,6 +233,29 @@ export class IntegrationsService {
     return this.connectionCardOf(userId, provider);
   }
 
+  async deleteConnection(userId: string, providerId: string, connectionId?: string) {
+    const provider = this.provider(providerId);
+    let workspaceId: string | null = null;
+
+    const row = connectionId
+      ? await this.prisma.connection.findUnique({ where: { id: connectionId } })
+      : await this.prisma.connection.findFirst({ where: { userId, provider: providerId as any } });
+
+    if (!row) throw new NotFoundException(`Connection not found`);
+    workspaceId = (row as any).workspaceId ?? null;
+
+    await this.connections.delete(userId, provider.id as any, connectionId);
+
+    await this.activity.record({
+      actorId: userId,
+      workspaceId,
+      action: "connection.deleted",
+      data: { provider: provider.id },
+    });
+
+    this.analytics?.capture(userId, "connection_deleted", { provider: provider.id });
+  }
+
   private provider(id: string): ProviderDefinition {
     if (!isProviderId(id)) throw new NotFoundException(`Unknown app: ${id}`);
     return PROVIDERS[id as ProviderId];
@@ -208,21 +264,39 @@ export class IntegrationsService {
   private async connectionCardOf(
     userId: string,
     provider: ProviderDefinition,
+    connectionId?: string,
   ): Promise<ConnectionCard> {
-    if (provider.id === "google_drive") return this.driveCard(userId, provider);
-    if (provider.id === "onedrive") return this.onedriveCard(userId, provider);
-    const config =
-      provider.id === "zoom"
-        ? await this.connectionReader.zoomConfig(userId)
-        : await this.connectionReader.youtubeConfig(userId);
-    const fields = (config ?? null) as ({ isActive: boolean } & Record<string, unknown>) | null;
+    if (provider.id === "google_drive") return this.driveCard(userId, provider, connectionId);
+    if (provider.id === "onedrive") return this.onedriveCard(userId, provider, connectionId);
+
+    let view: ConnectionView | null = null;
+    if (connectionId) {
+      const row = await this.prisma.connection.findUnique({ where: { id: connectionId } });
+      view = row ? (this.connections as any).toView(row) : null;
+    } else {
+      view = await this.connections.find(userId, provider.id as any);
+    }
+
+    const fields = view
+      ? {
+          isActive: view.status === "active",
+          id: view.id,
+          workspaceId: view.workspaceId,
+          ...view.settings,
+          ...view.secrets,
+          tokenObtainedAt: view.tokenObtainedAt,
+          lastTokenRefreshAt: view.lastTokenRefreshAt,
+          tokenInvalidAt: view.tokenInvalidAt,
+        }
+      : null;
+
     const health = tokenHealth(
       {
-        active: !!config?.isActive,
+        active: !!fields?.isActive,
         hasToken: !!fields?.[provider.connectedWhen],
-        tokenObtainedAt: (fields?.tokenObtainedAt as Date | null) ?? null,
-        lastTokenRefreshAt: (fields?.lastTokenRefreshAt as Date | null) ?? null,
-        tokenInvalidAt: (fields?.tokenInvalidAt as Date | null) ?? null,
+        tokenObtainedAt: fields?.tokenObtainedAt ?? null,
+        lastTokenRefreshAt: fields?.lastTokenRefreshAt ?? null,
+        tokenInvalidAt: fields?.tokenInvalidAt ?? null,
       },
       provider.tokenPolicy,
     );
@@ -242,10 +316,19 @@ export class IntegrationsService {
   }
 
   // Google Drive lives only in Connection (no legacy table)
-  private async driveCard(userId: string, provider: ProviderDefinition): Promise<ConnectionCard> {
-    const view = await this.connections.find(userId, "google_drive");
+  private async driveCard(
+    userId: string,
+    provider: ProviderDefinition,
+    connectionId?: string,
+  ): Promise<ConnectionCard> {
+    const view = connectionId
+      ? await this.prisma.connection
+          .findUnique({ where: { id: connectionId } })
+          .then((row) => (row ? (this.connections as any).toView(row) : null))
+      : await this.connections.find(userId, "google_drive");
+
     const fields = view
-      ? { isActive: view.status === "active", ...view.settings, ...view.secrets }
+      ? { isActive: view.status === "active", id: view.id, workspaceId: view.workspaceId, ...view.settings, ...view.secrets }
       : null;
     const health = tokenHealth(
       {
@@ -266,10 +349,19 @@ export class IntegrationsService {
     };
   }
 
-  private async onedriveCard(userId: string, provider: ProviderDefinition): Promise<ConnectionCard> {
-    const view = await this.connections.find(userId, "onedrive");
+  private async onedriveCard(
+    userId: string,
+    provider: ProviderDefinition,
+    connectionId?: string,
+  ): Promise<ConnectionCard> {
+    const view = connectionId
+      ? await this.prisma.connection
+          .findUnique({ where: { id: connectionId } })
+          .then((row) => (row ? (this.connections as any).toView(row) : null))
+      : await this.connections.find(userId, "onedrive");
+
     const fields = view
-      ? { isActive: view.status === "active", ...view.settings, ...view.secrets }
+      ? { isActive: view.status === "active", id: view.id, workspaceId: view.workspaceId, ...view.settings, ...view.secrets }
       : null;
     const health = tokenHealth(
       {

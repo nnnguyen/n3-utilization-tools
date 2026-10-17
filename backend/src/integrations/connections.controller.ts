@@ -38,13 +38,29 @@ export class ConnectionsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param("provider") provider: string,
     @Body() body: UpdateConnectionDto,
+    @Query("id") id?: string,
   ) {
-    return this.integrationsService.updateConnection(user.id, provider, body);
+    const data = { ...body };
+    if (id) data.id = id;
+    return this.integrationsService.updateConnection(user.id, provider, data);
   }
 
   @Post(":provider/disconnect")
-  disconnect(@CurrentUser() user: AuthenticatedUser, @Param("provider") provider: string) {
-    return this.integrationsService.disconnect(user.id, provider);
+  disconnect(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("provider") provider: string,
+    @Query("id") id?: string,
+  ) {
+    return this.integrationsService.disconnect(user.id, provider, id);
+  }
+
+  @Delete(":provider")
+  delete(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("provider") provider: string,
+    @Query("id") id?: string,
+  ) {
+    return this.integrationsService.deleteConnection(user.id, provider, id);
   }
 
   @Get(":provider/files")

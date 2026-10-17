@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Row, Col, Button, Typography, Form, Input, Select, Space, Switch, Alert, Badge, message, Descriptions, Spin, Divider, Modal } from 'antd';
-import { ThunderboltOutlined, CloudOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined, CloudOutlined, FolderOpenOutlined, RobotOutlined } from '@ant-design/icons';
 import DashboardLayout from '../../components/DashboardLayout';
 import YoutubeTokenBanner from '../../components/YoutubeTokenBanner';
 import { ZoomPageTitle } from '../../components/BrandLogos';
@@ -215,7 +215,7 @@ export default function ZoomUtilities() {
                 <Row gutter={16}>
                   <Col xs={24} md={8}>
                     <Form.Item label={t('zoomDash.defaultPrivacy')} name="privacyStatus">
-                      <Select>
+                      <Select getPopupContainer={(trigger) => trigger.parentElement}>
                         <Select.Option value="public">{t('privacy.public')}</Select.Option>
                         <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
                         <Select.Option value="private">{t('privacy.private')}</Select.Option>
@@ -224,15 +224,46 @@ export default function ZoomUtilities() {
                   </Col>
                   <Col xs={24} md={8}>
                     <Form.Item label={t('zoomDash.defaultPlaylist')} name="playlistId">
-                      <Select showSearch optionFilterProp="label" options={[
-                        { value: 'none', label: t('playlistPicker.none') },
-                        ...playlists.map(p => ({ value: p.id, label: p.title })),
-                      ]} />
+                      <Select 
+                        showSearch 
+                        optionFilterProp="label" 
+                        getPopupContainer={(trigger) => trigger.parentElement}
+                        options={[
+                          { value: 'none', label: t('playlistPicker.none') },
+                          ...playlists.map(p => ({ value: p.id, label: p.title })),
+                        ]} 
+                      />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={8}>
                     <Form.Item label={t('zoomDash.timeZone')} name="timeZone">
-                      <Select showSearch options={TIME_ZONES.map(zone => ({ value: zone, label: zone }))} />
+                      <Select 
+                        showSearch 
+                        getPopupContainer={(trigger) => trigger.parentElement}
+                        options={TIME_ZONES.map(zone => ({ value: zone, label: zone }))} 
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={t('zoomDash.youtubePreferredFileType')}
+                      name="youtubePreferredFileType"
+                      extra={t('zoomDash.youtubePreferredFileTypeHelp')}
+                    >
+                      <Select 
+                        getPopupContainer={(trigger) => trigger.parentElement}
+                        options={[
+                          { value: 'shared_screen_with_speaker_view', label: t('zoomDash.type.shared_screen_with_speaker_view') },
+                          { value: 'shared_screen_with_gallery_view', label: t('zoomDash.type.shared_screen_with_gallery_view') },
+                          { value: 'speaker_view', label: t('zoomDash.type.speaker_view') },
+                          { value: 'gallery_view', label: t('zoomDash.type.gallery_view') },
+                          { value: 'shared_screen', label: t('zoomDash.type.shared_screen') },
+                          { value: 'audio_only', label: t('zoomDash.type.audio_only') },
+                        ]} 
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -249,7 +280,12 @@ export default function ZoomUtilities() {
                 <Row gutter={16}>
                   <Col xs={24} md={12}>
                     <Form.Item label={t('zoomDash.captionLanguage')} name="captionLanguage" extra={t('zoomDash.captionLanguageHelp')}>
-                      <Select showSearch optionFilterProp="label" options={captionLanguageOptions(language, captionLanguage)} />
+                      <Select 
+                        showSearch 
+                        optionFilterProp="label" 
+                        getPopupContainer={(trigger) => trigger.parentElement}
+                        options={captionLanguageOptions(language, captionLanguage)} 
+                      />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>
@@ -279,16 +315,20 @@ export default function ZoomUtilities() {
                         <Row gutter={16}>
                           <Col xs={24} md={12}>
                             <Form.Item label={t('zoomDash.driveTarget')} name="driveBackupTarget" extra={t('zoomDash.driveTargetHelp')}>
-                              <Select options={[
-                                { value: 'GOOGLE_DRIVE', label: 'Google Drive', disabled: !driveCard?.connected },
-                                { value: 'ONEDRIVE', label: 'Microsoft OneDrive', disabled: !onedriveCard?.connected },
-                              ]} />
+                              <Select 
+                                getPopupContainer={(trigger) => trigger.parentElement}
+                                options={[
+                                  { value: 'GOOGLE_DRIVE', label: 'Google Drive', disabled: !driveCard?.connected },
+                                  { value: 'ONEDRIVE', label: 'Microsoft OneDrive', disabled: !onedriveCard?.connected },
+                                ]} 
+                              />
                             </Form.Item>
                           </Col>
                           <Col xs={24} md={12}>
                             <Form.Item label={t('zoomDash.driveFileTypes')} name="driveFileTypes" extra={t('zoomDash.driveFileTypesHelp')}>
                               <Select
                                 mode="multiple"
+                                getPopupContainer={(trigger) => trigger.parentElement}
                                 options={DRIVE_FILE_TYPES.map(type => ({ value: type, label: t(`driveFile.${type}` as 'driveFile.MP4') }))}
                               />
                             </Form.Item>
@@ -333,7 +373,10 @@ export default function ZoomUtilities() {
                             <Text type="secondary" style={{ display: 'block' }}>
                               <Badge status="success" /> <strong>OneDrive:</strong> {onedriveCard.externalAccountId}
                               {onedriveCard.storage && (
-                                <> · {t('zoomDash.driveStorage', { used: formatBytes(onedriveCard.storage.used, fmt.locale), limit: formatBytes(onedriveCard.storage.total, fmt.locale) })}</>
+                                <> · {t('zoomDash.driveStorage', { 
+                                  used: formatBytes(onedriveCard.storage.used, fmt.locale), 
+                                  limit: formatBytes(onedriveCard.storage.total, fmt.locale) 
+                                })}</>
                               )}
                             </Text>
                           )}
@@ -346,10 +389,47 @@ export default function ZoomUtilities() {
                     type="info"
                     showIcon
                     icon={<CloudOutlined />}
-                    message={t('zoomDash.driveNotConnected')}
+                    title={t('zoomDash.driveNotConnected')}
                     action={<Link href="/settings/integrations"><Button size="small">{t('zoomDash.driveConnect')}</Button></Link>}
                   />
                 )}
+
+                <Divider titlePlacement="start" plain>
+                  <Space><RobotOutlined />{t('zoomDash.aiSection')}</Space>
+                </Divider>
+
+                <Row gutter={16}>
+                  <Col xs={24} md={8}>
+                    <Form.Item
+                      label={t('zoomDash.aiTitleEnabled')}
+                      name="aiTitleEnabled"
+                      valuePropName="checked"
+                      extra={t('zoomDash.aiTitleHelp')}
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item
+                      label={t('zoomDash.aiSummaryEnabled')}
+                      name="aiSummaryEnabled"
+                      valuePropName="checked"
+                      extra={t('zoomDash.aiSummaryHelp')}
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item
+                      label={t('zoomDash.aiChaptersEnabled')}
+                      name="aiChaptersEnabled"
+                      valuePropName="checked"
+                      extra={t('zoomDash.aiChaptersHelp')}
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
                 <Form.Item style={{ marginTop: 24 }}>
                   <Button type="primary" htmlType="submit" loading={savingWorkflow}>{t('zoomDash.saveWorkflow')}</Button>

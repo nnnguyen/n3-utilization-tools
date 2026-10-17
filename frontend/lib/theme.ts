@@ -271,10 +271,10 @@ function dsTheme(ds: DesignSystem, mode: 'light' | 'dark'): ThemeConfig {
         ...pill,
       },
       // (A pill TextArea is squared off again in globals.css)
-      Input: { ...field, ...pill },
-      InputNumber: { ...field, ...pill },
-      Select: { ...field, ...pill },
-      DatePicker: { ...field, ...pill },
+      Input: { ...field, ...pill, borderRadius: ds.pill ? 999 : ds.radius.base },
+      InputNumber: { ...field, ...pill, borderRadius: ds.pill ? 999 : ds.radius.base },
+      Select: { ...field, ...pill, borderRadius: ds.pill ? 999 : ds.radius.base },
+      DatePicker: { ...field, ...pill, borderRadius: ds.pill ? 999 : ds.radius.base },
       // The one boxed component: surface fill, no border
       Card: {
         colorBgContainer: c.surface,

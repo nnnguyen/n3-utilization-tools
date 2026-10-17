@@ -209,7 +209,7 @@ For each item, the first task is a **design note** (`docs/design/<id>-<name>.md`
 
 ### P2-1 subtasks (approved 2026-09-25)
 
-Design: [docs/design/P2-1-connector.md](design/P2-1-connector.md) — approved with the proposed answers (env `CREDENTIALS_KEY` + `CREDENTIALS_KEY_PREVIOUS`; gradual expand → dual-write → flag `CONNECTIONS_READ` → contract; one connection per provider per user until P2-2; keep `YOUTUBE_CLIENT_ID/SECRET` as the default OAuth app, drop `YOUTUBE_REFRESH_TOKEN`/`ZOOM_*` at contract; contract after ≥ 1 week stable, separate approval). The full specs (Context / Changes / Tests / Acceptance / Out of scope) are in §8 of the design note; execute them one at a time with the Phase 1 Definition of done.
+Design: [docs/design/P2-1-connector.md](design/P2-1-connector.md) — approved with the proposed answers (env `CREDENTIALS_KEY` + `CREDENTIALS_KEY_PREVIOUS`; gradual expand → dual-write → flag `CONNECTIONS_READ` → contract; one connection per provider per user until P2-2; support multi-account by indexing `userId_provider_externalAccountId`; keep `YOUTUBE_CLIENT_ID/SECRET` as the default OAuth app, drop `YOUTUBE_REFRESH_TOKEN`/`ZOOM_*` at contract; contract after ≥ 1 week stable, separate approval). The full specs (Context / Changes / Tests / Acceptance / Out of scope) are in §8 of the design note; execute them one at a time with the Phase 1 Definition of done.
 
 | ID | Task | Depends on |
 | --- | --- | --- |
@@ -324,6 +324,26 @@ Design: [docs/design/P2-5-captions.md](design/P2-5-captions.md) — approved wit
 Design: [docs/design/P2-8-posthog.md](design/P2-8-posthog.md) — **approved 2026-09-26** with the proposed answers (activation funnel + sync failures first; no session replay; consent asked once after sign-in, no tracking until agreed; EU region; Admin link, no embedding yet). Subtasks P2-8a ✅ (consent + frontend SDK + `/ingest` proxy), P2-8b ✅ (backend events), P2-8c ✅ (frontend events + admin link) are specified in §7 of the design note; the human creates the PostHog project and sets the keys. **Must cover**: the questions to answer (e.g. sign-up → connect YouTube → first sync funnel, feature usage, Zoom rules, Word Cloud sessions); event list, with reliable events sent from the backend (`posthog-node`: sync completed/failed, webhook received, auto-upload skipped) and UI events from `posthog-js`; identity by internal user id (never email); privacy — no capture on the Integrations drawer and the Admin page (secrets, temp passwords), no persons/replay on public Word Cloud audience pages, consent notice (Vietnam Decree 13/2023, GDPR if EU users); region (US/EU, fixed at sign-up); reverse proxy through a Next.js rewrite; feature flags (could replace env switches like `CONNECTIONS_READ`); dashboards embedded in the Admin page for super admins. **Open questions (ask)**: what to learn first; session replay yes/no; consent approach; region.
 
 **Not planned: Upstash.** Shared state (rate limiter, Google login code store, Zoom token cache, socket.io adapter) only matters once the backend runs more than one instance; then prefer a Redis service in the same Railway project. Revisit Upstash if logic moves to Vercel functions/edge (e.g. edge rate limiting of the public join page) or QStash should replace the in-process scheduler.
+
+### P2-12 — Restore multi-account support & Fix duplicates triệt để
+
+**Goal**: Allow multiple connections per provider while ensuring physical accounts are not duplicated.
+
+**Context**
+- Backend: `backend/src/connections/connections.service.ts` -> `save()`.
+- OAuth logic: `backend/src/youtube/youtube.service.ts`, `backend/src/zoom/zoom.service.ts`.
+- Design: `docs/design/P2-12-multi-account-fix.md`.
+
+**Changes**
+1. Backend:
+   - Remove "single-account" enforcement in `ConnectionsService.save` (logic that finds the first record of a provider).
+   - Ensure `externalAccountId` is always retrieved from the provider's API *before* calling `save()`.
+   - Use `userId_provider_externalAccountId` as the primary key for `upsert` in `save()`.
+2. Frontend:
+   - Restore the "Add new account" card for all providers in `frontend/app/settings/integrations/page.tsx`.
+   - Display `externalAccountName` on the connection card to distinguish accounts.
+
+**Acceptance**: Users can add multiple different YouTube/Zoom accounts; reconnecting an existing account updates its card without creating a duplicate.
 
 ## 5. Phase 3 — outline only
 

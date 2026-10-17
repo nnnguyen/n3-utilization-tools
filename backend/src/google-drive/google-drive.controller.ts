@@ -15,8 +15,8 @@ export class GoogleDriveController {
 
   @Get("auth-url")
   @UseGuards(JwtAuthGuard)
-  async authUrl(@CurrentUser() user: AuthenticatedUser) {
-    return { url: await this.drive.authUrl(user.id) };
+  async authUrl(@CurrentUser() user: AuthenticatedUser, @Query("workspaceId") workspaceId?: string) {
+    return { url: await this.drive.authUrl(user.id, workspaceId || user.activeWorkspaceId) };
   }
 
   @Get("callback")

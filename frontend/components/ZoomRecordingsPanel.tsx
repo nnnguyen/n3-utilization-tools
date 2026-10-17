@@ -57,10 +57,15 @@ export default function ZoomRecordingsPanel({
   const [syncingRecord, setSyncingRecord] = useState<any>(null);
   const [syncPrivacyStatus, setSyncPrivacyStatus] = useState('private');
   const [syncPlaylistId, setSyncPlaylistId] = useState('none');
+  const [syncFileType, setSyncFileType] = useState<string | undefined>(undefined);
   const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
-  const [workflowDefaults, setWorkflowDefaults] = useState({ privacyStatus: 'private', playlistId: 'none' });
+  const [workflowDefaults, setWorkflowDefaults] = useState({ 
+    privacyStatus: 'private', 
+    playlistId: 'none',
+    youtubePreferredFileType: undefined as string | undefined
+  });
 
   // History Modal
   const [historyRecording, setHistoryRecording] = useState<any>(null);
@@ -224,7 +229,11 @@ export default function ZoomRecordingsPanel({
   const fetchWorkflowDefaults = async () => {
     try {
       const settings = await apiFetch('/zoom/workflow-settings');
-      setWorkflowDefaults({ privacyStatus: settings.privacyStatus, playlistId: settings.playlistId || 'none' });
+      setWorkflowDefaults({ 
+        privacyStatus: settings.privacyStatus, 
+        playlistId: settings.playlistId || 'none',
+        youtubePreferredFileType: settings.youtubePreferredFileType
+      });
       return settings;
     } catch (error) {
       console.error('Failed to fetch workflow settings', error);
@@ -244,6 +253,7 @@ export default function ZoomRecordingsPanel({
     if (settings) {
       setSyncPrivacyStatus(settings.privacyStatus);
       setSyncPlaylistId(settings.playlistId || 'none');
+      setSyncFileType(settings.youtubePreferredFileType);
       setSaveToDrive(!!settings.driveBackupEnabled && driveConnected);
     }
   };
@@ -434,7 +444,7 @@ export default function ZoomRecordingsPanel({
     }
   };
 
-  const handleManualSync = async (record: any, privacyStatus: string = 'private', playlistId?: string) => {
+  const handleManualSync = async (record: any, privacyStatus: string = 'private', playlistId?: string, fileType?: string) => {
     if (quota && quota.unitsRemaining < 1650) {
       message.error(t('quota.exhausted'));
       return;
@@ -473,7 +483,8 @@ export default function ZoomRecordingsPanel({
           topic: record.topic,
           startTime: record.start_time,
           privacyStatus: privacyStatus,
-          playlistId: finalPlaylistId
+          playlistId: finalPlaylistId,
+          fileType: fileType
         })
       });
       message.success(t('zoomRec.syncStarted', { topic: record.topic, privacy: t(`privacy.${privacyStatus}` as 'privacy.public') }));
@@ -769,7 +780,12 @@ export default function ZoomRecordingsPanel({
         title={<Space><VideoCameraOutlined /><span>{t('zoomRec.title')}</span></Space>}
         extra={
           <Space>
-            <Select value={dateFilter} onChange={setDateFilter} style={{ width: 150 }}>
+            <Select 
+              value={dateFilter} 
+              onChange={setDateFilter} 
+              style={{ width: 150 }}
+              getPopupContainer={(trigger) => trigger.parentElement}
+            >
               <Select.Option value="30">{t('zoomRec.last30')}</Select.Option>
               <Select.Option value="custom">{t('zoomRec.customRange')}</Select.Option>
             </Select>
@@ -811,15 +827,17 @@ export default function ZoomRecordingsPanel({
             message.error(t('playlistPicker.newTitleRequired'));
             return;
           }
-          handleManualSync(syncingRecord, syncPrivacyStatus, syncPlaylistId);
+          handleManualSync(syncingRecord, syncPrivacyStatus, syncPlaylistId, syncFileType);
           setSyncModalVisible(false);
           setSyncPlaylistId('none');
           setNewPlaylistTitle('');
+          setSyncFileType(undefined);
         }}
         onCancel={() => {
           setSyncModalVisible(false);
           setSyncPlaylistId('none');
           setNewPlaylistTitle('');
+          setSyncFileType(undefined);
         }}
         okText={t('zoomRec.startSync')}
         okButtonProps={{ disabled: quota && quota.unitsRemaining < 1650 }}
@@ -864,6 +882,7 @@ export default function ZoomRecordingsPanel({
                   value={syncPrivacyStatus} 
                   onChange={setSyncPrivacyStatus}
                   style={{ width: '100%' }}
+                  getPopupContainer={(trigger) => trigger.parentElement}
                 >
                   <Select.Option value="public">{t('privacy.public')}</Select.Option>
                   <Select.Option value="unlisted">{t('privacy.unlisted')}</Select.Option>
@@ -878,6 +897,7 @@ export default function ZoomRecordingsPanel({
                   onChange={setSyncPlaylistId}
                   style={{ width: '100%' }}
                   loading={loadingPlaylists}
+                  getPopupContainer={(trigger) => trigger.parentElement}
                 >
                   <Select.Option value="none">{t('playlistPicker.none')}</Select.Option>
                   {playlists.map(p => (
@@ -898,6 +918,26 @@ export default function ZoomRecordingsPanel({
               />
             </Form.Item>
           )}
+
+          {syncingRecord?.recording_files?.filter((f: any) => f.file_type === 'MP4').length > 1 && (
+            <Form.Item label={t('zoomRec.selectFileType')}>
+              <Select 
+                value={syncFileType} 
+                onChange={setSyncFileType}
+                style={{ width: '100%' }}
+                getPopupContainer={(trigger) => trigger.parentElement}
+              >
+                {syncingRecord.recording_files
+                  .filter((f: any) => f.file_type === 'MP4')
+                  .map((f: any) => (
+                    <Select.Option key={f.recording_type} value={f.recording_type}>
+                      {t(`zoomDash.type.${f.recording_type}` as any) || f.recording_type}
+                    </Select.Option>
+                  ))}
+              </Select>
+            </Form.Item>
+          )}
+
           {driveConnected && (
             <Checkbox checked={saveToDrive} onChange={(e) => setSaveToDrive(e.target.checked)}>
               {t('drive.checkbox')}
@@ -1022,6 +1062,7 @@ export default function ZoomRecordingsPanel({
             value={pickedVideoId}
             onChange={setPickedVideoId}
             optionFilterProp="title"
+            getPopupContainer={(trigger) => trigger.parentElement}
             options={channelVideos.map((v: any) => ({
               value: v.videoId,
               title: v.title,

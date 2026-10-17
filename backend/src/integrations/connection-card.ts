@@ -12,6 +12,8 @@ export interface QuotaStatus {
 }
 
 export interface ConnectionCard {
+  id: string | null;
+  workspaceId: string | null;
   provider: string;
   authType: ProviderDefinition["authType"];
   // not_configured: nothing saved yet
@@ -31,7 +33,10 @@ export interface ConnectionCard {
 
 export function connectionCard(
   provider: ProviderDefinition,
-  config: ({ isActive: boolean } & Record<string, unknown>) | null,
+  config: ({ id?: string; workspaceId?: string | null; isActive: boolean } & Record<
+    string,
+    unknown
+  >) | null,
   tokenHealth: TokenHealth,
   quota: QuotaStatus | null,
 ): ConnectionCard {
@@ -40,6 +45,8 @@ export function connectionCard(
     return typeof v === "string" && v ? v : null;
   };
   return {
+    id: config?.id ?? null,
+    workspaceId: config?.workspaceId ?? null,
     provider: provider.id,
     authType: provider.authType,
     status: !config ? "not_configured" : config.isActive ? "active" : "disabled",

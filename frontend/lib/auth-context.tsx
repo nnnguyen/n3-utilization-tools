@@ -16,6 +16,7 @@ interface User {
   mustChangePassword?: boolean;
   // Google-only accounts have no current password to type
   hasPassword?: boolean;
+  activeWorkspaceId?: string | null;
   // Personalization saved on the account (see lib/preferences.tsx)
   preferences?: {
     themeStyle: 'broadsheet' | 'organic' | 'classic';

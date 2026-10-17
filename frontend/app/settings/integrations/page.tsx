@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { Card, Row, Col, Typography, Form, Input, Button, Space, Switch, Divider, message, Alert, Avatar, Tag, Tooltip, Drawer, Grid, Popconfirm, Modal, Tabs } from 'antd';
-import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, DisconnectOutlined, FolderOpenOutlined, DatabaseOutlined, MessageOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { SettingOutlined, LockOutlined, GoogleOutlined, ReloadOutlined, CloudOutlined, DisconnectOutlined, DeleteOutlined, FolderOpenOutlined, DatabaseOutlined, MessageOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../../components/DashboardLayout';
 import { FileExplorer } from '../../../components/FileExplorer';
@@ -10,6 +10,7 @@ import { API_URL, apiFetch } from '@/lib/api';
 import { AUTH_RETURN_TO_KEY } from '../../../components/YoutubeTokenBanner';
 import { YoutubeLogo, ZoomLogo } from '../../../components/BrandLogos';
 import { useFormat, useT, useTNode, type MessageKey } from '@/lib/i18n';
+import { useWorkspaces } from '@/lib/workspaces/workspace-context';
 import { canAuthorize, cardState, formatBytes, type CardState, type ConnectionCard } from '@/lib/connection-status';
 
 function onedriveCallbackUrl() {
@@ -39,6 +40,8 @@ function IntegrationsContent() {
   const tNode = useTNode();
   const fmt = useFormat();
   const screens = Grid.useBreakpoint();
+  const { workspaces, activeWorkspace } = useWorkspaces();
+  const activeWorkspaceId = activeWorkspace?.id;
   const [loading, setLoading] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
   const [cards, setCards] = useState<ConnectionCard[]>([]);
@@ -55,10 +58,19 @@ function IntegrationsContent() {
   // ?tab=youtube|zoom (links from other pages, the OAuth return) opens its drawer
   const tab = searchParams.get('tab');
   const drawer: ProviderId | null = tab === 'youtube' || tab === 'zoom' || tab === 'onedrive' ? tab : null;
-  const openDrawer = (provider: ProviderId) => router.replace(`/settings/integrations?tab=${provider}`);
+  const openDrawer = (provider: ProviderId, connectionId?: string) => {
+    if (connectionId) {
+      router.replace(`/settings/integrations?tab=${provider}&id=${connectionId}`);
+    } else {
+      router.replace(`/settings/integrations?tab=${provider}`);
+    }
+  };
   const closeDrawer = () => router.replace('/settings/integrations');
 
-  const cardOf = (provider: ProviderId) => cards.find(c => c.provider === provider);
+  const cardOf = (provider: ProviderId, connectionId?: string) => {
+    if (connectionId) return cards.find(c => c.id === connectionId);
+    return cards.find(c => c.provider === provider);
+  };
 
   const handleCallback = async (code: string) => {
     try {
@@ -92,7 +104,10 @@ function IntegrationsContent() {
 
   useEffect(() => {
     const code = searchParams.get('code');
-    if (code) {
+    const state = searchParams.get('state');
+    // YouTube's new callback flow (backend handling state) results in youtube=connected
+    // Legacy flow might still send code=X but no state=Y
+    if (code && !state) {
       handleCallback(code);
     }
   }, [searchParams]);
@@ -100,12 +115,24 @@ function IntegrationsContent() {
   // Back from Google's Drive consent screen (the backend handled the code)
   useEffect(() => {
     const drive = searchParams.get('drive');
+    const youtube = searchParams.get('youtube');
     const onedrive = searchParams.get('onedrive');
+    const error = searchParams.get('error');
+
+    if (error === 'invalid_state') {
+      message.error(t('integ.authError'));
+      router.replace('/settings/integrations');
+    }
     
     if (drive) {
       if (drive === 'connected') message.success(t('integ.driveConnected'));
       else if (drive === 'cancelled') message.info(t('integ.driveCancelled'));
       else message.error(t('integ.driveError'));
+      router.replace('/settings/integrations');
+    }
+
+    if (youtube) {
+      if (youtube === 'connected') message.success(t('integ.ytConnected'));
       router.replace('/settings/integrations');
     }
     
@@ -118,9 +145,10 @@ function IntegrationsContent() {
   }, [searchParams]);
 
   const fillForms = (list: ConnectionCard[]) => {
-    const youtube = list.find(c => c.provider === 'youtube');
-    const zoom = list.find(c => c.provider === 'zoom');
-    const onedrive = list.find(c => c.provider === 'onedrive');
+    const selectedId = searchParams.get('id');
+    const youtube = selectedId ? list.find(c => c.id === selectedId) : list.find(c => c.provider === 'youtube');
+    const zoom = selectedId ? list.find(c => c.id === selectedId) : list.find(c => c.provider === 'zoom');
+    const onedrive = selectedId ? list.find(c => c.id === selectedId) : list.find(c => c.provider === 'onedrive');
     // Secrets are never sent back: their inputs start empty (placeholder says whether one is saved)
     youtubeForm.setFieldsValue({
       isActive: youtube?.status === 'active',
@@ -174,7 +202,12 @@ function IntegrationsContent() {
     fetchCards();
   }, []);
 
+  useEffect(() => {
+    fillForms(cards);
+  }, [searchParams, cards]);
+
   const save = async (provider: ProviderId, values: Record<string, any>) => {
+    const selectedId = searchParams.get('id');
     const settingsFields = 
       provider === 'zoom' ? ['accountId', 'clientId'] : 
       provider === 'onedrive' ? ['clientId', 'tenantId'] : ['clientId'];
@@ -182,9 +215,12 @@ function IntegrationsContent() {
       provider === 'zoom' ? ['clientSecret', 'webhookSecretToken'] : ['clientSecret', 'refreshToken'];
     setSaving(true);
     try {
-      await apiFetch(`/connections/${provider}`, {
+      const url = selectedId ? `/connections/${provider}?id=${selectedId}` : `/connections/${provider}`;
+      await apiFetch(url, {
         method: 'PATCH',
         body: JSON.stringify({
+          id: selectedId,
+          workspaceId: activeWorkspaceId,
           isActive: !!values.isActive,
           settings: Object.fromEntries(settingsFields.map(f => [f, values[f] ?? ''])),
           secrets: nonEmpty(Object.fromEntries(secretFields.map(f => [f, values[f]]))),
@@ -205,9 +241,10 @@ function IntegrationsContent() {
     }
   };
 
-  const disconnect = async (provider: ProviderId) => {
+  const disconnect = async (provider: ProviderId, connectionId?: string) => {
     try {
-      await apiFetch(`/connections/${provider}/disconnect`, { method: 'POST' });
+      const url = connectionId ? `/connections/${provider}/disconnect?id=${connectionId}` : `/connections/${provider}/disconnect`;
+      await apiFetch(url, { method: 'POST' });
       message.success(t('integ.disconnected'));
       fetchCards();
     } catch (error: any) {
@@ -215,19 +252,34 @@ function IntegrationsContent() {
     }
   };
 
+  const deleteConnection = async (provider: ProviderId, connectionId?: string) => {
+    try {
+      const url = connectionId ? `/connections/${provider}?id=${connectionId}` : `/connections/${provider}`;
+      await apiFetch(url, { method: 'DELETE' });
+      message.success(t('integ.deleted'));
+      fetchCards();
+    } catch (error: any) {
+      message.error(error.message || t('integ.deleteFailed'));
+    }
+  };
+
   const onAuthorizeYoutube = async () => {
     try {
-      const { url } = await apiFetch('/youtube/auth-url');
-      window.location.href = url;
+      const url = new URL(`${API_URL}/youtube/auth-url`);
+      if (activeWorkspaceId) url.searchParams.set('workspaceId', activeWorkspaceId);
+      const { url: authUrl } = await apiFetch(url.toString().replace(API_URL, ''));
+      window.location.href = authUrl;
     } catch (error: any) {
-      message.error(error.message || t('integ.authUrlFailed'));
+      message.error(error.message || t('integ.authError'));
     }
   };
 
   const onConnectDrive = async () => {
     try {
-      const { url } = await apiFetch('/connections/google_drive/auth-url');
-      window.location.href = url;
+      const url = new URL(`${API_URL}/connections/google_drive/auth-url`);
+      if (activeWorkspaceId) url.searchParams.set('workspaceId', activeWorkspaceId);
+      const { url: authUrl } = await apiFetch(url.toString().replace(API_URL, ''));
+      window.location.href = authUrl;
     } catch (error: any) {
       message.error(error.message || t('integ.authUrlFailed'));
     }
@@ -235,8 +287,10 @@ function IntegrationsContent() {
 
   const onConnectOneDrive = async () => {
     try {
-      const { url } = await apiFetch('/connections/onedrive/auth-url');
-      window.location.href = url;
+      const url = new URL(`${API_URL}/connections/onedrive/auth-url`);
+      if (activeWorkspaceId) url.searchParams.set('workspaceId', activeWorkspaceId);
+      const { url: authUrl } = await apiFetch(url.toString().replace(API_URL, ''));
+      window.location.href = authUrl;
     } catch (error: any) {
       message.error(error.message || t('integ.authUrlFailed'));
     }
@@ -296,12 +350,27 @@ function IntegrationsContent() {
           key="disconnect"
           title={t('integ.card.disconnectConfirm')}
           description={t('integ.card.disconnectDriveHint')}
-          onConfirm={() => disconnect('google_drive')}
+          onConfirm={() => disconnect('google_drive', card?.id ?? undefined)}
           okText={t('integ.card.disconnect')}
           cancelText={t('common.cancel')}
           okButtonProps={{ danger: true }}
         >
           <Button danger type="text" icon={<DisconnectOutlined />}>{t('integ.card.disconnect')}</Button>
+        </Popconfirm>,
+      );
+    }
+    if (card && state === 'disabled') {
+      actions.push(
+        <Popconfirm
+          key="delete"
+          title={t('integ.card.deleteConfirm')}
+          description={t('integ.card.deleteHint')}
+          onConfirm={() => deleteConnection('google_drive', card?.id ?? undefined)}
+          okText={t('common.delete')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger type="text" icon={<DeleteOutlined />}>{t('integ.card.delete')}</Button>
         </Popconfirm>,
       );
     }
@@ -368,12 +437,27 @@ function IntegrationsContent() {
           key="disconnect"
           title={t('integ.card.disconnectConfirm')}
           description={t('integ.card.disconnectOneDriveHint')}
-          onConfirm={() => disconnect('onedrive')}
+          onConfirm={() => disconnect('onedrive', card?.id ?? undefined)}
           okText={t('integ.card.disconnect')}
           cancelText={t('common.cancel')}
           okButtonProps={{ danger: true }}
         >
           <Button danger type="text" icon={<DisconnectOutlined />}>{t('integ.card.disconnect')}</Button>
+        </Popconfirm>,
+      );
+    }
+    if (card && state === 'disabled') {
+      actions.push(
+        <Popconfirm
+          key="delete"
+          title={t('integ.card.deleteConfirm')}
+          description={t('integ.card.deleteHint')}
+          onConfirm={() => deleteConnection('onedrive', card?.id ?? undefined)}
+          okText={t('common.delete')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger type="text" icon={<DeleteOutlined />}>{t('integ.card.delete')}</Button>
         </Popconfirm>,
       );
     }
@@ -393,6 +477,14 @@ function IntegrationsContent() {
 
   const zoomSettings = (
     <>
+      {activeWorkspaceId && !searchParams.get('id') && (
+        <Alert
+          title={tNode('integ.addingToWorkspace', { workspace: <strong>{workspaces.find(w => w.id === activeWorkspaceId)?.name}</strong> })}
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <Form form={zoomForm} layout="vertical" onFinish={values => save('zoom', values)}>
         <Form.Item label={t('integ.activation')} name="isActive" valuePropName="checked">
           <Switch checkedChildren={t('integ.active')} unCheckedChildren={t('integ.inactive')} />
@@ -528,13 +620,57 @@ function IntegrationsContent() {
     </>
   );
 
-  const providerCard = (provider: ProviderId) => {
-    const card = cardOf(provider);
+  const renderProviderCards = (provider: ProviderId) => {
+    const providerCards = cards.filter((c) => c.provider === provider);
+    
+    return (
+      <>
+        {providerCards.map((card) => (
+          <Col key={card.id || card.provider} xs={24} md={12} lg={8}>
+            {providerCard(provider, card)}
+          </Col>
+        ))}
+        {/* P2-12: Always show "Add New" card for Zoom/YouTube */}
+        <Col xs={24} md={12} lg={8}>
+          <Card 
+            hoverable 
+            style={{ height: '100%', borderStyle: 'dashed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => openDrawer(provider)}
+          >
+            <Space orientation="vertical" align="center">
+              <Button type="dashed" shape="circle" icon={<SettingOutlined />} size="large" />
+              <Text type="secondary">{provider === 'zoom' ? t('integ.card.addZoom') : provider === 'youtube' ? t('integ.card.addYoutube') : t('integ.card.addConnection')}</Text>
+              {activeWorkspaceId && (
+                <Tag icon={<DatabaseOutlined />}>
+                  Target Workspace: {workspaces.find(w => w.id === activeWorkspaceId)?.name}
+                </Tag>
+              )}
+            </Space>
+          </Card>
+        </Col>
+      </>
+    );
+  };
+
+  const providerCard = (provider: ProviderId, card?: ConnectionCard) => {
     const state: CardState = card ? cardState(card) : 'not_connected';
     const tag = STATE_TAG[state];
     const isYoutube = provider === 'youtube';
 
     const details: React.ReactNode[] = [];
+    if (card?.workspaceId) {
+      const workspace = workspaces.find((w) => w.id === card.workspaceId);
+      if (workspace) {
+        details.push(
+          <Text key="workspace" type="secondary">
+            <Space size={4}>
+              <DatabaseOutlined />
+              Workspace: {workspace.name}
+            </Space>
+          </Text>,
+        );
+      }
+    }
     if (isYoutube && state === 'connected' && youtubeStatus?.connected && youtubeStatus.channelTitle) {
       details.push(
         <Space key="channel" size={8}>
@@ -562,7 +698,7 @@ function IntegrationsContent() {
     }
 
     const actions: React.ReactNode[] = [];
-    if (isYoutube && card && (state === 'needs_reauth' || (state === 'not_connected' && canAuthorize(card)))) {
+    if (isYoutube && (state === 'needs_reauth' || (state === 'not_connected' && (!card || canAuthorize(card))))) {
       actions.push(
         <Button key="auth" type="primary" icon={<GoogleOutlined />} onClick={onAuthorizeYoutube}>
           {state === 'needs_reauth' ? t('integ.reauthorize') : t('integ.card.connect')}
@@ -570,8 +706,8 @@ function IntegrationsContent() {
       );
     }
     actions.push(
-      <Button key="settings" icon={<SettingOutlined />} onClick={() => openDrawer(provider)}>
-        {state === 'not_connected' && !(isYoutube && card && canAuthorize(card)) ? t('integ.card.setUp') : t('integ.card.configure')}
+      <Button key="settings" icon={<SettingOutlined />} onClick={() => openDrawer(provider, card?.id ?? undefined)}>
+        {state === 'not_connected' && !(isYoutube && (!card || canAuthorize(card))) ? t('integ.card.setUp') : t('integ.card.configure')}
       </Button>,
     );
     if (card && (state === 'connected' || state === 'needs_reauth')) {
@@ -580,12 +716,27 @@ function IntegrationsContent() {
           key="disconnect"
           title={t('integ.card.disconnectConfirm')}
           description={t(isYoutube ? 'integ.card.disconnectYoutubeHint' : 'integ.card.disconnectZoomHint')}
-          onConfirm={() => disconnect(provider)}
+          onConfirm={() => disconnect(provider, card?.id ?? undefined)}
           okText={t('integ.card.disconnect')}
           cancelText={t('common.cancel')}
           okButtonProps={{ danger: true }}
         >
           <Button danger type="text" icon={<DisconnectOutlined />}>{t('integ.card.disconnect')}</Button>
+        </Popconfirm>,
+      );
+    }
+    if (card && state === 'disabled') {
+      actions.push(
+        <Popconfirm
+          key="delete"
+          title={t('integ.card.deleteConfirm')}
+          description={t('integ.card.deleteHint')}
+          onConfirm={() => deleteConnection(provider, card?.id ?? undefined)}
+          okText={t('common.delete')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger type="text" icon={<DeleteOutlined />}>{t('integ.card.delete')}</Button>
         </Popconfirm>,
       );
     }
@@ -652,14 +803,14 @@ function IntegrationsContent() {
                   <Space><MessageOutlined />{t('integ.category.communication')}</Space>
                 </Title>
                 <Row gutter={[16, 16]}>
-                  <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
+                  {renderProviderCards('zoom')}
                 </Row>
 
                 <Title level={4} style={{ marginTop: 32, marginBottom: 16 }}>
                   <Space><ShareAltOutlined />{t('integ.category.social')}</Space>
                 </Title>
                 <Row gutter={[16, 16]}>
-                  <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
+                  {renderProviderCards('youtube')}
                 </Row>
               </>
             ),
@@ -689,7 +840,7 @@ function IntegrationsContent() {
             ),
             children: (
               <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col xs={24} md={12} lg={8}>{providerCard('zoom')}</Col>
+                {renderProviderCards('zoom')}
               </Row>
             ),
           },
@@ -703,7 +854,7 @@ function IntegrationsContent() {
             ),
             children: (
               <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col xs={24} md={12} lg={8}>{providerCard('youtube')}</Col>
+                {renderProviderCards('youtube')}
               </Row>
             ),
           },

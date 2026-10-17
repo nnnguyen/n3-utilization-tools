@@ -178,7 +178,7 @@
   font-variation-settings: "SOFT" 100, "WONK" 0;
 }
 /* Pill fields, but a multi-line text area keeps the container radius */
-:root[data-theme-style="organic"] textarea.ant-input {
+:root[data-theme-style="organic"] :is(textarea.ant-input, .ant-select-dropdown) {
   border-radius: var(--radius-md);
 }
 

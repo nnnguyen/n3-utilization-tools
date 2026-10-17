@@ -352,6 +352,7 @@ export class AuthService implements OnApplicationBootstrap {
       avatarUrl: user.avatarUrl,
       platformRole: user.platformRole,
       mustChangePassword: user.mustChangePassword,
+      activeWorkspaceId: user.activeWorkspaceId,
       // Google-only accounts have no password to type as "current"
       hasPassword: !!user.password,
       preferences: {

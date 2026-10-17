@@ -9,6 +9,7 @@ const STATE_TTL_MS = 15 * 60_000;
 export interface OAuthState {
   userId: string;
   provider: string;
+  workspaceId?: string;
 }
 
 function secret(): string {
@@ -23,13 +24,23 @@ function sign(payload: string): string {
 
 export function createOAuthState(state: OAuthState, now = Date.now()): string {
   const payload = Buffer.from(
-    JSON.stringify({ u: state.userId, p: state.provider, e: now + STATE_TTL_MS, n: randomBytes(8).toString("hex") }),
+    JSON.stringify({
+      u: state.userId,
+      p: state.provider,
+      w: state.workspaceId,
+      e: now + STATE_TTL_MS,
+      n: randomBytes(8).toString("hex"),
+    }),
   ).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
 /** The state's account and app, or null if forged, altered or expired. */
-export function verifyOAuthState(value: string | undefined, provider: string, now = Date.now()): OAuthState | null {
+export function verifyOAuthState(
+  value: string | undefined,
+  provider: string,
+  now = Date.now(),
+): OAuthState | null {
   const [payload, signature, extra] = (value ?? "").split(".");
   if (!payload || !signature || extra !== undefined) return null;
   const expected = Buffer.from(sign(payload));
@@ -38,7 +49,7 @@ export function verifyOAuthState(value: string | undefined, provider: string, no
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString());
     if (data.p !== provider || typeof data.u !== "string" || !(data.e > now)) return null;
-    return { userId: data.u, provider: data.p };
+    return { userId: data.u, provider: data.p, workspaceId: data.w };
   } catch {
     return null;
   }

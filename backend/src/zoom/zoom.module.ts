@@ -15,6 +15,9 @@ import { OneDriveModule } from "../onedrive/onedrive.module";
 import { DriveBackupService } from "./drive-backup.service";
 import { ActivityModule } from "../activity/activity.module";
 import { AnalyticsModule } from "../analytics/analytics.module";
+import { AIModule } from "../ai/ai.module";
+import { WorkflowModule } from "../workflow/workflow.module";
+import { forwardRef } from "@nestjs/common";
 
 @Module({
   imports: [
@@ -26,6 +29,8 @@ import { AnalyticsModule } from "../analytics/analytics.module";
     OneDriveModule,
     ActivityModule,
     AnalyticsModule,
+    AIModule,
+    forwardRef(() => WorkflowModule),
   ],
   providers: [
     ZoomService,
@@ -36,5 +41,6 @@ import { AnalyticsModule } from "../analytics/analytics.module";
     DriveBackupService,
   ],
   controllers: [ZoomController, ZoomSyncRulesController],
+  exports: [ZoomService, DriveBackupService],
 })
 export class ZoomModule {}

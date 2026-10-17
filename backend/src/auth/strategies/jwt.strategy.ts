@@ -18,6 +18,7 @@ export interface AuthenticatedUser {
   email: string;
   name: string;
   platformRole: string;
+  activeWorkspaceId?: string;
 }
 
 @Injectable()
@@ -47,6 +48,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
         email: true,
         name: true,
         platformRole: true,
+        activeWorkspaceId: true,
         isLocked: true,
         mustChangePassword: true,
       },
@@ -74,6 +76,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
       email: user.email,
       name: user.name ?? "",
       platformRole: user.platformRole,
+      activeWorkspaceId: user.activeWorkspaceId ?? undefined,
     };
   }
 }

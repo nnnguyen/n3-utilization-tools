@@ -70,8 +70,11 @@ export class YoutubeController {
 
   @UseGuards(JwtAuthGuard)
   @Get("auth-url")
-  async getAuthUrl(@CurrentUser() user: AuthenticatedUser) {
-    const url = await this.youtubeService.getAuthUrl(user.id);
+  async getAuthUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("workspaceId") workspaceId?: string,
+  ) {
+    const url = await this.youtubeService.getAuthUrl(user.id, workspaceId);
     return { url };
   }
 
@@ -289,8 +292,8 @@ export class YoutubeController {
   @Post("callback")
   handleCallback(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() body: { code: string },
+    @Body() body: { code: string; workspaceId?: string },
   ) {
-    return this.youtubeService.handleCallback(user.id, body.code);
+    return this.youtubeService.handleCallback(user.id, body.code, body.workspaceId);
   }
 }

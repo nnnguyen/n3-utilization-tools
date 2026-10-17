@@ -15,6 +15,8 @@ import { AuthGuard } from "@nestjs/passport";
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { AuthCodeStore } from "./auth-code.store";
+import { Logger } from "@nestjs/common";
+import { verifyOAuthState } from "../connections/oauth-state";
 import { YoutubeService } from "../youtube/youtube.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { GoogleCallbackGuard } from "./guards/google-callback.guard";
@@ -38,6 +40,7 @@ import { codedError } from "../common/coded-error";
 
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
   constructor(
     private readonly authService: AuthService,
     private readonly youtubeService: YoutubeService,
@@ -179,8 +182,13 @@ export class AuthController {
     @Query("state") state: string,
     @Res() res: Response,
   ) {
-    // state contains the userId
-    await this.youtubeService.handleCallback(state, code);
-    return res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?tab=youtube`);
+    const verified = verifyOAuthState(state, "youtube");
+    if (!verified) {
+      this.logger.warn(`Invalid YouTube OAuth state: ${state}`);
+      return res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?tab=youtube&error=invalid_state`);
+    }
+
+    await this.youtubeService.handleCallback(verified.userId, code, verified.workspaceId);
+    return res.redirect(`${process.env.FRONTEND_URL}/settings/integrations?tab=youtube&youtube=connected`);
   }
 }

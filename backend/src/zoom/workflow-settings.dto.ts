@@ -84,4 +84,21 @@ export class UpdateWorkflowSettingsDto {
   @IsString()
   @IsOptional()
   driveFolderName?: string | null;
+
+  // AI features (P3-2)
+  @IsBoolean()
+  @IsOptional()
+  aiTitleEnabled?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  aiSummaryEnabled?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  aiChaptersEnabled?: boolean;
+
+  @IsString()
+  @IsOptional()
+  youtubePreferredFileType?: string;
 }

@@ -20,6 +20,7 @@ import { ConnectionsService } from "../connections/connections.service";
 import { ConnectionReader } from "../connections/connection-reader.service";
 import { AnalyticsService } from "../analytics/analytics.service";
 import { durationBucket, sizeBucket, syncTriggerOf } from "../analytics/analytics-events";
+import { createOAuthState, verifyOAuthState } from "../connections/oauth-state";
 
 // Delays before automatic retry 1, 2 and 3 of a sync that failed transiently
 export const AUTO_RETRY_DELAYS_MS = [1 * 60_000, 5 * 60_000, 15 * 60_000];
@@ -296,6 +297,9 @@ export class YoutubeService {
   private async recordTokenError(userId: string | undefined, error: any) {
     if (!userId || userId === "system" || !this.isInvalidGrant(error)) return;
     try {
+      const config = await this.connectionReader.youtubeConfig(userId);
+      if (config?.tokenInvalidAt) return; // Already marked
+
       await this.connections.markTokenInvalid(userId, "youtube");
       this.logger.warn(`YouTube refresh token rejected (invalid_grant) for user ${userId}`);
     } catch (e) {
@@ -342,7 +346,7 @@ export class YoutubeService {
     };
   }
 
-  async getAuthUrl(userId: string): Promise<string> {
+  async getAuthUrl(userId: string, workspaceId?: string): Promise<string> {
     const oauth2Client = await this.getOAuthClient(userId);
 
     const scopes = [
@@ -356,11 +360,11 @@ export class YoutubeService {
       access_type: "offline",
       scope: scopes,
       prompt: "consent",
-      state: userId,
+      state: createOAuthState({ userId, provider: "youtube", workspaceId }),
     });
   }
 
-  async handleCallback(userId: string, code: string) {
+  async handleCallback(userId: string, code: string, workspaceId?: string) {
     const oauth2Client = await this.getOAuthClient(userId);
     const { tokens } = await oauth2Client.getToken(code);
 
@@ -368,8 +372,31 @@ export class YoutubeService {
       this.logger.warn(`No refresh token returned for user ${userId}`);
     }
 
+    // Fetch channel info to correctly link to existing connection if any
+    let externalAccountId: string | undefined;
+    let externalAccountName: string | undefined;
+
+    try {
+      oauth2Client.setCredentials(tokens);
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+      const res = await youtube.channels.list({
+        part: ["snippet"],
+        mine: true,
+      });
+      const channel = res.data.items?.[0];
+      if (channel) {
+        externalAccountId = channel.id ?? undefined;
+        externalAccountName = channel.snippet?.title ?? undefined;
+      }
+    } catch (error) {
+      this.logger.error(`Failed to fetch YouTube channel info during callback: ${error.message}`);
+    }
+
     await this.connections.save(userId, "youtube", {
       status: "active",
+      workspaceId,
+      externalAccountId,
+      externalAccountName,
       secrets: { refreshToken: tokens.refresh_token },
     });
     await this.connections.markTokenIssued(userId, "youtube");
@@ -421,9 +448,11 @@ export class YoutubeService {
       };
     } catch (error) {
       void this.recordTokenError(userId, error);
-      this.logger.warn(
-        `YouTube connection check failed for user ${userId}: ${error.message ?? error}`,
-      );
+      if (!this.isInvalidGrant(error)) {
+        this.logger.warn(
+          `YouTube connection check failed for user ${userId}: ${error.message ?? error}`,
+        );
+      }
       return {
         connected: false,
         reason: this.isInvalidGrant(error) ? "token_expired" : "invalid_credentials",

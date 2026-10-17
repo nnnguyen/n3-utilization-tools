@@ -6,7 +6,7 @@
 
 Hiện mỗi dịch vụ có bảng riêng (`YoutubeConfig`, `ZoomConfig`), khoá bí mật lưu dạng chữ thường, logic token/quota chỉ viết cho YouTube (`getTokenStatus`, `recordTokenRefresh`/`recordTokenError`, `trackQuotaUsage` trong `youtube.service.ts`) và ~24 chỗ đọc thẳng hai bảng này. Mục tiêu:
 
-1. Một bảng `Connection` cho mọi ứng dụng, **mã hoá** khoá bí mật khi lưu.
+1. Một bảng `Connection` cho mọi ứng dụng, **mã hoá** khoá bí mật khi lưu. Hỗ trợ đa tài khoản cho Zoom và YouTube.
 2. Logic dùng chung: lưu/đọc khoá, theo dõi "sức khoẻ" token (làm mới, bị thu hồi, sắp hết hạn), quota theo ứng dụng.
 3. Trang **Cài đặt → Tích hợp** dạng thẻ; thêm ứng dụng mới (Drive, Calendar, Zalo) chỉ cần khai báo provider + form.
 4. Chuyển dữ liệu YouTube/Zoom **không gián đoạn** và có đường lùi.
@@ -31,7 +31,8 @@ model Connection {
   tokenInvalidAt      DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
-  @@unique([userId, provider])            // mỗi người một kết nối/provider cho tới P2-2
+  // @@unique([userId, provider]) // Đã gỡ bỏ để hỗ trợ đa tài khoản
+  @@unique([userId, provider, externalAccountId])
   @@index([provider, externalAccountId])  // tìm chủ webhook Zoom (P1-3)
 }
 
@@ -64,6 +65,7 @@ Theo kiểu *mở rộng → chạy song song → chuyển → thu gọn*:
 | --- | --- |
 | `GET /connections` | Danh sách thẻ: provider, status, tên tài khoản, settings không bí mật, cờ `has<Secret>`, sức khoẻ token, quota hôm nay |
 | `PATCH /connections/:provider` | Lưu settings + khoá (khoá rỗng = giữ nguyên, như P1-1) |
+| `DELETE /connections/:provider` | Xoá vĩnh viễn kết nối khỏi database (dùng để dọn dẹp kết nối lỗi) |
 | `POST /connections/:provider/disconnect` | Xoá khoá, `status = disabled` (giữ lịch sử sync) |
 | `GET /connections/:provider/status` | Sức khoẻ token — tổng quát hoá `GET /youtube/token-status` |
 
@@ -78,7 +80,7 @@ Cài đặt → Tích hợp
 │ ● Đang hoạt động     │ │ ▲ Cần kết nối lại    │ │ ○ Sắp có             │
 │ Kênh: <tên kênh>     │ │ Account: <account id>│ │                      │
 │ Quota: 3.300/10.000  │ │                      │ │                      │
-│ [Cấu hình] [Ngắt]    │ │ [Kết nối lại]        │ │                      │
+│ [Cấu hình] [Ngắt] [Xoá]│ │ [Kết nối lại]        │ │                      │
 └──────────────────────┘ └──────────────────────┘ └──────────────────────┘
 ```
 "Cấu hình" mở Drawer chứa form hiện có của provider (chuyển nguyên từ trang Tích hợp). Lưới 3 cột desktop, 1 cột dưới 768px; i18n; màu theo token theme.
@@ -96,9 +98,10 @@ Cài đặt → Tích hợp
 
 1. **Quản lý khoá mã hoá** — Đề xuất: env `CREDENTIALS_KEY` (32 byte ngẫu nhiên) đặt trên Railway, xoay bằng `CREDENTIALS_KEY_PREVIOUS`. Phương án khác: dịch vụ KMS — an toàn hơn nhưng thêm phụ thuộc và chi phí, chưa cần ở quy mô hiện tại.
 2. **Chuyển một lần hay dần dần** — Đề xuất: dần dần (mục 3), mỗi bước một release, có cờ lùi. Một lần: nhanh hơn ~1 task nhưng không có đường lùi nếu lỗi.
-3. **Một kết nối mỗi provider mỗi người** cho tới P2-2 — Đề xuất: đồng ý; nhiều kênh YouTube/người để sau Workspace.
+3. **Hỗ trợ đa tài khoản** — Đã chốt: cho phép nhiều tài khoản cho Zoom/YouTube bằng cách dùng `userId_provider_externalAccountId` làm khoá chính thay vì chỉ `userId_provider`.
 4. **Giữ credentials dự phòng trong env** (`YOUTUBE_CLIENT_ID`, `ZOOM_*`…) — Đề xuất: giữ `YOUTUBE_CLIENT_ID/SECRET` làm OAuth app mặc định (người dùng không phải tự tạo app Google); bỏ `YOUTUBE_REFRESH_TOKEN` và `ZOOM_*` ở bước thu gọn vì chỉ phục vụ đường "system".
-5. **Khi nào thu gọn** (xoá bảng cũ) — Đề xuất: sau ≥ 1 tuần chạy ổn với `CONNECTIONS_READ=true`, bằng một task riêng anh/chị duyệt.
+5. **Tính năng Xoá kết nối** — Đã thêm: cho phép xoá vĩnh viễn các kết nối ở trạng thái `disabled` để dọn dẹp các bản sao lỗi hoặc không còn dùng.
+6. **Khi nào thu gọn** (xoá bảng cũ) — Đề xuất: sau ≥ 1 tuần chạy ổn với `CONNECTIONS_READ=true`, bằng một task riêng anh/chị duyệt.
 
 ## 8. Các task triển khai
 

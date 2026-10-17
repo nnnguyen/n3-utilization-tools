@@ -7,6 +7,7 @@ export const ANALYTICS_EVENTS = {
   user_signed_up: ["method"],
   connection_saved: ["provider", "active"],
   connection_disconnected: ["provider"],
+  connection_deleted: ["provider"],
   youtube_authorized: [],
   sync_started: ["trigger", "rule_matched"],
   sync_completed: ["trigger", "duration_bucket", "size_bucket", "scheduled"],
