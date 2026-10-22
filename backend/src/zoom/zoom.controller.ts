@@ -241,6 +241,17 @@ export class ZoomController {
     }
 
     if (payload.event === "recording.completed") {
+      // Create a log entry even if auto-upload is off, so we know the webhook arrived
+      const recordingId = payload.payload?.object?.uuid || payload.payload?.object?.id?.toString();
+      if (recordingId && (owner || account)) {
+        await this.zoomService.createWebhookReceivedLog(
+          owner?.userId ?? account?.userId,
+          recordingId,
+          payload.payload?.object?.topic || "Unknown Topic",
+          payload.payload?.object?.start_time,
+        );
+      }
+
       // Drive backup (P2-3b) does not depend on YouTube auto-upload: it runs
       // for the account the recording belongs to, if that account chose it
       this.driveBackup

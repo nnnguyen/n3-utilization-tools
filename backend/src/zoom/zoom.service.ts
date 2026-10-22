@@ -305,6 +305,36 @@ export class ZoomService {
     });
   }
 
+  async createWebhookReceivedLog(
+    userId: string,
+    recordingId: string,
+    topic: string,
+    startTime: string,
+  ) {
+    try {
+      // Only create if it doesn't exist, to avoid overwriting a real sync log
+      const existing = await this.prisma.zoomSyncLog.findUnique({
+        where: { recordingId },
+      });
+
+      if (!existing) {
+        await this.prisma.zoomSyncLog.create({
+          data: {
+            userId,
+            recordingId,
+            meeting: topic,
+            event: "Webhook Received",
+            status: "Not Synced",
+            syncStatus: "SKIPPED",
+            recordingStartTime: startTime,
+          },
+        });
+      }
+    } catch (e) {
+      this.logger.error(`Failed to create webhook received log: ${e.message}`);
+    }
+  }
+
   // App accounts behind a Zoom account's webhooks (rule in webhook-owner.ts)
   async findWebhookOwner(accountId: string | undefined) {
     if (!accountId) return { owner: null, account: null };
@@ -727,6 +757,7 @@ export class ZoomService {
             errorCode: null,
             errorMessage: null,
             youtubeProcessingStatus: null,
+            workspaceId, // Ensure workspaceId is updated if it was SKIPPED before
           },
           create: {
             userId,
