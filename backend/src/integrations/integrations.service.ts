@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { Connection } from "@prisma/client";
 import { AnalyticsService } from "../analytics/analytics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConnectionReader } from "../connections/connection-reader.service";
@@ -133,24 +134,42 @@ export class IntegrationsService {
     const cards: ConnectionCard[] = [];
     const connectedProviders = new Set<string>();
 
+    // Singletons: only one card is shown in the UI. If multiple exist in the
+    // database (e.g. an old disabled one and a new active one), we pick the
+    // best one.
+    const singletonProviders = ["youtube", "zoom", "google_drive", "onedrive"];
+    const singletonConnections: Record<string, Connection[]> = {};
+
     for (const connection of connections) {
-      const provider = this.provider(connection.provider);
-      cards.push(await this.connectionCardOf(userId, provider, connection.id));
-      connectedProviders.add(connection.provider);
+      if (singletonProviders.includes(connection.provider)) {
+        singletonConnections[connection.provider] ??= [];
+        singletonConnections[connection.provider].push(connection);
+      } else {
+        cards.push(await this.connectionCardOf(userId, this.provider(connection.provider), connection.id));
+        connectedProviders.add(connection.provider);
+      }
+    }
+
+    for (const providerId of singletonProviders) {
+      const providerConnections = singletonConnections[providerId];
+      if (providerConnections?.length) {
+        // Prefer active connections, then the most recently updated one
+        const best = providerConnections.sort((a, b) => {
+          if (a.status === "active" && b.status !== "active") return -1;
+          if (a.status !== "active" && b.status === "active") return 1;
+          return b.updatedAt.getTime() - a.updatedAt.getTime();
+        })[0];
+        cards.push(await this.connectionCardOf(userId, this.provider(providerId), best.id));
+        connectedProviders.add(providerId);
+      }
     }
 
     // Add "not_configured" cards for providers that haven't been connected yet.
     // For singletons (Drive, OneDrive), we always want a card.
     for (const provider of Object.values(PROVIDERS)) {
-      if (provider.id === "zoom" || provider.id === "youtube") {
-        if (!connectedProviders.has(provider.id)) {
-          cards.push(await this.connectionCardOf(userId, provider));
-        }
-        continue;
-      }
-
       if (!connectedProviders.has(provider.id)) {
         cards.push(await this.connectionCardOf(userId, provider));
+        connectedProviders.add(provider.id);
       }
     }
 
