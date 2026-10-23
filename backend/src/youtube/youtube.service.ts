@@ -16,6 +16,7 @@ import { SYNC_ERROR_TEXT } from "../notifications/notification-text";
 import * as fs from "fs";
 import { Readable } from "stream";
 import { codedError } from "../common/coded-error";
+import { redactGoogleError } from "../common/redact-google-error";
 import { ConnectionsService } from "../connections/connections.service";
 import { ConnectionReader } from "../connections/connection-reader.service";
 import { AnalyticsService } from "../analytics/analytics.service";
@@ -916,6 +917,9 @@ export class YoutubeService {
       };
     } catch (error) {
       void this.recordTokenError(userId, error);
+      // Scrub the OAuth request body (refresh_token) off the error before it
+      // is logged here or rethrown to a background caller / Nest's handler.
+      redactGoogleError(error);
       this.logger.error(
         `Error checking YouTube video status for ${videoId}`,
         error.stack,

@@ -1,13 +1,14 @@
 import "dotenv/config";
 // Before anything can return a BigInt column as JSON
 import "./common/bigint-json";
-import { NestFactory } from "@nestjs/core";
+import { HttpAdapterHost, NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe } from "@nestjs/common";
 import { join } from "path";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
 import { WorkspaceInterceptor } from "./common/workspace-context/workspace.interceptor";
+import { RedactingExceptionFilter } from "./common/redacting-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -40,6 +41,11 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new WorkspaceInterceptor());
+  // Scrub secrets (e.g. OAuth refresh tokens on gaxios errors) from any
+  // exception before Nest's default handler logs it.
+  app.useGlobalFilters(
+    new RedactingExceptionFilter(app.get(HttpAdapterHost).httpAdapter),
+  );
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();
