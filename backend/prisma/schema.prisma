@@ -468,6 +468,7 @@ enum SyncStatus {
   PROCESSING
   COMPLETED
   FAILED
+  SKIPPED
 }
 
 enum TopicStatus {

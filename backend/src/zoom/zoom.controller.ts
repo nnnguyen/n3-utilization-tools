@@ -243,9 +243,10 @@ export class ZoomController {
     if (payload.event === "recording.completed") {
       // Create a log entry even if auto-upload is off, so we know the webhook arrived
       const recordingId = payload.payload?.object?.uuid || payload.payload?.object?.id?.toString();
-      if (recordingId && (owner || account)) {
+      const webhookUserId = owner?.userId ?? account?.userId;
+      if (recordingId && webhookUserId) {
         await this.zoomService.createWebhookReceivedLog(
-          owner?.userId ?? account?.userId,
+          webhookUserId,
           recordingId,
           payload.payload?.object?.topic || "Unknown Topic",
           payload.payload?.object?.start_time,
